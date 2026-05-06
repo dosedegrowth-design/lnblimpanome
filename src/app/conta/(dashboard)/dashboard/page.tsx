@@ -2,19 +2,23 @@ import { redirect } from "next/navigation";
 import { getClienteSession, getClienteDashboardData } from "@/lib/auth/cliente";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Clock, FileText, ShieldCheck, ArrowRight } from "lucide-react";
+import { CheckCircle2, Clock, FileText, ShieldCheck, ArrowRight, Sparkles, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import type { CRMRow, ConsultaRow, BlindagemRow } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
 
 const ETAPAS = [
-  { id: "lead",            label: "Cadastro",          desc: "Você entrou em contato com a LNB" },
-  { id: "consulta_paga",   label: "Consulta paga",     desc: "Consulta de CPF realizada" },
-  { id: "qualificado",     label: "Plano contratado",  desc: "Limpeza + blindagem ativadas" },
-  { id: "fechado",         label: "Em andamento",      desc: "Equipe trabalhando na limpeza" },
-  { id: "concluido",       label: "Nome limpo",        desc: "Processo finalizado" },
+  { id: "lead",          label: "Cadastro",         desc: "Você se cadastrou na LNB" },
+  { id: "consulta_paga", label: "Consulta paga",    desc: "Resultado do CPF disponível" },
+  { id: "fechou",        label: "Plano contratado", desc: "Limpeza + blindagem ativadas" },
+  { id: "fechado",       label: "Em andamento",     desc: "Equipe trabalhando na limpeza" },
+  { id: "concluido",     label: "Nome limpo",       desc: "Processo finalizado" },
 ];
+
+const WHATSAPP =
+  "https://wa.me/5511999999999?text=" +
+  encodeURIComponent("Olá! Sou cliente LNB e preciso de ajuda.");
 
 export default async function ClienteDashboardPage() {
   const session = await getClienteSession();
@@ -27,8 +31,8 @@ export default async function ClienteDashboardPage() {
 
   let currentStage = 0;
   if (crm) currentStage = 1;
-  if (crm?.consulta_paga) currentStage = 2;
-  if (crm?.Qualificado) currentStage = 3;
+  if (consulta?.consulta_paga) currentStage = 2;
+  if (consulta?.fechou_limpeza) currentStage = 3;
   if (crm?.Fechado) currentStage = 4;
 
   const progressPct = ((currentStage + 1) / ETAPAS.length) * 100;
@@ -101,14 +105,20 @@ export default async function ClienteDashboardPage() {
             </div>
             <h3 className="font-display text-lg text-forest-800 mb-1">Relatório CPF</h3>
             <p className="text-sm text-gray-500 mb-3">
-              {consulta ? `Score: ${consulta.score ?? "—"}` : "Ainda não realizado"}
+              {consulta
+                ? consulta.tem_pendencia ? "Com pendências" : "Nome limpo"
+                : "Ainda não realizado"}
             </p>
             {consulta?.pdf_url ? (
               <Link href="/conta/relatorio" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 font-semibold">
                 Ver relatório <ArrowRight className="size-3.5" />
               </Link>
+            ) : !consulta ? (
+              <Link href="/consultar" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 font-semibold">
+                Fazer agora <ArrowRight className="size-3.5" />
+              </Link>
             ) : (
-              <p className="text-xs text-gray-400">Disponível após consulta</p>
+              <p className="text-xs text-gray-400">Gerando...</p>
             )}
           </CardContent>
         </Card>
@@ -119,13 +129,17 @@ export default async function ClienteDashboardPage() {
               <ShieldCheck className="size-6 text-white" />
             </div>
             <h3 className="font-display text-lg text-forest-800 mb-1">Blindagem</h3>
-            {blindagem?.status === "ativa" ? (
+            {blindagem?.ativo ? (
               <>
-                <p className="text-sm text-gray-500 mb-3">{blindagem.alertas_enviados ?? 0} alertas enviados</p>
+                <p className="text-sm text-gray-500 mb-3">
+                  {blindagem.tem_pendencia_atual ? "Pendência detectada" : "Tudo OK"}
+                </p>
                 <Link href="/conta/blindagem" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 font-semibold">
                   Detalhes <ArrowRight className="size-3.5" />
                 </Link>
               </>
+            ) : blindagem ? (
+              <p className="text-sm text-gray-500">Pausada</p>
             ) : (
               <p className="text-sm text-gray-500">Não contratada</p>
             )}
@@ -144,6 +158,54 @@ export default async function ClienteDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Sugestão: fazer consulta */}
+      {!consulta && (
+        <Card className="bg-gradient-to-br from-brand-50 via-sand-50 to-brand-50 border-brand-200">
+          <CardContent className="p-6 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="size-12 rounded-xl bg-brand-500 grid place-items-center shrink-0">
+                <Sparkles className="size-5 text-white" />
+              </div>
+              <div>
+                <p className="font-bold text-forest-800">Faça sua primeira consulta</p>
+                <p className="text-sm text-gray-600">R$ 19,99 · Resultado em minutos</p>
+              </div>
+            </div>
+            <Link href="/consultar" className="inline-flex items-center gap-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white px-5 h-11 font-semibold shadow-md shadow-brand-500/25 transition">
+              Consultar agora <ArrowRight className="size-4" />
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sugestão: contratar limpeza */}
+      {consulta?.tem_pendencia && currentStage < 3 && (
+        <Card className="bg-gradient-to-br from-red-50 via-amber-50/50 to-red-50 border-red-200">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4 flex-wrap">
+              <div className="size-12 rounded-xl bg-red-500 grid place-items-center shrink-0">
+                <Sparkles className="size-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-[260px]">
+                <p className="font-bold text-red-800">Você tem {consulta.qtd_pendencias} pendência(s)</p>
+                <p className="text-sm text-gray-700 mt-1">
+                  A LNB pode limpar seu nome em até 20 dias úteis, sem você precisar quitar a dívida.
+                </p>
+                <a
+                  href={WHATSAPP}
+                  target="_blank"
+                  rel="noopener"
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-red-500 hover:bg-red-600 text-white px-5 h-11 font-semibold shadow-md transition"
+                >
+                  <MessageCircle className="size-4" />
+                  Falar com consultor
+                </a>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

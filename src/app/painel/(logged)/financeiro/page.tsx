@@ -2,8 +2,10 @@ import { requireAdmin, canViewFinancial } from "@/lib/auth/admin";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatBRL, formatDateBR } from "@/lib/utils";
-import { TrendingUp, TrendingDown, Wallet, Activity } from "lucide-react";
+import { formatBRL } from "@/lib/utils";
+import { TrendingUp, TrendingDown, Wallet, Activity, ServerIcon } from "lucide-react";
+import { PageHeader } from "@/components/admin/page-header";
+import type { APIControlRow } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
 
@@ -17,34 +19,28 @@ export default async function FinanceiroPage() {
 
   const supa = await createClient();
   const [crm, consultas, apiCtl] = await Promise.all([
-    supa.from("LNB - CRM").select("Fechado, consulta_paga"),
-    supa.from("LNB_Consultas").select("id", { count: "exact" }),
-    supa.from("LNB_API_Control").select("*").order("data", { ascending: false }).limit(30),
+    supa.from("LNB - CRM").select("Fechado"),
+    supa.from("LNB_Consultas").select("id, consulta_paga, fechou_limpeza, created_at"),
+    supa.from("LNB_API_Control").select("*").order("mes_ano", { ascending: false }).limit(12),
   ]);
 
-  const pagos = crm.data?.filter((r) => r.consulta_paga).length ?? 0;
-  const fechados = crm.data?.filter((r) => r.Fechado).length ?? 0;
-  const totalConsultasAPI = consultas.count ?? 0;
+  const allConsultas = consultas.data ?? [];
+  const pagas = allConsultas.filter((c) => c.consulta_paga).length;
+  const fechadas = allConsultas.filter((c) => c.fechou_limpeza).length;
+  const totalConsultasAPI = allConsultas.length;
 
-  const receitaConsultas = pagos * PRECO_CONSULTA;
-  const receitaLimpezas  = fechados * PRECO_LIMPEZA;
+  const receitaConsultas = pagas * PRECO_CONSULTA;
+  const receitaLimpezas  = fechadas * PRECO_LIMPEZA;
   const receitaTotal     = receitaConsultas + receitaLimpezas;
-
-  const custoAPI = totalConsultasAPI * CUSTO_API_FULL;
+  const custoAPI         = totalConsultasAPI * CUSTO_API_FULL;
   const lucroOperacional = receitaTotal - custoAPI;
   const margem = receitaTotal > 0 ? ((lucroOperacional / receitaTotal) * 100).toFixed(1) : "0";
 
+  const apiData = (apiCtl.data ?? []) as APIControlRow[];
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <header className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-4xl text-forest-800">Financeiro</h1>
-          <p className="text-gray-500 mt-1">Receita, custos e margem operacional</p>
-        </div>
-        <div className="size-12 rounded-xl bg-brand-50 grid place-items-center">
-          <Wallet className="size-5 text-brand-600" />
-        </div>
-      </header>
+      <PageHeader title="Financeiro" subtitle="Receita, custos e margem operacional" icon={Wallet} />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <Card className="hover:shadow-md transition">
@@ -83,31 +79,42 @@ export default async function FinanceiroPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Histórico API (últimos 30 dias)</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <ServerIcon className="size-4 text-brand-600" />
+            Saldo de provedores (API Full / SOAWebservices)
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {!apiCtl.data || apiCtl.data.length === 0 ? (
+          {apiData.length === 0 ? (
             <p className="text-sm text-gray-400 py-8 text-center">
-              Nenhum registro ainda. Tabela LNB_API_Control vazia.
+              Nenhum registro em LNB_API_Control ainda.
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-gray-500 text-xs uppercase tracking-wider">
                   <tr className="text-left">
-                    <th className="py-3 font-semibold">Data</th>
-                    <th className="py-3 font-semibold">Consultas</th>
-                    <th className="py-3 font-semibold">Custo</th>
-                    <th className="py-3 font-semibold">Saldo</th>
+                    <th className="py-3 font-semibold">Mês/Ano</th>
+                    <th className="py-3 font-semibold">BigDataCorp (uso/limite)</th>
+                    <th className="py-3 font-semibold">SOAWebservices</th>
+                    <th className="py-3 font-semibold">Provider ativo</th>
+                    <th className="py-3 font-semibold">Atualizado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {apiCtl.data.map((r) => (
+                  {apiData.map((r) => (
                     <tr key={r.id}>
-                      <td className="py-3 text-gray-700">{formatDateBR(r.data)}</td>
-                      <td className="py-3 text-gray-700">{r.consultas_realizadas}</td>
-                      <td className="py-3 text-gray-700">{formatBRL(r.custo_total)}</td>
-                      <td className="py-3 text-forest-800 font-bold">{formatBRL(r.saldo_atual)}</td>
+                      <td className="py-3 text-gray-700 font-semibold">{r.mes_ano}</td>
+                      <td className="py-3 text-gray-700">
+                        {r.bigdatacorp_count} / {r.bigdatacorp_limit}
+                      </td>
+                      <td className="py-3 text-gray-700">{r.soawebservices_count}</td>
+                      <td className="py-3 text-gray-700">
+                        <span className="inline-flex items-center rounded-full bg-brand-50 text-brand-700 px-2.5 py-0.5 text-xs font-semibold">
+                          {r.provider_ativo ?? "—"}
+                        </span>
+                      </td>
+                      <td className="py-3 text-gray-500 text-xs">{r.updated_at?.slice(0, 10)}</td>
                     </tr>
                   ))}
                 </tbody>

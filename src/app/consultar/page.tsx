@@ -1,11 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   CheckCircle2, ArrowRight, ArrowLeft, Lock, FileSearch, CreditCard,
-  Sparkles, ShieldCheck, Zap,
+  Sparkles, ShieldCheck, Zap, Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
@@ -18,59 +18,64 @@ const STEPS = [
   { n: 3, label: "Resultado",     icon: Sparkles },
 ] as const;
 
-export default function ConsultarWizard() {
+export default function ConsultarPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
+      <ConsultarWizard />
+    </Suspense>
+  );
+}
+
+function ConsultarWizard() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
+  const params = useSearchParams();
+
+  // Suporta volta do MP via query string ?status=success&cpf=...
+  const initialStep = params.get("status") === "success" ? 3 : 1;
+  const initialCpf = params.get("cpf") || "";
+
+  const [step, setStep] = useState<1 | 2 | 3>(initialStep as 1 | 2 | 3);
   const [loading, setLoading] = useState(false);
+  const [polling, setPolling] = useState(false);
+  const [pollResult, setPollResult] = useState<{ paga: boolean; realizada: boolean; pdf_pronto: boolean } | null>(null);
+
   const [form, setForm] = useState({
-    cpf: "",
+    cpf: initialCpf ? formatCPF(initialCpf) : "",
     nome: "",
     email: "",
     telefone: "",
     senha: "",
-    metodo: "pix" as "pix" | "cartao",
   });
-  const [resultado, setResultado] = useState<{
-    score: number;
-    has_debt: boolean;
-    pendencias: number;
-    total: string;
-  } | null>(null);
 
   function set<K extends keyof typeof form>(k: K, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
+  function validateStep1(): string | null {
+    if (!isValidCPF(cleanCPF(form.cpf))) return "CPF inválido";
+    if (form.nome.length < 2)            return "Informe seu nome completo";
+    if (!form.email.includes("@"))       return "Email inválido";
+    if (form.telefone.replace(/\D/g, "").length < 10) return "Telefone inválido";
+    if (form.senha.length < 8)           return "Senha precisa ter ao menos 8 caracteres";
+    return null;
+  }
+
   function nextStep() {
     if (step === 1) {
-      if (!isValidCPF(cleanCPF(form.cpf))) return toast.error("CPF inválido");
-      if (form.nome.length < 2)            return toast.error("Nome inválido");
-      if (!form.email.includes("@"))       return toast.error("Email inválido");
-      if (form.telefone.replace(/\D/g, "").length < 10) return toast.error("Telefone inválido");
-      if (form.senha.length < 8)           return toast.error("Senha precisa ter ao menos 8 caracteres");
+      const err = validateStep1();
+      if (err) return toast.error(err);
     }
-    setStep((s) => s + 1);
+    setStep((s) => Math.min(3, s + 1) as 1 | 2 | 3);
   }
 
   async function processarPagamento() {
     setLoading(true);
-
-    /**
-     * Backend integrado:
-     * 1) cadastra cliente em lnb_cliente_auth (RPC lnb_cliente_register)
-     * 2) cria cobrança Mercado Pago (atualmente: simulação local)
-     * 3) cliente paga
-     * 4) webhook MP → cria registro em LNB_Consultas + chama API Full
-     * 5) na confirmação, redireciona pra área logada
-     *
-     * MVP: registra o cliente + simula resultado pra demonstração
-     * (até integração Mercado Pago + n8n cobrança terminar).
-     */
     try {
-      const r = await fetch("/api/cliente/cadastro", {
+      const r = await fetch("/api/site/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          tipo: "consulta",
           cpf: cleanCPF(form.cpf),
           nome: form.nome,
           email: form.email,
@@ -79,31 +84,59 @@ export default function ConsultarWizard() {
         }),
       });
       const d = await r.json();
-      if (!r.ok && d.error !== "CPF já cadastrado. Faça login.") {
-        toast.error(d.error ?? "Erro ao criar conta");
+      if (!r.ok || !d.ok || !d.init_point) {
+        toast.error(d.error || "Não conseguimos gerar a cobrança. Tente novamente.");
         setLoading(false);
         return;
       }
-    } catch {
-      // continua mesmo se já existir
+
+      // Salva CPF em localStorage pra recuperar quando voltar do MP
+      try { localStorage.setItem("lnb_last_cpf", d.cpf); } catch {}
+
+      // Redireciona pro Mercado Pago Checkout
+      window.location.assign(d.init_point);
+    } catch (e) {
+      console.error(e);
+      toast.error("Falha de conexão. Tente novamente.");
+      setLoading(false);
     }
-
-    // Simulação de cobrança e resultado da consulta — SUBSTITUIR
-    // pela integração real Mercado Pago + API Full (via webhook n8n) quando ativo
-    await new Promise((r) => setTimeout(r, 2000));
-
-    const seed = cleanCPF(form.cpf).slice(-3);
-    const has_debt = parseInt(seed) % 2 === 0;
-    setResultado({
-      score: has_debt ? 412 : 758,
-      has_debt,
-      pendencias: has_debt ? 3 : 0,
-      total: has_debt ? "4.872,00" : "0,00",
-    });
-    setLoading(false);
-    setStep(3);
-    toast.success("Consulta concluída!");
   }
+
+  // Polling do resultado quando o cliente volta do Mercado Pago no step 3
+  useEffect(() => {
+    if (step !== 3) return;
+    const cpfPoll =
+      initialCpf ||
+      (typeof window !== "undefined" ? localStorage.getItem("lnb_last_cpf") || "" : "");
+    if (!cpfPoll) return;
+
+    setPolling(true);
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const r = await fetch(`/api/site/consulta-status/${cleanCPF(cpfPoll)}`);
+        const d = await r.json();
+        if (cancelled) return;
+        if (d.ok) {
+          setPollResult({
+            paga: !!d.paga,
+            realizada: !!d.realizada,
+            pdf_pronto: !!d.pdf_pronto,
+          });
+          if (d.realizada && d.pdf_pronto) {
+            setPolling(false);
+            return;
+          }
+        }
+        setTimeout(poll, 4000);
+      } catch {
+        if (!cancelled) setTimeout(poll, 6000);
+      }
+    };
+    poll();
+    return () => { cancelled = true; };
+  }, [step, initialCpf]);
 
   return (
     <div>
@@ -136,19 +169,15 @@ export default function ConsultarWizard() {
 
       <AnimatePresence mode="wait">
         {step === 1 && (
-          <motion.div
-            key="step1"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          >
+          <motion.div key="step1"
+            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.4 }}>
             <Card className="shadow-xl shadow-forest-800/5">
               <CardContent className="p-8 lg:p-10">
                 <h2 className="font-display text-3xl text-forest-800 mb-2">Quem é você?</h2>
                 <p className="text-gray-500 mb-8">
-                  Preenchemos automaticamente sua área logada com esses dados. <br />
-                  <strong className="text-forest-700">Cadastro 100% protegido.</strong>
+                  Preenchemos sua área logada com esses dados.
+                  <br /><strong className="text-forest-700">Cadastro 100% protegido.</strong>
                 </p>
 
                 <div className="space-y-4">
@@ -161,13 +190,15 @@ export default function ConsultarWizard() {
                   <div>
                     <Label htmlFor="nome">Nome completo *</Label>
                     <Input id="nome" required value={form.nome}
-                      onChange={(e) => set("nome", e.target.value)} placeholder="Como aparece no seu RG" />
+                      onChange={(e) => set("nome", e.target.value)}
+                      placeholder="Como aparece no seu RG" />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="email">Email *</Label>
                       <Input id="email" type="email" required value={form.email}
-                        onChange={(e) => set("email", e.target.value)} placeholder="voce@email.com" />
+                        onChange={(e) => set("email", e.target.value)}
+                        placeholder="voce@email.com" />
                     </div>
                     <div>
                       <Label htmlFor="telefone">WhatsApp *</Label>
@@ -203,26 +234,21 @@ export default function ConsultarWizard() {
         )}
 
         {step === 2 && (
-          <motion.div
-            key="step2"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          >
+          <motion.div key="step2"
+            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.4 }}>
             <Card className="shadow-xl shadow-forest-800/5">
               <CardContent className="p-8 lg:p-10">
                 <h2 className="font-display text-3xl text-forest-800 mb-2">Pagamento</h2>
                 <p className="text-gray-500 mb-8">
-                  Consulta única de R$ 19,99. Resultado em minutos no WhatsApp e na sua área logada.
+                  Você será redirecionado pro Mercado Pago pra finalizar com Pix ou cartão.
                 </p>
 
-                {/* Resumo do pedido */}
                 <div className="rounded-xl bg-sand-50 border border-sand-300/40 p-5 mb-6">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <p className="font-bold text-forest-800">Consulta CPF</p>
-                      <p className="text-xs text-gray-500">Resultado em até 5 minutos</p>
+                      <p className="text-xs text-gray-500">Resultado em até 5 minutos no WhatsApp e na sua conta</p>
                     </div>
                     <span className="font-display text-2xl text-forest-800">{formatBRL(19.99)}</span>
                   </div>
@@ -232,80 +258,35 @@ export default function ConsultarWizard() {
                   </div>
                 </div>
 
-                {/* Método */}
-                <div className="space-y-3 mb-6">
-                  <Label>Método de pagamento</Label>
-                  <button
-                    type="button"
-                    onClick={() => set("metodo", "pix")}
-                    className={`w-full text-left rounded-xl border-2 p-4 transition-all ${
-                      form.metodo === "pix"
-                        ? "border-brand-500 bg-brand-50/50 shadow-sm"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`size-10 rounded-lg grid place-items-center ${
-                        form.metodo === "pix" ? "bg-brand-500 text-white" : "bg-gray-100 text-gray-500"
-                      }`}>
-                        <Zap className="size-5" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-bold text-forest-800">Pix</p>
-                        <p className="text-xs text-gray-500">Aprovação instantânea</p>
-                      </div>
-                      <span className="text-xs font-bold text-emerald-600 bg-emerald-100 px-2 py-1 rounded-full">
-                        Recomendado
-                      </span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => set("metodo", "cartao")}
-                    className={`w-full text-left rounded-xl border-2 p-4 transition-all ${
-                      form.metodo === "cartao"
-                        ? "border-brand-500 bg-brand-50/50 shadow-sm"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`size-10 rounded-lg grid place-items-center ${
-                        form.metodo === "cartao" ? "bg-brand-500 text-white" : "bg-gray-100 text-gray-500"
-                      }`}>
-                        <CreditCard className="size-5" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-bold text-forest-800">Cartão de crédito</p>
-                        <p className="text-xs text-gray-500">À vista no cartão</p>
-                      </div>
-                    </div>
-                  </button>
+                <div className="rounded-xl bg-brand-50/50 border border-brand-100 p-4 mb-6 text-sm text-forest-800">
+                  <strong>Como funciona:</strong>
+                  <ol className="list-decimal pl-5 mt-2 space-y-1 text-gray-700">
+                    <li>Clique em &quot;Ir para pagamento&quot;</li>
+                    <li>No Mercado Pago: Pix (instantâneo) ou cartão</li>
+                    <li>Volta pra cá automaticamente após confirmar</li>
+                    <li>Seu resultado aparece em minutos</li>
+                  </ol>
                 </div>
 
                 <div className="flex justify-between">
                   <Button variant="outline" size="lg" onClick={() => setStep(1)}>
-                    <ArrowLeft className="size-4" />
-                    Voltar
+                    <ArrowLeft className="size-4" /> Voltar
                   </Button>
                   <Button onClick={processarPagamento} loading={loading} size="lg" className="gap-2">
-                    Pagar {formatBRL(19.99)}
+                    Ir para pagamento {formatBRL(19.99)}
                     <ArrowRight className="size-4" />
                   </Button>
                 </div>
 
                 <div className="mt-6 pt-6 border-t border-gray-100 grid grid-cols-3 gap-4 text-xs text-gray-500">
                   <div className="flex items-center gap-1.5">
-                    <Lock className="size-3.5 text-emerald-600" />
-                    Pagamento seguro
+                    <Lock className="size-3.5 text-emerald-600" /> Pagamento seguro
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <ShieldCheck className="size-3.5 text-emerald-600" />
-                    Dados protegidos
+                    <ShieldCheck className="size-3.5 text-emerald-600" /> Dados protegidos
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Zap className="size-3.5 text-emerald-600" />
-                    Instantâneo
+                    <Zap className="size-3.5 text-emerald-600" /> Mercado Pago
                   </div>
                 </div>
               </CardContent>
@@ -313,68 +294,62 @@ export default function ConsultarWizard() {
           </motion.div>
         )}
 
-        {step === 3 && resultado && (
-          <motion.div
-            key="step3"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          >
+        {step === 3 && (
+          <motion.div key="step3"
+            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
             <Card className="shadow-xl shadow-forest-800/5 overflow-hidden">
-              <div className={`p-8 text-white ${
-                resultado.has_debt
-                  ? "bg-gradient-to-br from-red-500 to-red-700"
-                  : "bg-gradient-to-br from-emerald-500 to-emerald-700"
-              }`}>
+              <div className="p-8 bg-gradient-to-br from-brand-500 to-brand-700 text-white">
                 <motion.div
-                  initial={{ scale: 0, rotate: -90 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: 0.2, type: "spring", duration: 0.7 }}
+                  animate={polling ? { rotate: 360 } : { scale: [1, 1.06, 1] }}
+                  transition={polling
+                    ? { duration: 2, repeat: Infinity, ease: "linear" }
+                    : { duration: 1.5, repeat: Infinity }
+                  }
                   className="size-16 rounded-2xl bg-white/20 backdrop-blur grid place-items-center mb-4"
                 >
-                  {resultado.has_debt ? (
-                    <FileSearch className="size-8 text-white" />
-                  ) : (
-                    <CheckCircle2 className="size-8 text-white" />
-                  )}
+                  {polling ? <Loader2 className="size-8 text-white" /> : <CheckCircle2 className="size-8 text-white" />}
                 </motion.div>
                 <h2 className="font-display text-3xl mb-2">
-                  {resultado.has_debt ? "Possui pendências" : "Nome limpo!"}
+                  {pollResult?.realizada
+                    ? "Consulta concluída!"
+                    : pollResult?.paga
+                    ? "Pagamento confirmado — gerando relatório..."
+                    : "Aguardando confirmação do pagamento..."}
                 </h2>
                 <p className="text-white/90">
-                  {resultado.has_debt
-                    ? "Encontramos pendências no seu CPF. Veja os detalhes abaixo."
-                    : "Ótima notícia! Seu CPF está limpo. Recomendamos blindagem."}
+                  {pollResult?.realizada
+                    ? "Seu relatório está pronto. Acesse a área logada pra ver tudo."
+                    : "Estamos verificando seu pagamento. Pode levar até 5 minutos."}
                 </p>
               </div>
 
-              <CardContent className="p-8">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-                  <Stat label="Score" value={String(resultado.score)} valueClass={
-                    resultado.score >= 700 ? "text-emerald-600" :
-                    resultado.score >= 500 ? "text-amber-600" : "text-red-600"
-                  } />
-                  <Stat label="Pendências" value={String(resultado.pendencias)} />
-                  <Stat label="Total débito" value={resultado.has_debt ? `R$ ${resultado.total}` : "—"} />
-                  <Stat label="Status" value={resultado.has_debt ? "Negativado" : "Limpo"} />
-                </div>
+              <CardContent className="p-8 space-y-6">
+                <ol className="space-y-3 text-sm">
+                  <Step done label="Cadastro feito" />
+                  <Step done={!!pollResult?.paga} loading={!pollResult?.paga} label="Pagamento confirmado" />
+                  <Step
+                    done={!!pollResult?.realizada}
+                    loading={!!pollResult?.paga && !pollResult?.realizada}
+                    pending={!pollResult?.paga}
+                    label="Consulta realizada (API SCPC/Serasa)"
+                  />
+                  <Step
+                    done={!!pollResult?.pdf_pronto}
+                    loading={!!pollResult?.realizada && !pollResult?.pdf_pronto}
+                    pending={!pollResult?.realizada}
+                    label="Relatório PDF gerado"
+                  />
+                </ol>
 
-                <div className="rounded-xl bg-gradient-to-br from-brand-50 via-sand-50 to-brand-50 border border-brand-100 p-6 mb-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="size-5 text-brand-600" />
-                    <p className="font-bold text-brand-800">Próximo passo</p>
-                  </div>
-                  <p className="text-sm text-forest-800 leading-relaxed">
-                    {resultado.has_debt
-                      ? "A LNB pode limpar seu nome em até 20 dias úteis, sem você precisar quitar a dívida. Acesse sua conta pra ver o relatório completo e seguir."
-                      : "Seu nome está limpo! Pra mantê-lo protegido, contrate a Blindagem de CPF — monitoramento 24/7."}
-                  </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button onClick={() => router.push("/conta/login")} size="lg" width="full">
-                    Acessar minha área
+                <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-gray-100">
+                  <Button
+                    onClick={() => router.push("/conta/login")}
+                    size="lg"
+                    width="full"
+                    disabled={!pollResult?.realizada}
+                  >
+                    {pollResult?.realizada ? "Acessar minha área" : "Aguardando..."}
                     <ArrowRight className="size-4" />
                   </Button>
                   <Button
@@ -395,13 +370,23 @@ export default function ConsultarWizard() {
   );
 }
 
-function Stat({
-  label, value, valueClass,
-}: { label: string; value: string; valueClass?: string }) {
+function Step({
+  done = false, loading = false, pending = false, label,
+}: { done?: boolean; loading?: boolean; pending?: boolean; label: string }) {
   return (
-    <div className="text-center sm:text-left">
-      <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">{label}</p>
-      <p className={`font-display text-2xl mt-1 ${valueClass ?? "text-forest-800"}`}>{value}</p>
-    </div>
+    <li className="flex items-center gap-3">
+      <span className={`size-7 rounded-full grid place-items-center shrink-0 ${
+        done ? "bg-brand-500 text-white" :
+        loading ? "bg-brand-100 text-brand-700" :
+        "bg-gray-100 text-gray-400"
+      }`}>
+        {done ? <CheckCircle2 className="size-4" /> :
+         loading ? <Loader2 className="size-3.5 animate-spin" /> :
+         <span className="size-2 rounded-full bg-current" />}
+      </span>
+      <span className={done ? "text-forest-800 font-semibold" : pending ? "text-gray-400" : "text-forest-800"}>
+        {label}
+      </span>
+    </li>
   );
 }

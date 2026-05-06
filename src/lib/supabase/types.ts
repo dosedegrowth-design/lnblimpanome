@@ -1,99 +1,125 @@
 /**
  * Tipos das tabelas Supabase do projeto LNB.
- *
- * Tabelas existentes (criadas via n8n / fluxos):
- *   - "LNB - CRM"        — leads que chegam pelo Chatwoot
- *   - "LNB - Base"       — base pós-agendamento (legado SPV)
- *   - "LNB_Consultas"    — resultados das consultas API Full
- *   - "LNB_API_Control"  — controle de saldo/uso da API Full
- *   - "LNB_Blindagem"    — clientes com blindagem ativa
- *
- * Tabelas novas (do painel):
- *   - lnb_admin_users    — usuários da equipe LNB (linka com auth.users)
- *   - lnb_cliente_auth   — credenciais cliente (CPF + senha hash)
- *   - lnb_audit_log      — auditoria de ações sensíveis
+ * Schema atualizado conforme Supabase real (06/mai/2026).
  */
 
-// ============= EXISTENTES =============
-
-export type LeadStatus =
-  | "lead"
-  | "interessado"
-  | "qualificado"
-  | "consulta_paga"
-  | "fechado"
-  | "perdido";
+// ============= "LNB - CRM" — pipeline de leads =============
+export type LeadStatus = "lead" | "interessado" | "agendado" | "fechado" | "perdido";
 
 export interface CRMRow {
-  id: string;            // telefone (PK)
+  id: number;
+  created_at: string;
   nome: string | null;
+  Servico: string | null;
+  telefone: string | null;
+  funil_ID: string | null;
+  Conversation_ID: string | null;
+  etapa_name: string | null;
+  "kanban_client_ID": string | null;
+  Delivery: boolean | null;
+  lembrete_enviado: boolean | null;
+  value: string | null;
+  notifica: boolean | null;
+  cod_service: string | null;
+  metodo_de_pagamento: string | null;
+  asaas_ID: string | null;
   CPF: string | null;
   "e-mail": string | null;
-  unidade: string | null;
+  "data-nasci": string | null;
+  id_pagamento: string | null;
   link_pagamento: string | null;
-  "kanban_item-id": string | null;
+  data_venci: string | null;
+  link_boleto: string | null;
+  status: string | null;
+  status_pagamento: string | null;
+  external_ref: string | null;
+
+  // Booleans de status (na "LNB - Base", não em CRM, mas alguns fluxos antigos colocam aqui)
+  Lead?: boolean | null;
+  Interessado?: boolean | null;
+  Agendado?: boolean | null;
+  Fechado?: boolean | null;
+  perdido?: boolean | null;
+
+  origem?: "site" | "whatsapp" | "admin" | null;
+}
+
+// ============= "LNB - Base" — pipeline visual + agendamento =============
+export interface BaseRow {
+  id: number;
+  created_at: string;
+  nome: string | null;
+  Servico: string | null;
+  telefone: string | null;
+  unidade: string | null;
+  hora_agenda: string | null;
   Lead: boolean | null;
   Interessado: boolean | null;
-  Qualificado: boolean | null;
   Agendado: boolean | null;
   Fechado: boolean | null;
-  consulta_paga: boolean | null;
-  data_pagamento: string | null;
+  perdido: boolean | null;
+  delivery: boolean | null;
+  value: string | null;
   cod_service: string | null;
-  created_at: string | null;
+  "kanban_item-id": string | null;
 }
 
+// ============= LNB_Consultas — resultados API =============
 export interface ConsultaRow {
-  id?: number;
+  id: string; // uuid
   cpf: string;
   nome: string | null;
-  email: string | null;
+  data_nascimento: string | null;
   telefone: string | null;
-  score: number | null;
-  total_pendencias: number | null;
-  total_debitos: string | null;
-  has_debt: boolean | null;
-  pendencias: unknown;          // JSONB array
-  resultado_raw: string | null; // JSON stringificado
-  status: "pendente" | "realizada" | "erro" | null;
-  data_consulta: string | null;
-  pdf_enviado: boolean | null;
+  email: string | null;
+  provider: string | null; // 'apifull' | 'soawebservices'
+  resultado_raw: unknown;
+  tem_pendencia: boolean | null;
+  resumo: string | null;
+  total_dividas: number | null;
+  qtd_pendencias: number | null;
+  consulta_paga: boolean | null;
+  fechou_limpeza: boolean | null;
   pdf_url: string | null;
-  data_envio_pdf: string | null;
-  created_at: string | null;
+  mp_preference_consulta: string | null;
+  mp_preference_limpeza: string | null;
+  origem: "site" | "whatsapp" | "admin" | null;
+  created_at: string;
 }
 
+// ============= LNB_Blindagem — clientes ativos =============
 export interface BlindagemRow {
-  id?: number;
+  id: string; // uuid
   cpf: string;
   nome: string | null;
-  email: string | null;
   telefone: string | null;
-  status: "ativa" | "pausada" | "cancelada";
-  data_ativacao: string | null;
-  ultima_verificacao: string | null;
+  email: string | null;
+  ativo: boolean;
+  plano: string | null; // 'standalone' | 'incluso'
+  valor: number | null;
   proxima_verificacao: string | null;
-  alertas_enviados: number | null;
-  ultimo_resultado: string | null;
-  created_at: string | null;
+  ultima_verificacao: string | null;
+  resultado_ultima: unknown;
+  tem_pendencia_atual: boolean | null;
+  created_at: string;
 }
 
+// ============= LNB_API_Control — saldo provedores =============
 export interface APIControlRow {
-  id?: number;
-  data: string;
-  consultas_realizadas: number;
-  custo_total: number;
-  saldo_atual: number;
-  fornecedor: "apifull" | "soawebservices";
-  created_at: string | null;
+  id: number;
+  mes_ano: string; // "2026-05"
+  bigdatacorp_count: number;
+  bigdatacorp_limit: number;
+  soawebservices_count: number;
+  provider_ativo: string | null;
+  updated_at: string;
 }
 
 // ============= NOVAS (painel) =============
-
 export type AdminRole = "owner" | "admin" | "consultor" | "viewer";
 
 export interface AdminUserRow {
-  id: string;            // UUID — referencia auth.users.id
+  id: string;
   email: string;
   nome: string;
   role: AdminRole;
@@ -104,8 +130,8 @@ export interface AdminUserRow {
 }
 
 export interface ClienteAuthRow {
-  cpf: string;           // PK — CPF limpo, sem pontos
-  senha_hash: string;    // bcrypt cost 12
+  cpf: string;
+  senha_hash: string;
   nome: string;
   email: string | null;
   telefone: string | null;
@@ -118,10 +144,10 @@ export interface ClienteAuthRow {
 
 export interface AuditLogRow {
   id?: number;
-  actor_id: string | null;        // auth.users.id (admin) ou cpf (cliente)
+  actor_id: string | null;
   actor_type: "admin" | "cliente" | "system";
-  action: string;                 // ex: "login_success", "lead_status_changed"
-  resource_type: string | null;   // ex: "crm", "consulta"
+  action: string;
+  resource_type: string | null;
   resource_id: string | null;
   metadata: Record<string, unknown> | null;
   ip: string | null;
