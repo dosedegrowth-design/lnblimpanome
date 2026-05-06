@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const params = useSearchParams();
   const redirect = params.get("redirect") || "/painel/dashboard";
 
@@ -24,11 +23,18 @@ export default function AdminLoginPage() {
     setLoading(true);
     const supa = createClient();
     const { error } = await supa.auth.signInWithPassword({ email, password: senha });
-    setLoading(false);
-    if (error) return toast.error("Email ou senha inválidos");
+
+    if (error) {
+      setLoading(false);
+      return toast.error("Email ou senha inválidos");
+    }
+
     toast.success("Bem-vindo!");
-    router.push(redirect);
-    router.refresh();
+
+    // Hard navigation pra garantir que middleware veja os cookies
+    // recém setados pelo browser client. router.push() pode pular SSR
+    // e cair em redirect loop.
+    window.location.assign(redirect);
   }
 
   return (

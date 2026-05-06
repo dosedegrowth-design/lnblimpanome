@@ -1,19 +1,26 @@
 import { ReactNode } from "react";
-import { headers } from "next/headers";
 import { getAdminContext } from "@/lib/auth/admin";
 import { AdminSidebar } from "@/components/admin/sidebar";
 
+/**
+ * Layout do painel admin (cobre TODA rota /painel/*).
+ *
+ * Como funciona:
+ * - Quando NÃO há ctx (não logado OU está na /painel/login):
+ *   renderiza só o children (sem sidebar). A página de login tem
+ *   layout próprio fullscreen e fica visualmente correta.
+ * - Quando há ctx: renderiza com sidebar + children.
+ *
+ * Não usar headers() pra detectar pathname — esse header não existe
+ * em produção no Next.js. O middleware já cuida de redirect quando
+ * não autenticado → /painel/login.
+ */
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const hdrs = await headers();
-  const path = hdrs.get("x-pathname") || "";
+  const ctx = await getAdminContext();
 
-  // Página de login não precisa de chrome
-  if (path.includes("/painel/login")) {
+  if (!ctx) {
     return <>{children}</>;
   }
-
-  const ctx = await getAdminContext();
-  if (!ctx) return <>{children}</>; // middleware redirect handles
 
   return (
     <div className="flex min-h-screen bg-gray-50">
