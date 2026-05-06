@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 410" fill="none" role="img" aria-label="Limpa Nome Brazil">
-  <g stroke="currentColor" stroke-width="3" stroke-linejoin="round" fill="none" opacity="0.7">
-    <path d="M735 35 C 770 22, 820 18, 870 25 C 920 30, 970 50, 1010 80 C 1050 105, 1085 140, 1110 180 C 1130 215, 1140 260, 1135 300 C 1130 340, 1110 370, 1075 388 C 1040 405, 990 408, 940 400 C 880 390, 820 365, 775 325 C 740 295, 720 260, 715 220 C 712 180, 715 140, 720 105 C 723 80, 728 55, 735 35 Z" />
-  </g>
-  <text x="0" y="320" font-family="'Questrial', Arial Black, sans-serif" font-weight="900" font-size="340" fill="currentColor">LNB</text>
-  <rect x="540" y="60" width="10" height="290" fill="currentColor" rx="2"/>
-  <text x="582" y="170" font-family="'Quicksand', Arial, sans-serif" font-weight="700" font-size="115" fill="currentColor" letter-spacing="3">LIMPA NOME</text>
-  <text x="582" y="320" font-family="'Questrial', Arial Black, sans-serif" font-weight="900" font-size="170" fill="currentColor" letter-spacing="2">BRAZIL</text>
-</svg>
