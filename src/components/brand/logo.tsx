@@ -7,16 +7,24 @@ interface LogoProps {
   className?: string;
   height?: number;
   priority?: boolean;
+  variant?: "color" | "mono";
 }
 
-export function Logo({ href = "/", className, height = 44, priority = false }: LogoProps) {
+export function Logo({
+  href = "/",
+  className,
+  height = 44,
+  priority = false,
+  variant = "color",
+}: LogoProps) {
+  const src = variant === "mono" ? "/brand/lnb-logo-mono.svg" : "/brand/lnb-logo.svg";
   const img = (
     <Image
-      src="/brand/lnb-logo.svg"
+      src={src}
       alt="Limpa Nome Brazil"
       width={Math.round(height * 2.83)}
       height={height}
-      className={cn("object-contain", className)}
+      className={cn("object-contain select-none", className)}
       priority={priority}
     />
   );

@@ -6,29 +6,27 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type = "text", error, ...props }, ref) => {
-    return (
-      <div className="w-full">
-        <input
-          ref={ref}
-          type={type}
-          className={cn(
-            "flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400",
-            "focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
-            error && "border-red-500 focus:ring-red-500",
-            className
-          )}
-          {...props}
-        />
-        {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-      </div>
-    );
-  }
+  ({ className, type = "text", error, ...props }, ref) => (
+    <div className="w-full">
+      <input
+        ref={ref}
+        type={type}
+        className={cn(
+          "flex h-11 w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-forest-800 placeholder:text-gray-400 transition-all",
+          "focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500",
+          "hover:border-gray-300",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+          error && "border-red-500 focus:ring-red-500/30 focus:border-red-500",
+          className
+        )}
+        {...props}
+      />
+      {error && <p className="mt-1.5 text-xs text-red-600 font-medium">{error}</p>}
+    </div>
+  )
 );
 Input.displayName = "Input";
 
-export interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {}
-export function Label({ className, ...p }: LabelProps) {
-  return <label className={cn("block text-sm font-medium text-gray-800 mb-1.5", className)} {...p} />;
+export function Label({ className, ...p }: React.LabelHTMLAttributes<HTMLLabelElement>) {
+  return <label className={cn("block text-sm font-semibold text-forest-800 mb-2", className)} {...p} />;
 }

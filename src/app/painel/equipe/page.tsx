@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTimeBR } from "@/lib/utils";
 import type { AdminUserRow } from "@/lib/supabase/types";
+import { UserCog } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -21,40 +22,52 @@ export default async function EquipePage() {
   const users = (data ?? []) as AdminUserRow[];
 
   return (
-    <div className="p-8">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Equipe</h1>
-        <p className="text-gray-500 mt-1">{users.length} usuários do painel</p>
+    <div className="p-8 max-w-7xl mx-auto">
+      <header className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-4xl text-forest-800">Equipe</h1>
+          <p className="text-gray-500 mt-1">{users.length} usuários do painel</p>
+        </div>
+        <div className="size-12 rounded-xl bg-brand-50 grid place-items-center">
+          <UserCog className="size-5 text-brand-600" />
+        </div>
       </header>
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr className="text-left text-gray-500 text-xs uppercase tracking-wide">
-                <th className="px-4 py-3 font-medium">Nome</th>
-                <th className="px-4 py-3 font-medium">Email</th>
-                <th className="px-4 py-3 font-medium">Papel</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Último login</th>
-                <th className="px-4 py-3 font-medium">Criado</th>
+            <thead className="bg-sand-50 border-b border-gray-200">
+              <tr className="text-left text-gray-500 text-xs uppercase tracking-wider">
+                <th className="px-5 py-4 font-semibold">Nome</th>
+                <th className="px-5 py-4 font-semibold">Email</th>
+                <th className="px-5 py-4 font-semibold">Papel</th>
+                <th className="px-5 py-4 font-semibold">Status</th>
+                <th className="px-5 py-4 font-semibold">Último login</th>
+                <th className="px-5 py-4 font-semibold">Criado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {users.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50 transition">
-                  <td className="px-4 py-3 font-medium text-gray-900">{u.nome}</td>
-                  <td className="px-4 py-3 text-gray-700">{u.email}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant={u.role === "owner" ? "brand" : "default"}>{u.role}</Badge>
+                <tr key={u.id} className="hover:bg-sand-50/40 transition-colors">
+                  <td className="px-5 py-4 flex items-center gap-3">
+                    <div className="size-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 grid place-items-center text-white font-bold text-sm shrink-0">
+                      {u.nome.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-semibold text-forest-800">{u.nome}</span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-4 text-gray-700">{u.email}</td>
+                  <td className="px-5 py-4">
+                    <Badge variant={u.role === "owner" ? "brand" : u.role === "admin" ? "forest" : "default"}>
+                      {u.role}
+                    </Badge>
+                  </td>
+                  <td className="px-5 py-4">
                     <Badge variant={u.ativo ? "success" : "danger"}>
                       {u.ativo ? "ativo" : "inativo"}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{formatDateTimeBR(u.last_login_at)}</td>
-                  <td className="px-4 py-3 text-gray-500">{formatDateTimeBR(u.created_at)}</td>
+                  <td className="px-5 py-4 text-gray-500">{formatDateTimeBR(u.last_login_at)}</td>
+                  <td className="px-5 py-4 text-gray-500">{formatDateTimeBR(u.created_at)}</td>
                 </tr>
               ))}
             </tbody>
@@ -63,8 +76,8 @@ export default async function EquipePage() {
       </Card>
 
       <p className="mt-4 text-xs text-gray-400">
-        Pra adicionar usuário: criar conta no Supabase Auth (Painel → Authentication) e inserir
-        registro em <code className="bg-gray-100 px-1.5 py-0.5 rounded">lnb_admin_users</code> com o UUID retornado.
+        Pra adicionar usuário: criar conta no Supabase Auth e inserir registro em{" "}
+        <code className="bg-sand-100 px-1.5 py-0.5 rounded">lnb_admin_users</code>.
       </p>
     </div>
   );

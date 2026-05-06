@@ -20,42 +20,47 @@ export default async function BlindagemPage() {
   const ativas = items.filter((i) => i.status === "ativa").length;
 
   return (
-    <div className="p-8">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Blindagem</h1>
-        <p className="text-gray-500 mt-1">
-          {ativas} blindagens ativas · {items.length} total
-        </p>
+    <div className="p-8 max-w-7xl mx-auto">
+      <header className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-4xl text-forest-800">Blindagem</h1>
+          <p className="text-gray-500 mt-1">
+            {ativas} blindagens ativas · {items.length} total
+          </p>
+        </div>
+        <div className="size-12 rounded-xl bg-brand-50 grid place-items-center">
+          <ShieldCheck className="size-5 text-brand-600" />
+        </div>
       </header>
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr className="text-left text-gray-500 text-xs uppercase tracking-wide">
-                <th className="px-4 py-3 font-medium">Cliente</th>
-                <th className="px-4 py-3 font-medium">CPF</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Última Verificação</th>
-                <th className="px-4 py-3 font-medium">Próxima</th>
-                <th className="px-4 py-3 font-medium">Alertas</th>
-                <th className="px-4 py-3 font-medium">Último Resultado</th>
+            <thead className="bg-sand-50 border-b border-gray-200">
+              <tr className="text-left text-gray-500 text-xs uppercase tracking-wider">
+                <th className="px-5 py-4 font-semibold">Cliente</th>
+                <th className="px-5 py-4 font-semibold">CPF</th>
+                <th className="px-5 py-4 font-semibold">Status</th>
+                <th className="px-5 py-4 font-semibold">Última verificação</th>
+                <th className="px-5 py-4 font-semibold">Próxima</th>
+                <th className="px-5 py-4 font-semibold">Alertas</th>
+                <th className="px-5 py-4 font-semibold">Último resultado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
+                  <td colSpan={7} className="px-5 py-16 text-center text-gray-400">
                     <ShieldCheck className="size-8 mx-auto mb-2 opacity-30" />
                     Nenhuma blindagem ativa ainda.
                   </td>
                 </tr>
               )}
               {items.map((b) => (
-                <tr key={b.cpf} className="hover:bg-gray-50 transition">
-                  <td className="px-4 py-3 font-medium text-gray-900">{b.nome ?? "—"}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{maskCPF(b.cpf)}</td>
-                  <td className="px-4 py-3">
+                <tr key={b.cpf} className="hover:bg-sand-50/40 transition-colors">
+                  <td className="px-5 py-4 font-semibold text-forest-800">{b.nome ?? "—"}</td>
+                  <td className="px-5 py-4 font-mono text-xs">{maskCPF(b.cpf)}</td>
+                  <td className="px-5 py-4">
                     <Badge variant={
                       b.status === "ativa" ? "success" :
                       b.status === "pausada" ? "warning" : "danger"
@@ -63,10 +68,10 @@ export default async function BlindagemPage() {
                       {b.status}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{formatDateTimeBR(b.ultima_verificacao)}</td>
-                  <td className="px-4 py-3 text-gray-500">{formatDateTimeBR(b.proxima_verificacao)}</td>
-                  <td className="px-4 py-3 text-gray-700">{b.alertas_enviados ?? 0}</td>
-                  <td className="px-4 py-3 text-gray-700 max-w-xs truncate" title={b.ultimo_resultado ?? ""}>
+                  <td className="px-5 py-4 text-gray-500">{formatDateTimeBR(b.ultima_verificacao)}</td>
+                  <td className="px-5 py-4 text-gray-500">{formatDateTimeBR(b.proxima_verificacao)}</td>
+                  <td className="px-5 py-4 text-gray-700 font-semibold">{b.alertas_enviados ?? 0}</td>
+                  <td className="px-5 py-4 text-gray-700 max-w-xs truncate" title={b.ultimo_resultado ?? ""}>
                     {b.ultimo_resultado ?? "—"}
                   </td>
                 </tr>

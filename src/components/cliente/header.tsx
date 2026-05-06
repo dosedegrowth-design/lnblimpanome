@@ -21,18 +21,24 @@ export function ClienteHeader({ nome }: { nome: string }) {
     router.refresh();
   }
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
+    <header className="bg-white border-b border-gray-200 sticky top-0 z-30 backdrop-blur-md bg-white/85">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <Logo height={36} href="/conta/dashboard" />
-          <div className="flex items-center gap-3">
-            <span className="hidden sm:inline text-sm text-gray-600">Olá, <strong>{nome.split(" ")[0]}</strong></span>
-            <button onClick={logout} className="text-gray-500 hover:text-gray-900 p-2" aria-label="Sair">
+          <div className="flex items-center gap-4">
+            <span className="hidden sm:inline text-sm text-gray-600">
+              Olá, <strong className="text-forest-800">{nome.split(" ")[0]}</strong>
+            </span>
+            <button
+              onClick={logout}
+              className="text-gray-500 hover:text-forest-800 hover:bg-gray-100 p-2 rounded-lg transition"
+              aria-label="Sair"
+            >
               <LogOut className="size-5" />
             </button>
           </div>
         </div>
-        <nav className="flex gap-1 -mb-px">
+        <nav className="flex gap-1 -mb-px overflow-x-auto">
           {items.map((it) => {
             const active = path === it.href || path.startsWith(it.href + "/");
             return (
@@ -40,10 +46,10 @@ export function ClienteHeader({ nome }: { nome: string }) {
                 key={it.href}
                 href={it.href}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition",
+                  "flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap",
                   active
-                    ? "border-brand-500 text-brand-700"
-                    : "border-transparent text-gray-500 hover:text-gray-900"
+                    ? "border-brand-500 text-brand-600"
+                    : "border-transparent text-gray-500 hover:text-forest-800"
                 )}
               >
                 <it.icon className="size-4" />

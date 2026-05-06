@@ -1,7 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 410" fill="none">
-  <!-- Placeholder — substituir pelo SVG oficial enviado pelo Lucas -->
-  <text x="0" y="280" font-family="Arial Black, sans-serif" font-size="320" font-weight="900" fill="#2EB1E2">LNB</text>
-  <line x1="540" y1="40" x2="540" y2="370" stroke="#2EB1E2" stroke-width="14"/>
-  <text x="580" y="180" font-family="Arial, sans-serif" font-size="120" font-weight="700" fill="#3A3A3A" letter-spacing="4">LIMPA NOME</text>
-  <text x="580" y="320" font-family="Arial Black, sans-serif" font-size="160" font-weight="900" fill="#2EB1E2" letter-spacing="2">BRAZIL</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 410" fill="none" role="img" aria-label="Limpa Nome Brazil">
+  <!-- Mapa do Brasil (contorno simplificado) -->
+  <g opacity="0.95" stroke="#0298d9" stroke-width="3" stroke-linejoin="round" fill="none">
+    <path d="M735 35 C 770 22, 820 18, 870 25 C 920 30, 970 50, 1010 80 C 1050 105, 1085 140, 1110 180 C 1130 215, 1140 260, 1135 300 C 1130 340, 1110 370, 1075 388 C 1040 405, 990 408, 940 400 C 880 390, 820 365, 775 325 C 740 295, 720 260, 715 220 C 712 180, 715 140, 720 105 C 723 80, 728 55, 735 35 Z" />
+    <path d="M1085 130 C 1100 125, 1115 132, 1120 145" />
+    <path d="M850 388 C 845 398, 855 405, 870 402" />
+  </g>
+
+  <!-- LNB (azul brand) -->
+  <text x="0" y="320" font-family="'Questrial', Arial Black, sans-serif" font-weight="900" font-size="340" fill="#0298d9">LNB</text>
+
+  <!-- Separador vertical -->
+  <rect x="540" y="60" width="10" height="290" fill="#0298d9" rx="2"/>
+
+  <!-- LIMPA NOME (verde profundo) -->
+  <text x="582" y="170" font-family="'Quicksand', Arial, sans-serif" font-weight="700" font-size="115" fill="#13312e" letter-spacing="3">LIMPA NOME</text>
+
+  <!-- BRAZIL (azul brand) -->
+  <text x="582" y="320" font-family="'Questrial', Arial Black, sans-serif" font-weight="900" font-size="170" fill="#0298d9" letter-spacing="2">BRAZIL</text>
 </svg>
