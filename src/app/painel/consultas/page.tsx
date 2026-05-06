@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/auth/admin";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatBRL, formatDateTimeBR, maskCPF } from "@/lib/utils";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ConsultasPage() {
   await requireAdmin();
-  const supa = createServiceClient();
+  const supa = await createClient();
   const { data } = await supa
     .from("LNB_Consultas")
     .select("*")

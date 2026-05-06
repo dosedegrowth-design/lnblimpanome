@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { getClienteSession } from "@/lib/auth/cliente";
-import { createServiceClient } from "@/lib/supabase/server";
+import { getClienteSession, getClienteDashboardData } from "@/lib/auth/cliente";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Receipt } from "lucide-react";
@@ -13,12 +12,8 @@ export default async function PagamentosPage() {
   const session = await getClienteSession();
   if (!session) redirect("/conta/login");
 
-  const supa = createServiceClient();
-  const { data } = await supa
-    .from("LNB - CRM")
-    .select("*")
-    .eq("CPF", session.cpf)
-    .maybeSingle<CRMRow>();
+  const dash = await getClienteDashboardData(session.cpf);
+  const data = dash.crm as CRMRow | null;
 
   const items: { label: string; valor: number; pago: boolean; data: string | null }[] = [];
   if (data?.consulta_paga) {

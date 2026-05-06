@@ -1,9 +1,11 @@
 /**
  * Helpers de auth do PAINEL ADMIN — Supabase Auth.
  * Usar SEMPRE em Server Components / Route Handlers.
+ *
+ * Não usa service role — cookie autenticado + RLS policy admin_self_select.
  */
 import { redirect } from "next/navigation";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import type { AdminUserRow, AdminRole } from "@/lib/supabase/types";
 
 export interface AdminContext {
@@ -17,8 +19,8 @@ export async function getAdminContext(): Promise<AdminContext | null> {
   const { data: { user: authUser } } = await supa.auth.getUser();
   if (!authUser) return null;
 
-  const svc = createServiceClient();
-  const { data: row } = await svc
+  // RLS policy "admin_self_select" permite ler o próprio registro
+  const { data: row } = await supa
     .from("lnb_admin_users")
     .select("*")
     .eq("id", authUser.id)

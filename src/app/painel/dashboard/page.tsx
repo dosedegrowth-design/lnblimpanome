@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/auth/admin";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, FileSearch, ShieldCheck, TrendingUp } from "lucide-react";
 import { formatBRL } from "@/lib/utils";
@@ -7,7 +7,7 @@ import { formatBRL } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 async function getMetrics() {
-  const supa = createServiceClient();
+  const supa = await createClient();
 
   const [crm, consultas, blindagem] = await Promise.all([
     supa.from("LNB - CRM").select("id, Lead, Interessado, Qualificado, Fechado, consulta_paga", { count: "exact" }),

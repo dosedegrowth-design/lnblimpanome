@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/auth/admin";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPhone, formatDateBR, maskCPF } from "@/lib/utils";
@@ -17,7 +17,7 @@ function statusOf(r: CRMRow): { label: string; variant: "default" | "brand" | "s
 
 export default async function LeadsPage() {
   await requireAdmin();
-  const supa = createServiceClient();
+  const supa = await createClient();
   const { data } = await supa
     .from("LNB - CRM")
     .select("*")

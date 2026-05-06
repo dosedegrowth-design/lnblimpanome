@@ -1,6 +1,6 @@
 import { requireAdmin, canManageUsers } from "@/lib/auth/admin";
 import { redirect } from "next/navigation";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTimeBR } from "@/lib/utils";
@@ -12,7 +12,7 @@ export default async function EquipePage() {
   const ctx = await requireAdmin();
   if (!canManageUsers(ctx.user.role)) redirect("/painel/dashboard?denied=1");
 
-  const supa = createServiceClient();
+  const supa = await createClient();
   const { data } = await supa
     .from("lnb_admin_users")
     .select("*")

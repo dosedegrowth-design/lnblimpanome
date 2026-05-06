@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { getClienteSession } from "@/lib/auth/cliente";
-import { createServiceClient } from "@/lib/supabase/server";
+import { getClienteSession, getClienteDashboardData } from "@/lib/auth/cliente";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Clock, FileText, ShieldCheck } from "lucide-react";
@@ -21,18 +20,11 @@ export default async function ClienteDashboardPage() {
   const session = await getClienteSession();
   if (!session) redirect("/conta/login");
 
-  const supa = createServiceClient();
-  const [crmR, consultaR, blindagemR] = await Promise.all([
-    supa.from("LNB - CRM").select("*").eq("CPF", session.cpf).maybeSingle<CRMRow>(),
-    supa.from("LNB_Consultas").select("*").eq("cpf", session.cpf).maybeSingle<ConsultaRow>(),
-    supa.from("LNB_Blindagem").select("*").eq("cpf", session.cpf).maybeSingle<BlindagemRow>(),
-  ]);
+  const data = await getClienteDashboardData(session.cpf);
+  const crm = data.crm as CRMRow | null;
+  const consulta = data.consulta as ConsultaRow | null;
+  const blindagem = data.blindagem as BlindagemRow | null;
 
-  const crm = crmR.data;
-  const consulta = consultaR.data;
-  const blindagem = blindagemR.data;
-
-  // Determinar etapa atual
   let currentStage = 0;
   if (crm) currentStage = 1;
   if (crm?.consulta_paga) currentStage = 2;
@@ -46,7 +38,6 @@ export default async function ClienteDashboardPage() {
         <p className="text-gray-500 mt-1">Acompanhe seu processo de limpeza de nome.</p>
       </header>
 
-      {/* Status visual do processo */}
       <Card>
         <CardHeader>
           <CardTitle>Seu processo</CardTitle>
@@ -83,7 +74,6 @@ export default async function ClienteDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Cards de info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-6">

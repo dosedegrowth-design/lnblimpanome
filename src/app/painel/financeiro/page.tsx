@@ -1,6 +1,6 @@
 import { requireAdmin, canViewFinancial } from "@/lib/auth/admin";
 import { redirect } from "next/navigation";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatBRL, formatDateBR } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Wallet } from "lucide-react";
@@ -15,7 +15,7 @@ export default async function FinanceiroPage() {
   const ctx = await requireAdmin();
   if (!canViewFinancial(ctx.user.role)) redirect("/painel/dashboard?denied=1");
 
-  const supa = createServiceClient();
+  const supa = await createClient();
   const [crm, consultas, apiCtl] = await Promise.all([
     supa.from("LNB - CRM").select("Fechado, consulta_paga"),
     supa.from("LNB_Consultas").select("id", { count: "exact" }),

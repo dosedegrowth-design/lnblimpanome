@@ -1,33 +1,25 @@
 /**
- * Auth do PAINEL CLIENTE — CPF + senha simples.
+ * Auth do PAINEL CLIENTE — CPF + senha.
  *
- * Diferente do admin (Supabase Auth), o cliente usa autenticação custom:
- * - Cliente cadastra com CPF + senha após o primeiro pagamento
- * - Senha armazenada com bcrypt (cost 12) na tabela lnb_cliente_auth
- * - Sessão via cookie HttpOnly assinado (HMAC + secret)
- * - Lockout após 5 tentativas falhas (15 min)
- *
- * Por que não Supabase Auth?
- * Cliente final raramente tem email validado. CPF é o identificador natural
- * do negócio (única coisa que ele lembra). Auth próprio dá mais controle.
+ * Arquitetura sem service_role:
+ *   - Senha hashed via Postgres (crypt + gen_salt('bf', 12))
+ *   - Login/cadastro/dashboard via RPC functions SECURITY DEFINER
+ *   - Sessão via cookie HttpOnly assinado HMAC server-side
+ *   - Lockout após 5 tentativas falhas (15 min) — controlado na function SQL
  */
 import { cookies } from "next/headers";
 import { createHmac, timingSafeEqual } from "crypto";
-import bcrypt from "bcryptjs";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { cleanCPF, isValidCPF } from "@/lib/utils";
-import type { ClienteAuthRow } from "@/lib/supabase/types";
 
 const SESSION_COOKIE = "lnb_cliente_sess";
 const SESSION_TTL_DAYS = 30;
-const MAX_FAILED_ATTEMPTS = 5;
-const LOCK_DURATION_MINUTES = 15;
 
 function getSecret(): string {
   const s = process.env.CLIENTE_SESSION_SECRET;
   if (!s || s.length < 32) {
     throw new Error(
-      "CLIENTE_SESSION_SECRET não definido ou < 32 chars (use openssl rand -base64 32)"
+      "CLIENTE_SESSION_SECRET não definido ou < 32 chars (use openssl rand -base64 48)"
     );
   }
   return s;
@@ -101,7 +93,7 @@ export async function clearClienteSession() {
   jar.delete(SESSION_COOKIE);
 }
 
-/* ============= Auth core ============= */
+/* ============= Auth core (via RPC) ============= */
 
 export async function registerCliente(input: {
   cpf: string;
@@ -114,28 +106,21 @@ export async function registerCliente(input: {
   if (!isValidCPF(cpf)) return { ok: false, error: "CPF inválido" };
   if (input.senha.length < 8) return { ok: false, error: "Senha precisa ter ao menos 8 caracteres" };
 
-  const supa = createServiceClient();
-  const { data: existing } = await supa
-    .from("lnb_cliente_auth")
-    .select("cpf")
-    .eq("cpf", cpf)
-    .maybeSingle();
-
-  if (existing) return { ok: false, error: "CPF já cadastrado. Faça login." };
-
-  const senha_hash = await bcrypt.hash(input.senha, 12);
-
-  const { error } = await supa.from("lnb_cliente_auth").insert({
-    cpf,
-    senha_hash,
-    nome: input.nome,
-    email: input.email ?? null,
-    telefone: input.telefone ?? null,
-    email_verificado: false,
-    failed_attempts: 0,
+  const supa = await createClient();
+  const { data, error } = await supa.rpc("lnb_cliente_register", {
+    p_cpf: cpf,
+    p_senha: input.senha,
+    p_nome: input.nome,
+    p_email: input.email ?? null,
+    p_telefone: input.telefone ?? null,
   });
 
-  if (error) return { ok: false, error: "Falha ao cadastrar — tente novamente" };
+  if (error) {
+    console.error("[register] rpc error:", error);
+    return { ok: false, error: "Falha ao cadastrar — tente novamente" };
+  }
+  const result = data as { ok: boolean; error?: string };
+  if (!result.ok) return { ok: false, error: result.error ?? "Erro desconhecido" };
   return { ok: true };
 }
 
@@ -146,67 +131,29 @@ export async function loginCliente(
   const cpf = cleanCPF(cpfInput);
   if (!isValidCPF(cpf)) return { ok: false, error: "CPF inválido" };
 
-  const supa = createServiceClient();
-  const { data: row } = await supa
-    .from("lnb_cliente_auth")
-    .select("*")
-    .eq("cpf", cpf)
-    .maybeSingle<ClienteAuthRow>();
+  const supa = await createClient();
+  const { data, error } = await supa.rpc("lnb_cliente_login", {
+    p_cpf: cpf,
+    p_senha: senha,
+  });
 
-  if (!row) return { ok: false, error: "CPF não cadastrado" };
-
-  // Lock check
-  if (row.locked_until && new Date(row.locked_until) > new Date()) {
-    return { ok: false, error: "Conta bloqueada temporariamente. Tente em 15min." };
+  if (error) {
+    console.error("[login] rpc error:", error);
+    return { ok: false, error: "Falha ao entrar — tente novamente" };
   }
-
-  const valid = await bcrypt.compare(senha, row.senha_hash);
-  if (!valid) {
-    const attempts = (row.failed_attempts ?? 0) + 1;
-    const lockUntil =
-      attempts >= MAX_FAILED_ATTEMPTS
-        ? new Date(Date.now() + LOCK_DURATION_MINUTES * 60 * 1000).toISOString()
-        : null;
-
-    await supa
-      .from("lnb_cliente_auth")
-      .update({ failed_attempts: attempts, locked_until: lockUntil })
-      .eq("cpf", cpf);
-
-    return { ok: false, error: "Senha incorreta" };
-  }
-
-  await supa
-    .from("lnb_cliente_auth")
-    .update({
-      failed_attempts: 0,
-      locked_until: null,
-      last_login_at: new Date().toISOString(),
-    })
-    .eq("cpf", cpf);
-
-  return { ok: true, cpf, nome: row.nome };
+  const result = data as { ok: boolean; error?: string; cpf?: string; nome?: string };
+  if (!result.ok) return { ok: false, error: result.error ?? "Erro" };
+  return { ok: true, cpf: result.cpf!, nome: result.nome! };
 }
 
-export async function changeSenha(
-  cpf: string,
-  senhaAtual: string,
-  novaSenha: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (novaSenha.length < 8) return { ok: false, error: "Senha precisa ter ao menos 8 caracteres" };
-
-  const supa = createServiceClient();
-  const { data: row } = await supa
-    .from("lnb_cliente_auth")
-    .select("senha_hash")
-    .eq("cpf", cleanCPF(cpf))
-    .maybeSingle();
-
-  if (!row) return { ok: false, error: "Cliente não encontrado" };
-  const valid = await bcrypt.compare(senhaAtual, row.senha_hash);
-  if (!valid) return { ok: false, error: "Senha atual incorreta" };
-
-  const senha_hash = await bcrypt.hash(novaSenha, 12);
-  await supa.from("lnb_cliente_auth").update({ senha_hash }).eq("cpf", cleanCPF(cpf));
-  return { ok: true };
+export async function getClienteDashboardData(cpf: string) {
+  const supa = await createClient();
+  const { data, error } = await supa.rpc("lnb_cliente_dashboard", {
+    p_cpf: cleanCPF(cpf),
+  });
+  if (error) {
+    console.error("[dashboard] rpc error:", error);
+    return { crm: null, consulta: null, blindagem: null };
+  }
+  return data as { crm: unknown; consulta: unknown; blindagem: unknown };
 }

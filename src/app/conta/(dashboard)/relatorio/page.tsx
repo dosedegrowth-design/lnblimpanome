@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { getClienteSession } from "@/lib/auth/cliente";
-import { createServiceClient } from "@/lib/supabase/server";
+import { getClienteSession, getClienteDashboardData } from "@/lib/auth/cliente";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatBRL, formatDateTimeBR, maskCPF } from "@/lib/utils";
@@ -13,12 +12,8 @@ export default async function RelatorioPage() {
   const session = await getClienteSession();
   if (!session) redirect("/conta/login");
 
-  const supa = createServiceClient();
-  const { data } = await supa
-    .from("LNB_Consultas")
-    .select("*")
-    .eq("cpf", session.cpf)
-    .maybeSingle<ConsultaRow>();
+  const dash = await getClienteDashboardData(session.cpf);
+  const data = dash.consulta as ConsultaRow | null;
 
   return (
     <div className="space-y-6">
