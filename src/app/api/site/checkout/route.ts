@@ -17,6 +17,7 @@ import { cleanCPF, isValidCPF } from "@/lib/utils";
  */
 const PRECOS = {
   consulta:         { valor: 19.99,  titulo: "LNB - Consulta CPF" },
+  blindagem:        { valor: 29.90,  titulo: "LNB - Blindagem mensal de CPF" },
   limpeza_desconto: { valor: 480.01, titulo: "LNB - Limpeza + Blindagem (com desconto)" },
   limpeza:          { valor: 499.90, titulo: "LNB - Limpeza de Nome + Blindagem" },
 } as const;

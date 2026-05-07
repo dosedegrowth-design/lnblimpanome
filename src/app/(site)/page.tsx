@@ -9,6 +9,9 @@ import { HeroVisual } from "@/components/site/hero-visual";
 import { CpfIcon } from "@/components/icons/cpf-icon";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { whatsappLink } from "@/lib/contato";
+import { Depoimentos } from "@/components/site/depoimentos";
+import { Comparativo } from "@/components/site/comparativo";
+import { Confianca } from "@/components/site/confianca";
 
 const WHATSAPP = whatsappLink("Olá! Quero limpar meu nome com a LNB.");
 
@@ -111,6 +114,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* CONFIANÇA — selos LGPD, SSL, MP, Garantia */}
+      <Confianca />
+
       {/* TRUST BAR */}
       <section className="bg-sand-50 py-8 sm:py-10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -170,6 +176,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* COMPARATIVO — Tradicional vs LNB */}
+      <Comparativo />
+
       {/* PREÇOS */}
       <section id="servicos" className="py-16 sm:py-24 lg:py-32 bg-sand-50/60 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(2,152,217,0.08),transparent_50%)]" />
@@ -183,77 +192,120 @@ export default function HomePage() {
             <p className="mt-3 sm:mt-4 text-gray-700 font-medium text-base sm:text-lg px-2">Você sabe exatamente o que está pagando, antes de pagar.</p>
           </Reveal>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 max-w-6xl mx-auto">
+            {/* Plano 1: Consulta */}
             <Reveal>
-              <div className="h-full p-6 sm:p-8 lg:p-10 rounded-2xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition">
+              <div className="h-full p-6 sm:p-7 rounded-2xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition flex flex-col">
                 <span className="text-[10px] sm:text-xs font-bold text-gray-700 uppercase tracking-widest">Primeiro passo</span>
-                <h3 className="mt-1.5 sm:mt-2 font-display text-2xl sm:text-3xl text-forest-800">Consulta CPF</h3>
-                <div className="mt-4 sm:mt-6 flex items-baseline gap-1">
-                  <span className="font-display text-4xl sm:text-5xl lg:text-6xl text-forest-800">R$ 19</span>
-                  <span className="font-display text-2xl sm:text-3xl text-forest-800">,99</span>
+                <h3 className="mt-1.5 font-display text-xl sm:text-2xl text-forest-800">Consulta CPF</h3>
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className="font-display text-3xl sm:text-4xl text-forest-800">R$ 19</span>
+                  <span className="font-display text-xl text-forest-800">,99</span>
                 </div>
-                <p className="text-xs sm:text-sm text-gray-700 font-semibold mt-1">Pix · cartão · resultado na hora</p>
+                <p className="text-xs text-gray-700 font-semibold mt-1">Pagamento único</p>
 
-                <ul className="mt-6 sm:mt-8 space-y-2.5 sm:space-y-3 text-sm text-gray-800 font-semibold">
+                <ul className="mt-5 space-y-2 text-sm text-gray-800 font-semibold flex-1">
                   {[
                     "Score de crédito atualizado",
-                    "Lista completa de pendências e credores",
+                    "Lista de pendências e credores",
                     "Valor total de débitos",
-                    "Relatório PDF + WhatsApp + email",
+                    "Relatório PDF + email",
                     "Resultado em minutos",
                   ].map((b) => (
-                    <li key={b} className="flex gap-2.5">
-                      <CheckCircle2 className="size-4 sm:size-5 text-brand-500 shrink-0 mt-0.5" />
+                    <li key={b} className="flex gap-2">
+                      <CheckCircle2 className="size-4 text-brand-500 shrink-0 mt-0.5" />
                       <span>{b}</span>
                     </li>
                   ))}
                 </ul>
 
-                <Link href="/consultar" className="mt-6 sm:mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-brand-300 text-brand-700 hover:bg-brand-50 hover:border-brand-500 px-6 h-11 sm:h-12 font-bold transition-all text-sm sm:text-base">
-                  <CpfIcon size={18} className="size-4 sm:size-5" />
+                <Link href="/consultar" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-brand-300 text-brand-700 hover:bg-brand-50 hover:border-brand-500 px-4 h-11 font-bold transition-all text-sm">
+                  <CpfIcon size={16} className="size-4 shrink-0" />
                   Consultar agora
                 </Link>
               </div>
             </Reveal>
 
-            <Reveal delay={0.15}>
-              <div className="relative h-full p-6 sm:p-8 lg:p-10 rounded-2xl bg-gradient-to-br from-forest-800 to-forest-900 text-white border-2 border-brand-500/30 shadow-2xl shadow-forest-800/30">
-                <span className="absolute -top-3 left-6 sm:left-8 inline-flex items-center rounded-full bg-brand-500 text-white text-[10px] sm:text-xs font-bold px-3 sm:px-4 py-1 shadow-lg uppercase tracking-wider">
+            {/* Plano 2: Limpeza + Blindagem (DESTAQUE) */}
+            <Reveal delay={0.1}>
+              <div className="relative h-full p-6 sm:p-7 rounded-2xl bg-gradient-to-br from-forest-800 to-forest-900 text-white border-2 border-brand-500/30 shadow-2xl shadow-forest-800/30 flex flex-col md:-mt-3 md:mb-3">
+                <span className="absolute -top-3 left-6 inline-flex items-center rounded-full bg-brand-500 text-white text-[10px] font-bold px-3 py-1 shadow-lg uppercase tracking-wider">
                   Mais escolhido
                 </span>
 
-                <span className="text-[10px] sm:text-xs font-bold text-brand-300 uppercase tracking-widest">Solução completa</span>
-                <h3 className="mt-1.5 sm:mt-2 font-display text-2xl sm:text-3xl text-white">Limpeza + Blindagem</h3>
+                <span className="text-[10px] font-bold text-brand-300 uppercase tracking-widest">Solução completa</span>
+                <h3 className="mt-1.5 font-display text-xl sm:text-2xl text-white">Limpeza + Blindagem</h3>
 
-                <div className="mt-4 sm:mt-6 flex items-baseline gap-1">
-                  <span className="font-display text-4xl sm:text-5xl lg:text-6xl text-white">R$ 480</span>
-                  <span className="font-display text-2xl sm:text-3xl text-white">,01</span>
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className="font-display text-3xl sm:text-4xl text-white">R$ 480</span>
+                  <span className="font-display text-xl text-white">,01</span>
                 </div>
-                <p className="text-xs sm:text-sm text-sand-200/90 font-semibold mt-1">com desconto · já abate os R$ 19,99 da consulta</p>
+                <p className="text-xs text-sand-200 font-semibold mt-1">à vista · 12 meses de blindagem</p>
 
-                <ul className="mt-6 sm:mt-8 space-y-2.5 sm:space-y-3 text-sm text-sand-100 font-semibold">
+                <ul className="mt-5 space-y-2 text-sm text-sand-100 font-semibold flex-1">
                   {[
-                    "Limpeza completa em até 20 dias úteis",
-                    "Você não precisa quitar a dívida",
-                    "Blindagem de CPF inclusa (monitoramento)",
-                    "Painel online pra acompanhar o processo",
+                    "Limpeza em até 20 dias úteis",
+                    "Sem precisar quitar dívida",
+                    "Blindagem 12 meses inclusa",
+                    "Painel pra acompanhar",
                     "Consultor dedicado",
-                    "Atualizações por WhatsApp e email",
                   ].map((b) => (
-                    <li key={b} className="flex gap-2.5">
-                      <CheckCircle2 className="size-4 sm:size-5 text-brand-400 shrink-0 mt-0.5" />
+                    <li key={b} className="flex gap-2">
+                      <CheckCircle2 className="size-4 text-brand-400 shrink-0 mt-0.5" />
                       <span>{b}</span>
                     </li>
                   ))}
                 </ul>
 
-                <a href={WHATSAPP} target="_blank" rel="noopener" className="mt-6 sm:mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-white px-6 h-11 sm:h-12 font-bold shadow-lg shadow-brand-500/40 transition-all text-sm sm:text-base">
-                  <WhatsAppIcon size={18} className="size-4 sm:size-5" />
-                  Quero limpar meu nome
+                <Link href="/contratar?plano=limpeza_desconto" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-white px-4 h-11 font-bold shadow-lg shadow-brand-500/40 transition-all text-sm whitespace-nowrap">
+                  <Sparkles className="size-4 shrink-0" />
+                  Contratar agora
+                </Link>
+                <a href={WHATSAPP} target="_blank" rel="noopener" className="mt-2 inline-flex w-full items-center justify-center gap-1.5 text-xs text-sand-200 hover:text-white transition font-semibold">
+                  <WhatsAppIcon size={14} className="size-3.5 text-[#25D366]" />
+                  Tirar dúvidas no WhatsApp
                 </a>
               </div>
             </Reveal>
+
+            {/* Plano 3: Blindagem isolada */}
+            <Reveal delay={0.2}>
+              <div className="h-full p-6 sm:p-7 rounded-2xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition flex flex-col">
+                <span className="text-[10px] sm:text-xs font-bold text-gray-700 uppercase tracking-widest">Monitoramento</span>
+                <h3 className="mt-1.5 font-display text-xl sm:text-2xl text-forest-800">Blindagem mensal</h3>
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className="font-display text-3xl sm:text-4xl text-forest-800">R$ 29</span>
+                  <span className="font-display text-xl text-forest-800">,90</span>
+                  <span className="text-sm font-bold text-gray-700 ml-1">/mês</span>
+                </div>
+                <p className="text-xs text-gray-700 font-semibold mt-1">Cancele quando quiser</p>
+
+                <ul className="mt-5 space-y-2 text-sm text-gray-800 font-semibold flex-1">
+                  {[
+                    "Monitoramento diário do CPF",
+                    "Alerta imediato no WhatsApp",
+                    "Análise mensal de crédito",
+                    "Relatório por email",
+                    "Pra quem já tem nome limpo",
+                  ].map((b) => (
+                    <li key={b} className="flex gap-2">
+                      <CheckCircle2 className="size-4 text-brand-500 shrink-0 mt-0.5" />
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <Link href="/contratar?plano=blindagem" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-brand-300 text-brand-700 hover:bg-brand-50 hover:border-brand-500 px-4 h-11 font-bold transition-all text-sm">
+                  <ShieldCheck className="size-4 shrink-0" />
+                  Ativar blindagem
+                </Link>
+              </div>
+            </Reveal>
           </div>
+
+          <p className="text-center text-xs sm:text-sm text-gray-700 font-medium mt-6 sm:mt-8">
+            Pagamento via Mercado Pago · Pix, cartão ou boleto · Garantia de devolução
+          </p>
         </div>
       </section>
 
@@ -297,6 +349,9 @@ export default function HomePage() {
           </Reveal>
         </div>
       </section>
+
+      {/* DEPOIMENTOS */}
+      <Depoimentos />
 
       {/* FAQ */}
       <section id="faq" className="py-16 sm:py-24 lg:py-32 bg-sand-50">
