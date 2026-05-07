@@ -12,7 +12,7 @@ import { ProcessoTimelineCliente } from "./processo-timeline-cliente";
 export const dynamic = "force-dynamic";
 
 const WHATSAPP =
-  "https://wa.me/5541996171780?text=" +
+  "https://wa.me/5511997440101?text=" +
   encodeURIComponent("Olá! Sou cliente LNB e preciso de ajuda.");
 
 export default async function ClienteDashboardPage() {

@@ -440,7 +440,7 @@ function ConsultarWizard() {
                     variant="outline"
                     size="lg"
                     width="full"
-                    onClick={() => window.open("https://wa.me/5541996171780", "_blank")}
+                    onClick={() => window.open("https://wa.me/5511997440101", "_blank")}
                   >
                     Falar com consultor
                   </Button>

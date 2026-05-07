@@ -9,7 +9,7 @@ import type { BlindagemRow } from "@/lib/supabase/types";
 export const dynamic = "force-dynamic";
 
 const WHATSAPP =
-  "https://wa.me/5541996171780?text=" +
+  "https://wa.me/5511997440101?text=" +
   encodeURIComponent("Olá! Quero contratar a Blindagem de CPF.");
 
 export default async function ClienteBlindagemPage() {

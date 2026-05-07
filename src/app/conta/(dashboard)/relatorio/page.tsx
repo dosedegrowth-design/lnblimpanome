@@ -9,7 +9,7 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 const WHATSAPP =
-  "https://wa.me/5541996171780?text=" +
+  "https://wa.me/5511997440101?text=" +
   encodeURIComponent("Olá! Quero limpar meu nome — vi minha consulta na LNB.");
 
 export default async function RelatorioPage() {
