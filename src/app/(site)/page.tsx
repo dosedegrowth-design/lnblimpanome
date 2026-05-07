@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   ShieldCheck, FileSearch, Sparkles, CheckCircle2,
-  Clock, Lock, Award, Users, TrendingUp,
+  Clock, Lock, Award, Users, TrendingUp, ArrowRight,
 } from "lucide-react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/reveal";
 import { Counter } from "@/components/motion/counter";
@@ -192,17 +192,23 @@ export default function HomePage() {
             <p className="mt-3 sm:mt-4 text-gray-700 font-medium text-base sm:text-lg px-2">Você sabe exatamente o que está pagando, antes de pagar.</p>
           </Reveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 max-w-6xl mx-auto">
-            {/* Plano 1: Consulta */}
+          {/* Fluxo conectado: Consulta → Limpeza */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1.3fr] gap-4 sm:gap-6 max-w-5xl mx-auto items-stretch">
+            {/* Etapa 1: Consulta CPF */}
             <Reveal>
-              <div className="h-full p-6 sm:p-7 rounded-2xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition flex flex-col">
-                <span className="text-[10px] sm:text-xs font-bold text-gray-700 uppercase tracking-widest">Primeiro passo</span>
-                <h3 className="mt-1.5 font-display text-xl sm:text-2xl text-forest-800">Consulta CPF</h3>
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="font-display text-3xl sm:text-4xl text-forest-800">R$ 19</span>
-                  <span className="font-display text-xl text-forest-800">,99</span>
+              <div className="h-full p-6 sm:p-8 rounded-2xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="size-7 rounded-full bg-brand-500 text-white grid place-items-center font-display text-sm">1</span>
+                  <span className="text-[10px] sm:text-xs font-bold text-gray-700 uppercase tracking-widest">Pré-requisito</span>
                 </div>
-                <p className="text-xs text-gray-700 font-semibold mt-1">Pagamento único</p>
+                <h3 className="mt-3 font-display text-2xl sm:text-3xl text-forest-800">Consulta CPF</h3>
+                <p className="text-sm text-gray-700 font-medium mt-1">Descubra se há o que limpar</p>
+
+                <div className="mt-5 flex items-baseline gap-1">
+                  <span className="font-display text-4xl sm:text-5xl text-forest-800">R$ 19</span>
+                  <span className="font-display text-2xl text-forest-800">,99</span>
+                </div>
+                <p className="text-xs text-gray-700 font-semibold mt-1">Pagamento único · resultado em minutos</p>
 
                 <ul className="mt-5 space-y-2 text-sm text-gray-800 font-semibold flex-1">
                   {[
@@ -210,7 +216,6 @@ export default function HomePage() {
                     "Lista de pendências e credores",
                     "Valor total de débitos",
                     "Relatório PDF + email",
-                    "Resultado em minutos",
                   ].map((b) => (
                     <li key={b} className="flex gap-2">
                       <CheckCircle2 className="size-4 text-brand-500 shrink-0 mt-0.5" />
@@ -219,36 +224,49 @@ export default function HomePage() {
                   ))}
                 </ul>
 
-                <Link href="/consultar" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-brand-300 text-brand-700 hover:bg-brand-50 hover:border-brand-500 px-4 h-11 font-bold transition-all text-sm">
-                  <CpfIcon size={16} className="size-4 shrink-0" />
+                <Link href="/consultar" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white px-4 h-11 sm:h-12 font-bold transition-all text-sm sm:text-base shadow-md shadow-brand-500/25 whitespace-nowrap">
+                  <CpfIcon size={18} className="size-4 sm:size-5 shrink-0" />
                   Consultar agora
                 </Link>
               </div>
             </Reveal>
 
-            {/* Plano 2: Limpeza + Blindagem (DESTAQUE) */}
-            <Reveal delay={0.1}>
-              <div className="relative h-full p-6 sm:p-7 rounded-2xl bg-gradient-to-br from-forest-800 to-forest-900 text-white border-2 border-brand-500/30 shadow-2xl shadow-forest-800/30 flex flex-col md:-mt-3 md:mb-3">
-                <span className="absolute -top-3 left-6 inline-flex items-center rounded-full bg-brand-500 text-white text-[10px] font-bold px-3 py-1 shadow-lg uppercase tracking-wider">
+            {/* Conector visual */}
+            <div className="hidden lg:flex items-center justify-center">
+              <div className="flex flex-col items-center text-brand-500">
+                <ArrowRight className="size-8" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mt-1">depois</span>
+              </div>
+            </div>
+
+            {/* Etapa 2: Limpeza (destaque) */}
+            <Reveal delay={0.15}>
+              <div className="relative h-full p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-forest-800 to-forest-900 text-white border-2 border-brand-500/30 shadow-2xl shadow-forest-800/30 flex flex-col">
+                <span className="absolute -top-3 left-6 sm:left-8 inline-flex items-center rounded-full bg-brand-500 text-white text-[10px] sm:text-xs font-bold px-3 sm:px-4 py-1 shadow-lg uppercase tracking-wider">
                   Mais escolhido
                 </span>
 
-                <span className="text-[10px] font-bold text-brand-300 uppercase tracking-widest">Solução completa</span>
-                <h3 className="mt-1.5 font-display text-xl sm:text-2xl text-white">Limpeza + Blindagem</h3>
-
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="font-display text-3xl sm:text-4xl text-white">R$ 480</span>
-                  <span className="font-display text-xl text-white">,01</span>
+                <div className="flex items-center gap-2">
+                  <span className="size-7 rounded-full bg-white/15 text-white grid place-items-center font-display text-sm">2</span>
+                  <span className="text-[10px] sm:text-xs font-bold text-brand-300 uppercase tracking-widest">Solução completa</span>
                 </div>
-                <p className="text-xs text-sand-200 font-semibold mt-1">à vista · 12 meses de blindagem</p>
+                <h3 className="mt-3 font-display text-2xl sm:text-3xl text-white">Limpeza + Blindagem</h3>
+                <p className="text-sm text-sand-200 font-medium mt-1">Tira seu nome do Serasa em até 20 dias</p>
+
+                <div className="mt-5 flex items-baseline gap-1">
+                  <span className="font-display text-4xl sm:text-5xl text-white">R$ 480</span>
+                  <span className="font-display text-2xl text-white">,01</span>
+                </div>
+                <p className="text-xs text-sand-200 font-semibold mt-1">à vista · com 12 meses de blindagem inclusa</p>
 
                 <ul className="mt-5 space-y-2 text-sm text-sand-100 font-semibold flex-1">
                   {[
-                    "Limpeza em até 20 dias úteis",
-                    "Sem precisar quitar dívida",
-                    "Blindagem 12 meses inclusa",
-                    "Painel pra acompanhar",
+                    "Limpeza completa em até 20 dias úteis",
+                    "Você não precisa quitar a dívida",
+                    "Blindagem de CPF 12 meses inclusa",
+                    "Painel online pra acompanhar",
                     "Consultor dedicado",
+                    "Atualizações por WhatsApp e email",
                   ].map((b) => (
                     <li key={b} className="flex gap-2">
                       <CheckCircle2 className="size-4 text-brand-400 shrink-0 mt-0.5" />
@@ -257,48 +275,17 @@ export default function HomePage() {
                   ))}
                 </ul>
 
-                <Link href="/contratar?plano=limpeza_desconto" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-white px-4 h-11 font-bold shadow-lg shadow-brand-500/40 transition-all text-sm whitespace-nowrap">
-                  <Sparkles className="size-4 shrink-0" />
-                  Contratar agora
+                <Link href="/contratar?plano=limpeza_desconto" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-white px-4 h-11 sm:h-12 font-bold shadow-lg shadow-brand-500/40 transition-all text-sm sm:text-base whitespace-nowrap">
+                  <Sparkles className="size-4 sm:size-5 shrink-0" />
+                  Contratar limpeza
                 </Link>
+                <p className="mt-2 text-center text-[11px] text-sand-200 font-medium">
+                  Você precisa ter feito a consulta antes
+                </p>
                 <a href={WHATSAPP} target="_blank" rel="noopener" className="mt-2 inline-flex w-full items-center justify-center gap-1.5 text-xs text-sand-200 hover:text-white transition font-semibold">
                   <WhatsAppIcon size={14} className="size-3.5 text-[#25D366]" />
                   Tirar dúvidas no WhatsApp
                 </a>
-              </div>
-            </Reveal>
-
-            {/* Plano 3: Blindagem isolada */}
-            <Reveal delay={0.2}>
-              <div className="h-full p-6 sm:p-7 rounded-2xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition flex flex-col">
-                <span className="text-[10px] sm:text-xs font-bold text-gray-700 uppercase tracking-widest">Monitoramento</span>
-                <h3 className="mt-1.5 font-display text-xl sm:text-2xl text-forest-800">Blindagem mensal</h3>
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="font-display text-3xl sm:text-4xl text-forest-800">R$ 29</span>
-                  <span className="font-display text-xl text-forest-800">,90</span>
-                  <span className="text-sm font-bold text-gray-700 ml-1">/mês</span>
-                </div>
-                <p className="text-xs text-gray-700 font-semibold mt-1">Cancele quando quiser</p>
-
-                <ul className="mt-5 space-y-2 text-sm text-gray-800 font-semibold flex-1">
-                  {[
-                    "Monitoramento diário do CPF",
-                    "Alerta imediato no WhatsApp",
-                    "Análise mensal de crédito",
-                    "Relatório por email",
-                    "Pra quem já tem nome limpo",
-                  ].map((b) => (
-                    <li key={b} className="flex gap-2">
-                      <CheckCircle2 className="size-4 text-brand-500 shrink-0 mt-0.5" />
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Link href="/contratar?plano=blindagem" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-brand-300 text-brand-700 hover:bg-brand-50 hover:border-brand-500 px-4 h-11 font-bold transition-all text-sm">
-                  <ShieldCheck className="size-4 shrink-0" />
-                  Ativar blindagem
-                </Link>
               </div>
             </Reveal>
           </div>

@@ -9,15 +9,15 @@ import { cleanCPF, isValidCPF } from "@/lib/utils";
  *
  * Fluxo self-service do site (SEM n8n):
  * 1) Valida + cadastra cliente em lnb_cliente_auth
- * 2) Upsert em "LNB - CRM" com origem='site'
- * 3) Cria preference Mercado Pago direto (server-side)
- * 4) Retorna init_point pra redirect
+ * 2) Se tipo for limpeza_desconto: valida pré-requisito (consulta paga + pendência)
+ * 3) Upsert em "LNB - CRM" com origem='site'
+ * 4) Cria preference Mercado Pago direto (server-side)
+ * 5) Retorna init_point pra redirect
  *
  * MP volta com webhook → /api/site/mp-webhook (processa pagamento + API Full).
  */
 const PRECOS = {
   consulta:         { valor: 19.99,  titulo: "LNB - Consulta CPF" },
-  blindagem:        { valor: 29.90,  titulo: "LNB - Blindagem mensal de CPF" },
   limpeza_desconto: { valor: 480.01, titulo: "LNB - Limpeza + Blindagem (com desconto)" },
   limpeza:          { valor: 499.90, titulo: "LNB - Limpeza de Nome + Blindagem" },
 } as const;
@@ -50,9 +50,33 @@ export async function POST(req: Request) {
   if (!(tipo in PRECOS))                 return bad("Tipo de cobrança inválido");
 
   const item = PRECOS[tipo as TipoCobranca];
+  const supa = await createClient();
+
+  // Pré-requisito: limpeza só após consulta paga COM pendência
+  if (tipo === "limpeza_desconto" || tipo === "limpeza") {
+    const { data: eleg, error: elegErr } = await supa.rpc(
+      "cliente_pode_contratar_limpeza",
+      { p_cpf: cpf }
+    );
+    if (elegErr) {
+      console.error("[checkout] elegibilidade erro:", elegErr);
+      return bad("Não foi possível validar elegibilidade. Tente novamente.");
+    }
+    const r = eleg as { pode: boolean; motivo?: string; mensagem?: string };
+    if (!r?.pode) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: r?.mensagem || "CPF não elegível pra contratação de limpeza",
+          motivo: r?.motivo,
+          requer_consulta: r?.motivo === "sem_consulta",
+        },
+        { status: 409 }
+      );
+    }
+  }
 
   // 1) Cadastra cliente (RPC trata duplicata)
-  const supa = await createClient();
   const reg = await supa.rpc("lnb_cliente_register", {
     p_cpf: cpf, p_senha: senha, p_nome: nome, p_email: email, p_telefone: telefone,
   });
@@ -86,6 +110,18 @@ export async function POST(req: Request) {
   const base = siteUrl(req);
   const externalRef = `${tipo.toUpperCase()}-${cpf}-${Date.now()}`;
 
+  // URLs de retorno por tipo
+  const isConsulta = tipo === "consulta";
+  const successUrl = isConsulta
+    ? `${base}/consultar?status=success&cpf=${cpf}`
+    : `${base}/conta/dashboard?status=success`;
+  const failureUrl = isConsulta
+    ? `${base}/consultar?status=failure`
+    : `${base}/contratar?plano=${tipo}&status=failure`;
+  const pendingUrl = isConsulta
+    ? `${base}/consultar?status=pending&cpf=${cpf}`
+    : `${base}/conta/dashboard?status=pending`;
+
   let preference;
   try {
     preference = await createPreference({
@@ -95,9 +131,9 @@ export async function POST(req: Request) {
       payer: { name: nome, email, cpf, phone: telefone },
       metadata: { cpf, telefone, tipo, origem: "site" },
       notificationUrl: `${base}/api/site/mp-webhook`,
-      successUrl: `${base}/consultar?status=success&cpf=${cpf}`,
-      failureUrl: `${base}/consultar?status=failure`,
-      pendingUrl: `${base}/consultar?status=pending&cpf=${cpf}`,
+      successUrl,
+      failureUrl,
+      pendingUrl,
     });
   } catch (e) {
     console.error("[checkout] MP create erro:", e);

@@ -1,18 +1,22 @@
 /**
  * Catálogo central de planos LNB.
  * Espelha PRECOS de /api/site/checkout pra evitar drift.
+ *
+ * REGRA DE NEGÓCIO:
+ * - "consulta" é o gateway obrigatório (R$ 19,99) — descobre se tem o que limpar
+ * - "limpeza_desconto" só pode ser comprada APÓS consulta paga COM pendência
+ * - Blindagem é INCLUSA por 12 meses no pacote de limpeza (não é vendida solta)
  */
 import type { LucideIcon } from "lucide-react";
-import { FileSearch, ShieldCheck, Sparkles } from "lucide-react";
+import { FileSearch, Sparkles } from "lucide-react";
 
-export type PlanoTipo = "consulta" | "blindagem" | "limpeza_desconto";
+export type PlanoTipo = "consulta" | "limpeza_desconto";
 
 export interface Plano {
   tipo: PlanoTipo;
   nome: string;
   preco: number;
   precoLabel: string;
-  recorrencia?: string;
   badge?: string;
   destaque?: boolean;
   resumo: string;
@@ -20,6 +24,8 @@ export interface Plano {
   ctaLabel: string;
   icon: LucideIcon;
   rota: string;
+  /** Exige consulta paga prévia com pendência? */
+  requerConsulta?: boolean;
 }
 
 export const PLANOS: Record<PlanoTipo, Plano> = {
@@ -28,8 +34,8 @@ export const PLANOS: Record<PlanoTipo, Plano> = {
     nome: "Consulta CPF",
     preco: 19.99,
     precoLabel: "R$ 19,99",
-    badge: "Primeiro passo",
-    resumo: "Pix · cartão · resultado na hora",
+    badge: "Primeiro passo obrigatório",
+    resumo: "Descubra se você tem nome sujo, score, dívidas e credores",
     beneficios: [
       "Score de crédito atualizado",
       "Lista completa de pendências e credores",
@@ -41,44 +47,26 @@ export const PLANOS: Record<PlanoTipo, Plano> = {
     icon: FileSearch,
     rota: "/consultar",
   },
-  blindagem: {
-    tipo: "blindagem",
-    nome: "Blindagem mensal",
-    preco: 29.90,
-    precoLabel: "R$ 29,90",
-    recorrencia: "/mês",
-    badge: "Monitoramento contínuo",
-    resumo: "Pra quem já tem o nome limpo e quer manter assim",
-    beneficios: [
-      "Monitoramento diário do seu CPF",
-      "Alerta imediato no WhatsApp",
-      "Análise mensal de crédito",
-      "Relatório por email",
-      "Cancele quando quiser",
-    ],
-    ctaLabel: "Ativar blindagem",
-    icon: ShieldCheck,
-    rota: "/contratar?plano=blindagem",
-  },
   limpeza_desconto: {
     tipo: "limpeza_desconto",
-    nome: "Limpeza + Blindagem",
+    nome: "Limpeza + Blindagem 12 meses",
     preco: 480.01,
     precoLabel: "R$ 480,01",
-    badge: "Mais escolhido",
+    badge: "Solução completa",
     destaque: true,
-    resumo: "com desconto · já abate os R$ 19,99 da consulta",
+    resumo: "Limpa seu nome em até 20 dias úteis · sem quitar dívida",
     beneficios: [
       "Limpeza completa em até 20 dias úteis",
       "Você não precisa quitar a dívida",
-      "Blindagem de CPF inclusa por 12 meses",
+      "Blindagem de CPF 12 meses inclusa",
       "Painel online pra acompanhar o processo",
       "Consultor dedicado",
       "Atualizações por WhatsApp e email",
     ],
-    ctaLabel: "Quero limpar meu nome",
+    ctaLabel: "Limpar meu nome",
     icon: Sparkles,
     rota: "/contratar?plano=limpeza_desconto",
+    requerConsulta: true,
   },
 };
 
@@ -87,5 +75,5 @@ export function getPlano(tipo: PlanoTipo): Plano {
 }
 
 export function isPlanoTipo(value: string): value is PlanoTipo {
-  return value === "consulta" || value === "blindagem" || value === "limpeza_desconto";
+  return value === "consulta" || value === "limpeza_desconto";
 }

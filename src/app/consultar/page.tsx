@@ -37,7 +37,14 @@ function ConsultarWizard() {
   const [step, setStep] = useState<1 | 2 | 3>(initialStep as 1 | 2 | 3);
   const [loading, setLoading] = useState(false);
   const [polling, setPolling] = useState(false);
-  const [pollResult, setPollResult] = useState<{ paga: boolean; realizada: boolean; pdf_pronto: boolean } | null>(null);
+  const [pollResult, setPollResult] = useState<{
+    paga: boolean;
+    realizada: boolean;
+    pdf_pronto: boolean;
+    tem_pendencia: boolean | null;
+    qtd_pendencias: number | null;
+    total_dividas: number | null;
+  } | null>(null);
 
   const [form, setForm] = useState({
     cpf: initialCpf ? formatCPF(initialCpf) : "",
@@ -123,6 +130,9 @@ function ConsultarWizard() {
             paga: !!d.paga,
             realizada: !!d.realizada,
             pdf_pronto: !!d.pdf_pronto,
+            tem_pendencia: d.tem_pendencia ?? null,
+            qtd_pendencias: d.qtd_pendencias ?? null,
+            total_dividas: d.total_dividas ?? null,
           });
           if (d.realizada && d.pdf_pronto) {
             setPolling(false);
@@ -341,6 +351,80 @@ function ConsultarWizard() {
                     label="Relatório PDF gerado"
                   />
                 </ol>
+
+                {/* Upsell: tem pendência → CTA forte pra Limpeza */}
+                {pollResult?.realizada && pollResult.tem_pendencia === true && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="rounded-2xl bg-gradient-to-br from-forest-800 to-forest-900 p-6 sm:p-8 text-white border-2 border-brand-500/30 shadow-xl"
+                  >
+                    <span className="inline-flex items-center rounded-full bg-brand-500 text-white text-[10px] sm:text-xs font-bold px-3 py-1 uppercase tracking-wider">
+                      Recomendado pra você
+                    </span>
+                    <h3 className="mt-3 font-display text-2xl sm:text-3xl">
+                      Encontramos {pollResult.qtd_pendencias ?? "algumas"} pendência
+                      {(pollResult.qtd_pendencias ?? 0) > 1 ? "s" : ""} no seu CPF
+                    </h3>
+                    <p className="mt-2 text-sand-100 font-medium text-sm sm:text-base">
+                      {pollResult.total_dividas
+                        ? `Total em dívidas: R$ ${Number(pollResult.total_dividas).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}. `
+                        : ""}
+                      A boa notícia: a gente limpa tudo em até 20 dias úteis,
+                      sem você precisar quitar nada.
+                    </p>
+                    <div className="mt-5 grid grid-cols-2 gap-3 text-xs sm:text-sm font-semibold">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="size-4 text-brand-400 shrink-0" />
+                        Sem quitar dívida
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="size-4 text-brand-400 shrink-0" />
+                        20 dias úteis
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="size-4 text-brand-400 shrink-0" />
+                        Blindagem 12 meses
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="size-4 text-brand-400 shrink-0" />
+                        Painel pra acompanhar
+                      </div>
+                    </div>
+                    <div className="mt-5 flex items-baseline gap-2">
+                      <span className="font-display text-3xl sm:text-4xl">R$ 480,01</span>
+                      <span className="text-xs text-sand-200 font-semibold">à vista · 12x no cartão</span>
+                    </div>
+                    <Button
+                      onClick={() => router.push(`/contratar?plano=limpeza_desconto&cpf=${cleanCPF(form.cpf || initialCpf)}`)}
+                      size="lg"
+                      width="full"
+                      className="mt-5 bg-brand-500 hover:bg-brand-400 shadow-lg shadow-brand-500/40 text-base"
+                    >
+                      <Sparkles className="size-5" />
+                      Limpar meu nome agora
+                      <ArrowRight className="size-4" />
+                    </Button>
+                  </motion.div>
+                )}
+
+                {/* Sem pendência → mensagem positiva (sem upsell) */}
+                {pollResult?.realizada && pollResult.tem_pendencia === false && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="rounded-xl bg-emerald-50 border border-emerald-200 p-5"
+                  >
+                    <p className="font-bold text-emerald-800 text-base">
+                      🎉 Boa notícia: seu nome já está limpo!
+                    </p>
+                    <p className="text-sm text-emerald-700 font-medium mt-1">
+                      Não encontramos pendências no seu CPF. Continue mantendo as contas em
+                      dia.
+                    </p>
+                  </motion.div>
+                )}
 
                 <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-gray-100">
                   <Button

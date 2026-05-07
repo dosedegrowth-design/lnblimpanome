@@ -8,8 +8,9 @@ import { cleanCPF, isValidCPF } from "@/lib/utils";
  * Polling: cliente espera o resultado depois de pagar.
  * Lê LNB_Consultas pelo CPF e retorna o estado atual.
  *
- * Públicamente acessível mas só retorna campos seguros (sem score nem pendências
- * antes de pagar — esses ficam só na área logada).
+ * Públicamente acessível mas só retorna campos seguros (sem score nem credores
+ * — esses ficam só na área logada). Retorna tem_pendencia + qtd_pendencias pra
+ * o upsell de Limpeza após resultado positivo.
  */
 export async function GET(
   _req: Request,
@@ -29,13 +30,27 @@ export async function GET(
   }
 
   const consulta = (data as { consulta: unknown })?.consulta as
-    | { consulta_paga?: boolean; tem_pendencia?: boolean; pdf_url?: string }
+    | {
+        consulta_paga?: boolean;
+        tem_pendencia?: boolean;
+        qtd_pendencias?: number;
+        total_dividas?: number;
+        pdf_url?: string;
+      }
     | null;
+
+  const realizada =
+    !!consulta &&
+    consulta.tem_pendencia !== null &&
+    consulta.tem_pendencia !== undefined;
 
   return NextResponse.json({
     ok: true,
     paga: !!consulta?.consulta_paga,
-    realizada: !!consulta && consulta.tem_pendencia !== null && consulta.tem_pendencia !== undefined,
+    realizada,
     pdf_pronto: !!consulta?.pdf_url,
+    tem_pendencia: realizada ? !!consulta?.tem_pendencia : null,
+    qtd_pendencias: consulta?.qtd_pendencias ?? null,
+    total_dividas: consulta?.total_dividas ?? null,
   });
 }
