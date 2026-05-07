@@ -83,14 +83,14 @@ export function HeroVisual() {
         </motion.div>
       </motion.div>
 
-      {/* Badge flutuante — escondido em mobile */}
+      {/* Badge flutuante — bottom-right pra não cobrir o badge "Pendências" no topo */}
       <motion.div
-        initial={{ opacity: 0, scale: 0, x: 30, y: -30 }}
+        initial={{ opacity: 0, scale: 0, x: 20, y: 20 }}
         animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
         transition={{ delay: 1.2, duration: 0.6, type: "spring" }}
-        className="hidden sm:grid animate-float absolute -top-6 -right-6 size-20 lg:size-24 rounded-2xl bg-forest-800 place-items-center shadow-2xl shadow-forest-800/40 border-4 border-white"
+        className="hidden lg:grid animate-float absolute -bottom-8 -right-8 size-20 xl:size-24 rounded-2xl bg-forest-800 place-items-center shadow-2xl shadow-forest-800/40 border-4 border-white pointer-events-none"
       >
-        <ShieldCheck className="size-8 lg:size-10 text-brand-400" />
+        <ShieldCheck className="size-8 xl:size-10 text-brand-400" />
       </motion.div>
 
       <motion.div

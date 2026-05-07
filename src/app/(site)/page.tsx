@@ -45,21 +45,21 @@ export default function HomePage() {
               </Reveal>
 
               <Reveal delay={0.3}>
-                <div className="mt-6 sm:mt-10 flex flex-col sm:flex-row gap-3 max-w-md mx-auto lg:mx-0">
+                <div className="mt-6 sm:mt-10 flex flex-col sm:flex-row gap-3 mx-auto lg:mx-0 w-full max-w-md sm:max-w-none">
                   <Link
                     href="/consultar"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-600 px-5 sm:px-7 h-12 sm:h-14 text-sm sm:text-base font-bold text-white shadow-lg shadow-brand-500/30 hover:shadow-xl hover:-translate-y-0.5 transition-all animate-pulse-glow"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-600 px-5 sm:px-7 h-12 sm:h-14 text-[15px] sm:text-base font-bold text-white shadow-lg shadow-brand-500/30 hover:shadow-xl hover:-translate-y-0.5 transition-all animate-pulse-glow whitespace-nowrap"
                   >
-                    <CpfIcon size={20} className="size-4 sm:size-5" />
+                    <CpfIcon size={20} className="size-4 sm:size-5 shrink-0" />
                     Consultar meu CPF
                   </Link>
                   <a
                     href={WHATSAPP}
                     target="_blank"
                     rel="noopener"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white/70 backdrop-blur hover:border-forest-500 hover:bg-white px-5 sm:px-7 h-12 sm:h-14 text-sm sm:text-base font-bold text-forest-800 transition"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white/70 backdrop-blur hover:border-forest-500 hover:bg-white px-5 sm:px-7 h-12 sm:h-14 text-[15px] sm:text-base font-bold text-forest-800 transition whitespace-nowrap"
                   >
-                    <WhatsAppIcon size={20} className="size-4 sm:size-5 text-[#25D366]" />
+                    <WhatsAppIcon size={20} className="size-4 sm:size-5 text-[#25D366] shrink-0" />
                     Falar com consultor
                   </a>
                 </div>
@@ -351,13 +351,13 @@ export default function HomePage() {
                 <p className="text-brand-50 font-semibold text-base sm:text-lg lg:text-xl mb-6 sm:mb-10 max-w-2xl mx-auto text-pretty">
                   Mais de 10 mil pessoas já voltaram a ter crédito com a LNB. Sua vez.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-md mx-auto">
-                  <Link href="/consultar" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white text-brand-700 hover:bg-sand-50 px-6 sm:px-8 h-12 sm:h-14 font-bold text-sm sm:text-base shadow-lg transition-all hover:-translate-y-0.5">
-                    <CpfIcon size={20} className="size-4 sm:size-5" />
+                <div className="flex flex-col sm:flex-row gap-3 justify-center w-full max-w-md sm:max-w-none mx-auto">
+                  <Link href="/consultar" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white text-brand-700 hover:bg-sand-50 px-6 sm:px-8 h-12 sm:h-14 font-bold text-[15px] sm:text-base shadow-lg transition-all hover:-translate-y-0.5 whitespace-nowrap">
+                    <CpfIcon size={20} className="size-4 sm:size-5 shrink-0" />
                     Consultar meu CPF
                   </Link>
-                  <a href={WHATSAPP} target="_blank" rel="noopener" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 backdrop-blur border border-white/30 text-white hover:bg-white/20 px-6 sm:px-8 h-12 sm:h-14 font-bold text-sm sm:text-base transition">
-                    <WhatsAppIcon size={20} className="size-4 sm:size-5" />
+                  <a href={WHATSAPP} target="_blank" rel="noopener" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 backdrop-blur border border-white/30 text-white hover:bg-white/20 px-6 sm:px-8 h-12 sm:h-14 font-bold text-[15px] sm:text-base transition whitespace-nowrap">
+                    <WhatsAppIcon size={20} className="size-4 sm:size-5 shrink-0" />
                     Falar no WhatsApp
                   </a>
                 </div>
