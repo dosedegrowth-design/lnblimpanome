@@ -23,17 +23,19 @@ export function SiteHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  function close() { setOpen(false); }
+
   return (
     <header
       className={cn(
         "sticky top-0 z-40 w-full transition-all duration-300",
-        scrolled
-          ? "border-b border-gray-200 bg-white/85 backdrop-blur-md shadow-sm"
+        scrolled || open
+          ? "border-b border-gray-200 bg-white/95 backdrop-blur-md shadow-sm"
           : "bg-transparent"
       )}
     >
-      <div className="mx-auto flex h-18 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 py-3">
-        <Logo height={42} priority />
+      <div className="mx-auto flex h-16 sm:h-18 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 py-2 sm:py-3 gap-3">
+        <Logo height={36} priority />
 
         <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-700">
           {navItems.map((it) => (
@@ -57,8 +59,9 @@ export function SiteHeader() {
 
         <button
           onClick={() => setOpen(!open)}
-          className="md:hidden p-2 rounded-md hover:bg-gray-100"
-          aria-label="Menu"
+          className="md:hidden p-2 -mr-2 rounded-md hover:bg-gray-100"
+          aria-label={open ? "Fechar menu" : "Abrir menu"}
+          aria-expanded={open}
         >
           {open ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
@@ -66,16 +69,16 @@ export function SiteHeader() {
 
       {open && (
         <div className="md:hidden border-t border-gray-200 bg-white">
-          <nav className="px-4 py-4 flex flex-col gap-3 text-sm font-medium">
+          <nav className="px-4 py-4 flex flex-col gap-1 text-sm font-medium">
             {navItems.map((it) => (
-              <Link key={it.href} href={it.href} onClick={() => setOpen(false)} className="py-2 text-gray-700 hover:text-brand-600">
+              <Link key={it.href} href={it.href} onClick={close} className="py-3 px-2 text-gray-700 hover:text-brand-600 hover:bg-gray-50 rounded-md">
                 {it.label}
               </Link>
             ))}
-            <Link href="/conta" onClick={() => setOpen(false)} className="py-2 text-gray-700 hover:text-brand-600">
+            <Link href="/conta" onClick={close} className="py-3 px-2 text-gray-700 hover:text-brand-600 hover:bg-gray-50 rounded-md">
               Área do Cliente
             </Link>
-            <Link href="/consultar" onClick={() => setOpen(false)} className="mt-2 text-center rounded-lg bg-brand-500 hover:bg-brand-600 text-white py-3 font-semibold">
+            <Link href="/consultar" onClick={close} className="mt-2 text-center rounded-lg bg-brand-500 hover:bg-brand-600 text-white py-3 font-semibold shadow-md shadow-brand-500/25">
               Consultar agora
             </Link>
           </nav>
