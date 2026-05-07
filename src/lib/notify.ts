@@ -44,7 +44,7 @@ export async function notificarMudancaEtapa(i: NotifyEtapaInput) {
     const texto = `*${tpl.titulo}*\n\n${tpl.corpo}${
       i.mensagemExtra ? "\n\n" + i.mensagemExtra : ""
     }\n\nAcesse sua conta: ${SITE}/conta/dashboard`;
-    const r = await sendWhatsApp(i.cliente.telefone, texto);
+    const r = await sendWhatsApp(i.cliente.telefone, texto, i.cliente.nome);
     result.whatsapp = r.ok;
   }
 
