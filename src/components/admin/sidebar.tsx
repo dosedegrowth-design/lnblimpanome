@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Users, FileSearch, ShieldCheck,
+  LayoutDashboard, Users, FileSearch, ShieldCheck, Briefcase,
   Wallet, Settings as SettingsIcon, LogOut, UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -10,12 +10,13 @@ import { Logo } from "@/components/brand/logo";
 import { createClient } from "@/lib/supabase/client";
 
 const items = [
-  { href: "/painel/dashboard",   label: "Dashboard",   icon: LayoutDashboard },
-  { href: "/painel/leads",       label: "Leads & CRM", icon: Users },
-  { href: "/painel/consultas",   label: "Consultas",   icon: FileSearch },
-  { href: "/painel/blindagem",   label: "Blindagem",   icon: ShieldCheck },
-  { href: "/painel/financeiro",  label: "Financeiro",  icon: Wallet },
-  { href: "/painel/equipe",      label: "Equipe",      icon: UserCog },
+  { href: "/painel/dashboard",     label: "Dashboard",     icon: LayoutDashboard },
+  { href: "/painel/processos",     label: "Processos",     icon: Briefcase },
+  { href: "/painel/leads",         label: "Leads & CRM",   icon: Users },
+  { href: "/painel/consultas",     label: "Consultas",     icon: FileSearch },
+  { href: "/painel/blindagem",     label: "Blindagem",     icon: ShieldCheck },
+  { href: "/painel/financeiro",    label: "Financeiro",    icon: Wallet },
+  { href: "/painel/equipe",        label: "Equipe",        icon: UserCog },
   { href: "/painel/configuracoes", label: "Configurações", icon: SettingsIcon },
 ];
 

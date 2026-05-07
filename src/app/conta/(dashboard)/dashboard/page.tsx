@@ -1,20 +1,15 @@
 import { redirect } from "next/navigation";
 import { getClienteSession, getClienteDashboardData } from "@/lib/auth/cliente";
+import { getClienteProcessos } from "@/lib/auth/cliente-processos";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Clock, FileText, ShieldCheck, ArrowRight, Sparkles, MessageCircle } from "lucide-react";
+import { CheckCircle2, FileText, ShieldCheck, ArrowRight, Sparkles, MessageCircle, Clock } from "lucide-react";
 import Link from "next/link";
 import type { CRMRow, ConsultaRow, BlindagemRow } from "@/lib/supabase/types";
+import { TIPOS_LABEL, getEtapa, getEtapas, type TipoServico } from "@/lib/processos";
+import { ProcessoTimelineCliente } from "./processo-timeline-cliente";
 
 export const dynamic = "force-dynamic";
-
-const ETAPAS = [
-  { id: "lead",          label: "Cadastro",         desc: "Você se cadastrou na LNB" },
-  { id: "consulta_paga", label: "Consulta paga",    desc: "Resultado do CPF disponível" },
-  { id: "fechou",        label: "Plano contratado", desc: "Limpeza + blindagem ativadas" },
-  { id: "fechado",       label: "Em andamento",     desc: "Equipe trabalhando na limpeza" },
-  { id: "concluido",     label: "Nome limpo",       desc: "Processo finalizado" },
-];
 
 const WHATSAPP =
   "https://wa.me/5511999999999?text=" +
@@ -24,79 +19,130 @@ export default async function ClienteDashboardPage() {
   const session = await getClienteSession();
   if (!session) redirect("/conta/login");
 
-  const data = await getClienteDashboardData(session.cpf);
-  const crm = data.crm as CRMRow | null;
-  const consulta = data.consulta as ConsultaRow | null;
-  const blindagem = data.blindagem as BlindagemRow | null;
-
-  let currentStage = 0;
-  if (crm) currentStage = 1;
-  if (consulta?.consulta_paga) currentStage = 2;
-  if (consulta?.fechou_limpeza) currentStage = 3;
-  if (crm?.Fechado) currentStage = 4;
-
-  const progressPct = ((currentStage + 1) / ETAPAS.length) * 100;
+  const [dash, processos] = await Promise.all([
+    getClienteDashboardData(session.cpf),
+    getClienteProcessos(session.cpf),
+  ]);
+  const crm = dash.crm as CRMRow | null;
+  const consulta = dash.consulta as ConsultaRow | null;
+  const blindagem = dash.blindagem as BlindagemRow | null;
 
   return (
     <div className="space-y-6">
-      <header className="bg-gradient-to-br from-forest-700 to-forest-900 rounded-2xl p-8 text-white relative overflow-hidden">
+      <header className="bg-gradient-to-br from-forest-700 to-forest-900 rounded-2xl p-6 sm:p-8 text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/15 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         <div className="relative">
-          <h1 className="font-display text-3xl">Olá, {session.nome.split(" ")[0]}!</h1>
-          <p className="text-sand-100/80 mt-1">Acompanhe seu processo de limpeza de nome.</p>
-
-          <div className="mt-5 flex items-center gap-3">
-            <div className="flex-1 h-2 rounded-full bg-white/15 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-brand-400 to-brand-300 transition-all duration-1000"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <span className="text-sm font-bold text-brand-300">{Math.round(progressPct)}%</span>
-          </div>
+          <h1 className="font-display text-2xl sm:text-3xl">Olá, {session.nome.split(" ")[0]}!</h1>
+          <p className="text-sand-100/80 mt-1 text-sm sm:text-base">
+            Acompanhe seus processos e atualizações em tempo real.
+          </p>
         </div>
       </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Seu processo</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ol className="space-y-1">
-            {ETAPAS.map((etapa, i) => {
-              const isDone = i < currentStage;
-              const isCurrent = i === currentStage;
-              return (
-                <li key={etapa.id} className="flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <div className={`size-10 rounded-full grid place-items-center transition-all font-bold text-sm ${
-                      isDone ? "bg-brand-500 text-white shadow-md shadow-brand-500/30" :
-                      isCurrent ? "bg-brand-100 text-brand-700 ring-4 ring-brand-50 shadow-sm" :
-                      "bg-gray-100 text-gray-400"
-                    }`}>
-                      {isDone ? <CheckCircle2 className="size-5" /> : (i + 1)}
-                    </div>
-                    {i < ETAPAS.length - 1 && (
-                      <div className={`w-0.5 h-12 mt-1 ${isDone ? "bg-brand-300" : "bg-gray-200"}`} />
-                    )}
-                  </div>
-                  <div className="pb-6 pt-1 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className={`font-bold ${isCurrent ? "text-brand-700" : isDone ? "text-forest-800" : "text-gray-400"}`}>
-                        {etapa.label}
-                      </p>
-                      {isCurrent && <Badge variant="brand">Etapa atual</Badge>}
-                      {isDone && <Badge variant="success">Concluída</Badge>}
-                    </div>
-                    <p className="text-sm text-gray-500 mt-0.5">{etapa.desc}</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        </CardContent>
-      </Card>
+      {/* Processos ativos com timeline */}
+      {processos.length > 0 && (
+        <div className="space-y-6">
+          {processos.map((p) => {
+            const etapas = getEtapas(p.tipo as TipoServico);
+            const etapaAtual = getEtapa(p.tipo as TipoServico, p.etapa);
+            const idxAtual = etapas.findIndex((e) => e.id === p.etapa);
+            const progressPct = ((idxAtual + 1) / etapas.length) * 100;
+            const finalizado = !!p.finalizado_em;
 
+            return (
+              <Card key={p.id} className="overflow-hidden">
+                <CardHeader className="flex flex-row items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                      {TIPOS_LABEL[p.tipo as TipoServico]}
+                    </p>
+                    <CardTitle className="mt-1">
+                      {finalizado ? "Processo concluído ✓" : "Em andamento"}
+                    </CardTitle>
+                  </div>
+                  {etapaAtual && (
+                    <Badge variant={finalizado ? "success" : "brand"} className="text-sm py-1 px-3">
+                      {etapaAtual.emoji} {etapaAtual.label}
+                    </Badge>
+                  )}
+                </CardHeader>
+
+                <CardContent className="space-y-5">
+                  {/* Barra de progresso */}
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-1000 ${
+                            finalizado
+                              ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
+                              : "bg-gradient-to-r from-brand-400 to-brand-500"
+                          }`}
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-forest-800">{Math.round(progressPct)}%</span>
+                    </div>
+
+                    {/* Mini stepper */}
+                    <ol className="flex gap-1.5 mt-3 overflow-x-auto pb-1">
+                      {etapas.map((e, i) => {
+                        const done = i <= idxAtual;
+                        return (
+                          <li key={e.id} className="flex-1 min-w-[60px]">
+                            <div
+                              className={`text-center text-[10px] font-semibold px-2 py-1.5 rounded-md transition ${
+                                done
+                                  ? "bg-brand-50 text-brand-700"
+                                  : "bg-gray-50 text-gray-400"
+                              }`}
+                            >
+                              {e.emoji} {e.label}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </div>
+
+                  {/* Arquivos */}
+                  {p.arquivos.length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">
+                        📎 Arquivos disponíveis
+                      </p>
+                      <ul className="space-y-2">
+                        {p.arquivos.map((a) => (
+                          <li
+                            key={a.id}
+                            className="flex items-center gap-3 p-3 rounded-lg bg-sand-50 border border-sand-200"
+                          >
+                            <FileText className="size-4 text-brand-600 shrink-0" />
+                            <span className="flex-1 text-sm font-semibold text-forest-800 truncate">
+                              {a.nome_arquivo}
+                            </span>
+                            <ArquivoLink id={a.id} />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Timeline */}
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-3">
+                      📜 Atualizações
+                    </p>
+                    <ProcessoTimelineCliente eventos={p.eventos} tipo={p.tipo as TipoServico} />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Cards rápidos */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="hover:shadow-md hover:-translate-y-0.5 transition-all">
           <CardContent className="p-6">
@@ -138,10 +184,8 @@ export default async function ClienteDashboardPage() {
                   Detalhes <ArrowRight className="size-3.5" />
                 </Link>
               </>
-            ) : blindagem ? (
-              <p className="text-sm text-gray-500">Pausada</p>
             ) : (
-              <p className="text-sm text-gray-500">Não contratada</p>
+              <p className="text-sm text-gray-500">{blindagem ? "Pausada" : "Não contratada"}</p>
             )}
           </CardContent>
         </Card>
@@ -151,16 +195,22 @@ export default async function ClienteDashboardPage() {
             <div className="size-12 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 grid place-items-center mb-4 shadow-md">
               <Clock className="size-6 text-white" />
             </div>
-            <h3 className="font-display text-lg text-forest-800 mb-1">Prazo</h3>
-            <p className="text-sm text-gray-500">
-              {currentStage >= 3 ? "Até 20 dias úteis" : "Aguardando contratação"}
-            </p>
+            <h3 className="font-display text-lg text-forest-800 mb-1">Suporte</h3>
+            <p className="text-sm text-gray-500 mb-3">Fale com nossa equipe</p>
+            <a
+              href={WHATSAPP}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 font-semibold"
+            >
+              <MessageCircle className="size-3.5" /> WhatsApp
+            </a>
           </CardContent>
         </Card>
       </div>
 
-      {/* Sugestão: fazer consulta */}
-      {!consulta && (
+      {/* Sugestão pra novos clientes */}
+      {processos.length === 0 && !consulta && (
         <Card className="bg-gradient-to-br from-brand-50 via-sand-50 to-brand-50 border-brand-200">
           <CardContent className="p-6 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-4">
@@ -179,8 +229,7 @@ export default async function ClienteDashboardPage() {
         </Card>
       )}
 
-      {/* Sugestão: contratar limpeza */}
-      {consulta?.tem_pendencia && currentStage < 3 && (
+      {processos.length === 0 && consulta?.tem_pendencia && (
         <Card className="bg-gradient-to-br from-red-50 via-amber-50/50 to-red-50 border-red-200">
           <CardContent className="p-6">
             <div className="flex items-start gap-4 flex-wrap">
@@ -206,6 +255,41 @@ export default async function ClienteDashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {processos.length > 0 && processos.every((p) => p.finalizado_em) && (
+        <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200">
+          <CardContent className="p-6 flex items-start gap-4">
+            <CheckCircle2 className="size-10 text-emerald-600 shrink-0" />
+            <div>
+              <p className="font-bold text-emerald-800">Todos os seus processos foram concluídos! 🎉</p>
+              <p className="text-sm text-gray-700 mt-1">
+                Acesse os arquivos acima a qualquer momento. Caso precise de algo, fale com nossa equipe.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
+  );
+}
+
+function ArquivoLink({ id }: { id: string }) {
+  return (
+    <a
+      href={`/api/cliente/arquivo-url/${id}`}
+      target="_blank"
+      rel="noopener"
+      onClick={async (e) => {
+        e.preventDefault();
+        try {
+          const r = await fetch(`/api/cliente/arquivo-url/${id}`);
+          const d = await r.json();
+          if (d.ok && d.url) window.open(d.url, "_blank");
+        } catch {}
+      }}
+      className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold transition shrink-0"
+    >
+      Baixar
+    </a>
   );
 }
