@@ -23,7 +23,7 @@ export function HeroVisual() {
             <FileSearch className="size-5 sm:size-6 text-white" />
           </motion.div>
           <div className="min-w-0 flex-1">
-            <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Relatório</p>
+            <p className="text-[9px] sm:text-[10px] text-gray-700 uppercase tracking-wider font-bold">Relatório</p>
             <p className="font-display text-base sm:text-lg text-forest-800 truncate">Consulta CPF</p>
           </div>
           <motion.span
@@ -37,7 +37,7 @@ export function HeroVisual() {
         </div>
 
         <div className="mt-4 sm:mt-6">
-          <p className="text-[10px] sm:text-xs text-gray-500 uppercase font-semibold tracking-wider">Score de crédito</p>
+          <p className="text-[10px] sm:text-xs text-gray-700 uppercase font-bold tracking-wider">Score de crédito</p>
           <motion.p
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -58,12 +58,12 @@ export function HeroVisual() {
 
         <div className="grid grid-cols-2 gap-3 sm:gap-4 pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-gray-100 text-xs sm:text-sm">
           <div>
-            <p className="text-gray-500 text-[10px] sm:text-xs uppercase tracking-wider">Pendências</p>
-            <p className="font-bold text-forest-800 text-base sm:text-lg mt-0.5 sm:mt-1">3 credores</p>
+            <p className="text-gray-700 font-bold text-[10px] sm:text-xs uppercase tracking-wider">Pendências</p>
+            <p className="font-extrabold text-forest-800 text-base sm:text-lg mt-0.5 sm:mt-1">3 credores</p>
           </div>
           <div>
-            <p className="text-gray-500 text-[10px] sm:text-xs uppercase tracking-wider">Total débitos</p>
-            <p className="font-bold text-forest-800 text-base sm:text-lg mt-0.5 sm:mt-1">R$ 4.872</p>
+            <p className="text-gray-700 font-bold text-[10px] sm:text-xs uppercase tracking-wider">Total débitos</p>
+            <p className="font-extrabold text-forest-800 text-base sm:text-lg mt-0.5 sm:mt-1">R$ 4.872</p>
           </div>
         </div>
 
@@ -75,10 +75,10 @@ export function HeroVisual() {
         >
           <div className="flex items-center gap-2 mb-1">
             <TrendingUp className="size-3.5 sm:size-4 text-brand-600" />
-            <p className="text-[10px] sm:text-xs font-bold text-brand-800 uppercase tracking-wide">Solução LNB</p>
+            <p className="text-[10px] sm:text-xs font-extrabold text-brand-800 uppercase tracking-wide">Solução LNB</p>
           </div>
-          <p className="text-xs sm:text-sm text-forest-800 font-medium leading-relaxed">
-            Limpamos seu nome em até <strong>20 dias úteis</strong>
+          <p className="text-xs sm:text-sm text-forest-800 font-semibold leading-relaxed">
+            Limpamos seu nome em até <strong className="font-extrabold">20 dias úteis</strong>
           </p>
         </motion.div>
       </motion.div>

@@ -1,15 +1,16 @@
 import Link from "next/link";
 import {
   ShieldCheck, FileSearch, Sparkles, CheckCircle2,
-  Clock, Lock, MessageCircle, Zap, Award, Users, TrendingUp,
+  Clock, Lock, Award, Users, TrendingUp,
 } from "lucide-react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/reveal";
 import { Counter } from "@/components/motion/counter";
 import { HeroVisual } from "@/components/site/hero-visual";
+import { CpfIcon } from "@/components/icons/cpf-icon";
+import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
+import { whatsappLink } from "@/lib/contato";
 
-const WHATSAPP =
-  "https://wa.me/5511999999999?text=" +
-  encodeURIComponent("Olá! Quero limpar meu nome com a LNB.");
+const WHATSAPP = whatsappLink("Olá! Quero limpar meu nome com a LNB.");
 
 export default function HomePage() {
   return (
@@ -22,7 +23,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-center">
             <div className="lg:col-span-7 text-center lg:text-left">
               <Reveal>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 backdrop-blur border border-brand-200 px-3 py-1 text-[11px] sm:text-xs font-semibold text-brand-700 shadow-sm">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 backdrop-blur border border-brand-200 px-3 py-1 text-[11px] sm:text-xs font-bold text-brand-700 shadow-sm">
                   <Sparkles className="size-3 sm:size-3.5" />
                   100% digital · resultado em minutos
                 </span>
@@ -37,9 +38,9 @@ export default function HomePage() {
               </Reveal>
 
               <Reveal delay={0.2}>
-                <p className="mt-4 sm:mt-6 text-base sm:text-lg lg:text-xl text-gray-600 max-w-xl mx-auto lg:mx-0 leading-relaxed text-pretty">
+                <p className="mt-4 sm:mt-6 text-base sm:text-lg lg:text-xl text-gray-700 font-medium max-w-xl mx-auto lg:mx-0 leading-relaxed text-pretty">
                   Consulte seu CPF, limpe seu nome e ative blindagem de crédito
-                  em poucos minutos. <strong className="text-forest-700">Sem precisar quitar a dívida.</strong>
+                  em poucos minutos. <strong className="text-forest-700 font-bold">Sem precisar quitar a dívida.</strong>
                 </p>
               </Reveal>
 
@@ -47,18 +48,18 @@ export default function HomePage() {
                 <div className="mt-6 sm:mt-10 flex flex-col sm:flex-row gap-3 max-w-md mx-auto lg:mx-0">
                   <Link
                     href="/consultar"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-600 px-5 sm:px-7 h-12 sm:h-14 text-sm sm:text-base font-semibold text-white shadow-lg shadow-brand-500/30 hover:shadow-xl hover:-translate-y-0.5 transition-all animate-pulse-glow"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-600 px-5 sm:px-7 h-12 sm:h-14 text-sm sm:text-base font-bold text-white shadow-lg shadow-brand-500/30 hover:shadow-xl hover:-translate-y-0.5 transition-all animate-pulse-glow"
                   >
-                    <Zap className="size-4 sm:size-5" />
+                    <CpfIcon size={20} className="size-4 sm:size-5" />
                     Consultar meu CPF
                   </Link>
                   <a
                     href={WHATSAPP}
                     target="_blank"
                     rel="noopener"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white/70 backdrop-blur hover:border-forest-500 hover:bg-white px-5 sm:px-7 h-12 sm:h-14 text-sm sm:text-base font-semibold text-forest-800 transition"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white/70 backdrop-blur hover:border-forest-500 hover:bg-white px-5 sm:px-7 h-12 sm:h-14 text-sm sm:text-base font-bold text-forest-800 transition"
                   >
-                    <MessageCircle className="size-4 sm:size-5" />
+                    <WhatsAppIcon size={20} className="size-4 sm:size-5 text-[#25D366]" />
                     Falar com consultor
                   </a>
                 </div>
@@ -71,7 +72,7 @@ export default function HomePage() {
                     "Resultado em minutos",
                     "Blindagem inclusa",
                   ].map((t) => (
-                    <li key={t} className="flex items-center gap-2 text-gray-700 justify-center lg:justify-start">
+                    <li key={t} className="flex items-center gap-2 text-forest-800 font-semibold justify-center lg:justify-start">
                       <span className="size-5 rounded-full bg-brand-100 grid place-items-center shrink-0">
                         <CheckCircle2 className="size-3 text-brand-600" />
                       </span>
@@ -103,7 +104,7 @@ export default function HomePage() {
                 <p className="font-display text-3xl sm:text-4xl lg:text-5xl text-forest-800">
                   <Counter to={s.value} suffix={s.suffix} decimals={s.decimals} />
                 </p>
-                <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-500">{s.label}</p>
+                <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-700 font-semibold">{s.label}</p>
               </Reveal>
             ))}
           </div>
@@ -124,8 +125,8 @@ export default function HomePage() {
                   <it.icon className="size-4 sm:size-5 text-brand-600" />
                 </div>
                 <div className="min-w-0">
-                  <p className="font-semibold text-forest-800 text-sm sm:text-base">{it.title}</p>
-                  <p className="text-gray-500 text-xs mt-0.5">{it.desc}</p>
+                  <p className="font-bold text-forest-800 text-sm sm:text-base">{it.title}</p>
+                  <p className="text-gray-700 font-medium text-xs mt-0.5">{it.desc}</p>
                 </div>
               </StaggerItem>
             ))}
@@ -137,11 +138,11 @@ export default function HomePage() {
       <section id="como-funciona" className="py-16 sm:py-24 lg:py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <Reveal className="text-center max-w-2xl mx-auto mb-10 sm:mb-16">
-            <span className="text-brand-600 font-semibold text-xs sm:text-sm uppercase tracking-widest">Como funciona</span>
+            <span className="text-brand-600 font-bold text-xs sm:text-sm uppercase tracking-widest">Como funciona</span>
             <h2 className="mt-2 sm:mt-3 font-display text-3xl sm:text-4xl lg:text-5xl text-forest-800 text-balance">
               Três passos pra <span className="text-brand-500">limpar seu nome</span>
             </h2>
-            <p className="mt-3 sm:mt-4 text-gray-600 text-base sm:text-lg text-pretty px-2">
+            <p className="mt-3 sm:mt-4 text-gray-700 font-medium text-base sm:text-lg text-pretty px-2">
               Sem burocracia, sem sair de casa, sem ter que negociar com credor.
             </p>
           </Reveal>
@@ -161,7 +162,7 @@ export default function HomePage() {
                     </div>
                   </div>
                   <h3 className="font-display text-xl sm:text-2xl text-forest-800 mb-2 sm:mb-3">{step.t}</h3>
-                  <p className="text-gray-600 leading-relaxed text-pretty text-sm sm:text-base">{step.d}</p>
+                  <p className="text-gray-700 font-medium leading-relaxed text-pretty text-sm sm:text-base">{step.d}</p>
                 </div>
               </StaggerItem>
             ))}
@@ -175,25 +176,25 @@ export default function HomePage() {
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <Reveal className="text-center max-w-2xl mx-auto mb-8 sm:mb-14">
-            <span className="text-brand-600 font-semibold text-xs sm:text-sm uppercase tracking-widest">Investimento</span>
+            <span className="text-brand-600 font-bold text-xs sm:text-sm uppercase tracking-widest">Investimento</span>
             <h2 className="mt-2 sm:mt-3 font-display text-3xl sm:text-4xl lg:text-5xl text-forest-800 text-balance">
               Preços <span className="text-brand-500">transparentes</span>
             </h2>
-            <p className="mt-3 sm:mt-4 text-gray-600 text-base sm:text-lg px-2">Você sabe exatamente o que está pagando, antes de pagar.</p>
+            <p className="mt-3 sm:mt-4 text-gray-700 font-medium text-base sm:text-lg px-2">Você sabe exatamente o que está pagando, antes de pagar.</p>
           </Reveal>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 max-w-5xl mx-auto">
             <Reveal>
               <div className="h-full p-6 sm:p-8 lg:p-10 rounded-2xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition">
-                <span className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-widest">Primeiro passo</span>
+                <span className="text-[10px] sm:text-xs font-bold text-gray-700 uppercase tracking-widest">Primeiro passo</span>
                 <h3 className="mt-1.5 sm:mt-2 font-display text-2xl sm:text-3xl text-forest-800">Consulta CPF</h3>
                 <div className="mt-4 sm:mt-6 flex items-baseline gap-1">
                   <span className="font-display text-4xl sm:text-5xl lg:text-6xl text-forest-800">R$ 19</span>
                   <span className="font-display text-2xl sm:text-3xl text-forest-800">,99</span>
                 </div>
-                <p className="text-xs sm:text-sm text-gray-500 mt-1">Pix · cartão · resultado na hora</p>
+                <p className="text-xs sm:text-sm text-gray-700 font-semibold mt-1">Pix · cartão · resultado na hora</p>
 
-                <ul className="mt-6 sm:mt-8 space-y-2.5 sm:space-y-3 text-sm text-gray-700">
+                <ul className="mt-6 sm:mt-8 space-y-2.5 sm:space-y-3 text-sm text-gray-800 font-semibold">
                   {[
                     "Score de crédito atualizado",
                     "Lista completa de pendências e credores",
@@ -208,7 +209,8 @@ export default function HomePage() {
                   ))}
                 </ul>
 
-                <Link href="/consultar" className="mt-6 sm:mt-8 block text-center rounded-xl border-2 border-brand-300 text-brand-700 hover:bg-brand-50 hover:border-brand-500 px-6 h-11 sm:h-12 leading-[2.75rem] sm:leading-[3rem] font-semibold transition-all text-sm sm:text-base">
+                <Link href="/consultar" className="mt-6 sm:mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-brand-300 text-brand-700 hover:bg-brand-50 hover:border-brand-500 px-6 h-11 sm:h-12 font-bold transition-all text-sm sm:text-base">
+                  <CpfIcon size={18} className="size-4 sm:size-5" />
                   Consultar agora
                 </Link>
               </div>
@@ -227,9 +229,9 @@ export default function HomePage() {
                   <span className="font-display text-4xl sm:text-5xl lg:text-6xl text-white">R$ 480</span>
                   <span className="font-display text-2xl sm:text-3xl text-white">,01</span>
                 </div>
-                <p className="text-xs sm:text-sm text-sand-200/70 mt-1">com desconto · já abate os R$ 19,99 da consulta</p>
+                <p className="text-xs sm:text-sm text-sand-200/90 font-semibold mt-1">com desconto · já abate os R$ 19,99 da consulta</p>
 
-                <ul className="mt-6 sm:mt-8 space-y-2.5 sm:space-y-3 text-sm text-sand-100">
+                <ul className="mt-6 sm:mt-8 space-y-2.5 sm:space-y-3 text-sm text-sand-100 font-semibold">
                   {[
                     "Limpeza completa em até 20 dias úteis",
                     "Você não precisa quitar a dívida",
@@ -245,7 +247,8 @@ export default function HomePage() {
                   ))}
                 </ul>
 
-                <a href={WHATSAPP} target="_blank" rel="noopener" className="mt-6 sm:mt-8 block text-center rounded-xl bg-brand-500 hover:bg-brand-400 text-white px-6 h-11 sm:h-12 leading-[2.75rem] sm:leading-[3rem] font-semibold shadow-lg shadow-brand-500/40 transition-all text-sm sm:text-base">
+                <a href={WHATSAPP} target="_blank" rel="noopener" className="mt-6 sm:mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-white px-6 h-11 sm:h-12 font-bold shadow-lg shadow-brand-500/40 transition-all text-sm sm:text-base">
+                  <WhatsAppIcon size={18} className="size-4 sm:size-5" />
                   Quero limpar meu nome
                 </a>
               </div>
@@ -264,7 +267,7 @@ export default function HomePage() {
                   <div className="absolute top-0 right-0 w-48 sm:w-64 h-48 sm:h-64 bg-brand-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
                   <ShieldCheck className="size-12 sm:size-14 mb-4 sm:mb-5 text-brand-300 relative" />
                   <h2 className="relative font-display text-3xl sm:text-4xl mb-3 sm:mb-4">Blindagem de CPF</h2>
-                  <p className="relative text-sand-100/90 leading-relaxed text-base sm:text-lg">
+                  <p className="relative text-sand-100 font-medium leading-relaxed text-base sm:text-lg">
                     Inclusa em todo plano de limpeza. Monitoramos seu CPF
                     diariamente e te avisamos no WhatsApp se aparecer
                     qualquer nova pendência.
@@ -273,18 +276,18 @@ export default function HomePage() {
 
                 <div className="p-8 sm:p-10 lg:p-14 bg-white space-y-4 sm:space-y-5">
                   {[
-                    { icon: Zap,           t: "Verificação automática diária",  d: "Cron 24/7 monitora seu CPF" },
-                    { icon: MessageCircle, t: "Alerta imediato no WhatsApp",     d: "Saiba antes de qualquer credor" },
-                    { icon: Users,         t: "Análise de novas pendências",     d: "Consultor dedicado avalia e age" },
-                    { icon: Award,         t: "Histórico mensal por email",      d: "Relatório completo todo mês" },
+                    { icon: Clock,       t: "Verificação automática diária",  d: "Cron 24/7 monitora seu CPF" },
+                    { icon: WhatsAppIcon as React.ComponentType<{ className?: string }>, t: "Alerta imediato no WhatsApp", d: "Saiba antes de qualquer credor" },
+                    { icon: Users,       t: "Análise de novas pendências",     d: "Consultor dedicado avalia e age" },
+                    { icon: Award,       t: "Histórico mensal por email",      d: "Relatório completo todo mês" },
                   ].map((b) => (
                     <div key={b.t} className="flex items-start gap-3 sm:gap-4">
                       <div className="size-10 sm:size-11 rounded-xl bg-brand-50 grid place-items-center shrink-0">
                         <b.icon className="size-4 sm:size-5 text-brand-600" />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-forest-800 text-sm sm:text-base">{b.t}</p>
-                        <p className="text-xs sm:text-sm text-gray-500 mt-0.5">{b.d}</p>
+                        <p className="font-bold text-forest-800 text-sm sm:text-base">{b.t}</p>
+                        <p className="text-xs sm:text-sm text-gray-700 font-medium mt-0.5">{b.d}</p>
                       </div>
                     </div>
                   ))}
@@ -299,7 +302,7 @@ export default function HomePage() {
       <section id="faq" className="py-16 sm:py-24 lg:py-32 bg-sand-50">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <Reveal className="text-center mb-8 sm:mb-14">
-            <span className="text-brand-600 font-semibold text-xs sm:text-sm uppercase tracking-widest">Dúvidas</span>
+            <span className="text-brand-600 font-bold text-xs sm:text-sm uppercase tracking-widest">Dúvidas</span>
             <h2 className="mt-2 sm:mt-3 font-display text-3xl sm:text-4xl lg:text-5xl text-forest-800">Perguntas frequentes</h2>
           </Reveal>
 
@@ -320,11 +323,11 @@ export default function HomePage() {
             ].map((item, i) => (
               <StaggerItem key={i}>
                 <details className="group rounded-xl border border-sand-300/60 bg-white p-4 sm:p-5 lg:p-6 open:shadow-lg open:border-brand-300 transition-all">
-                  <summary className="flex justify-between items-center cursor-pointer font-semibold text-forest-800 list-none gap-3 text-sm sm:text-base">
+                  <summary className="flex justify-between items-center cursor-pointer font-bold text-forest-800 list-none gap-3 text-sm sm:text-base">
                     <span className="flex-1">{item.q}</span>
                     <span className="size-7 rounded-full bg-brand-50 grid place-items-center text-brand-600 group-open:bg-brand-500 group-open:text-white group-open:rotate-45 transition-all shrink-0 text-lg">+</span>
                   </summary>
-                  <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-600 leading-relaxed text-pretty">{item.a}</p>
+                  <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-700 font-medium leading-relaxed text-pretty">{item.a}</p>
                 </details>
               </StaggerItem>
             ))}
@@ -345,16 +348,16 @@ export default function HomePage() {
                 <h2 className="font-display text-3xl sm:text-4xl lg:text-6xl text-white mb-3 sm:mb-5 text-balance">
                   Pronto pra recomeçar?
                 </h2>
-                <p className="text-brand-50 text-base sm:text-lg lg:text-xl mb-6 sm:mb-10 max-w-2xl mx-auto text-pretty">
+                <p className="text-brand-50 font-semibold text-base sm:text-lg lg:text-xl mb-6 sm:mb-10 max-w-2xl mx-auto text-pretty">
                   Mais de 10 mil pessoas já voltaram a ter crédito com a LNB. Sua vez.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-md mx-auto">
-                  <Link href="/consultar" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white text-brand-700 hover:bg-sand-50 px-6 sm:px-8 h-12 sm:h-14 font-semibold text-sm sm:text-base shadow-lg transition-all hover:-translate-y-0.5">
-                    <Zap className="size-4 sm:size-5" />
+                  <Link href="/consultar" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white text-brand-700 hover:bg-sand-50 px-6 sm:px-8 h-12 sm:h-14 font-bold text-sm sm:text-base shadow-lg transition-all hover:-translate-y-0.5">
+                    <CpfIcon size={20} className="size-4 sm:size-5" />
                     Consultar meu CPF
                   </Link>
-                  <a href={WHATSAPP} target="_blank" rel="noopener" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 backdrop-blur border border-white/30 text-white hover:bg-white/20 px-6 sm:px-8 h-12 sm:h-14 font-semibold text-sm sm:text-base transition">
-                    <MessageCircle className="size-4 sm:size-5" />
+                  <a href={WHATSAPP} target="_blank" rel="noopener" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 backdrop-blur border border-white/30 text-white hover:bg-white/20 px-6 sm:px-8 h-12 sm:h-14 font-bold text-sm sm:text-base transition">
+                    <WhatsAppIcon size={20} className="size-4 sm:size-5" />
                     Falar no WhatsApp
                   </a>
                 </div>

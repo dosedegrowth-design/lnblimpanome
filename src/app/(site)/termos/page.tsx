@@ -102,7 +102,7 @@ export default function TermosPage() {
             </a>
             <br />
             WhatsApp:{" "}
-            <a href="https://wa.me/5511999999999" target="_blank" rel="noopener" className="text-brand-600 hover:underline">
+            <a href="https://wa.me/5541996171780" target="_blank" rel="noopener" className="text-brand-600 hover:underline">
               clique aqui
             </a>
           </p>
