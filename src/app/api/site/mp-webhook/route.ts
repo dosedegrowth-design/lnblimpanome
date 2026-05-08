@@ -4,6 +4,7 @@ import type { APIFullResultado } from "@/lib/api-full";
 import { consultarCPF, parseConsulta } from "@/lib/api-full";
 import { createClient } from "@/lib/supabase/server";
 import { cleanCPF } from "@/lib/utils";
+import { verifyMpWebhookSignature } from "@/lib/mp-webhook-signature";
 
 /**
  * POST /api/site/mp-webhook
@@ -36,6 +37,20 @@ export async function POST(req: Request) {
   if (!paymentId) {
     console.error("[mp-webhook] sem paymentId. body:", body, "query:", url.search);
     return NextResponse.json({ ok: true, ignored: "no_payment_id" });
+  }
+
+  // Validação HMAC com a assinatura secreta do MP
+  const sigCheck = verifyMpWebhookSignature({
+    xSignature: req.headers.get("x-signature"),
+    xRequestId: req.headers.get("x-request-id"),
+    dataId: paymentId,
+  });
+  if (!sigCheck.valid) {
+    console.error("[mp-webhook] assinatura inválida:", sigCheck.reason);
+    return NextResponse.json(
+      { ok: false, error: "invalid_signature", reason: sigCheck.reason },
+      { status: 401 }
+    );
   }
 
   let payment;
