@@ -38,6 +38,12 @@ export async function gerarESalvarRelatorio(
 
     return { ok: true, pdfUrl: urlData.publicUrl, path };
   } catch (e) {
-    return { ok: false, error: String(e) };
+    // Log detalhado pra debug em prod
+    const errMsg =
+      e instanceof Error
+        ? `${e.name}: ${e.message}${e.stack ? "\n" + e.stack.split("\n").slice(0, 5).join("\n") : ""}`
+        : String(e);
+    console.error("[pdf-gerar] erro:", errMsg);
+    return { ok: false, error: errMsg };
   }
 }

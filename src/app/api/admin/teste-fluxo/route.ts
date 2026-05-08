@@ -6,6 +6,10 @@ import { sendWhatsApp, sendWhatsAppTemplate } from "@/lib/chatwoot";
 import { createClient } from "@/lib/supabase/server";
 import { cleanCPF, isValidCPF } from "@/lib/utils";
 
+// @react-pdf/renderer precisa de Node runtime (não Edge)
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 /**
  * POST /api/admin/teste-fluxo
  *
@@ -33,6 +37,7 @@ export async function POST(req: Request) {
   const nome = String(body?.nome || "Cliente Teste");
   const etapa = String(body?.etapa || "iniciado");
   const tipo = (String(body?.tipo || "limpeza")) as "limpeza" | "consulta" | "blindagem";
+  const origem = (String(body?.origem || "site")) as "site" | "whatsapp";
   const skip: string[] = Array.isArray(body?.skip) ? body.skip : [];
 
   const cpf = cleanCPF(cpfRaw);
@@ -90,8 +95,8 @@ export async function POST(req: Request) {
       : undefined,
   });
 
-  // ─── 3) Email Resend ────────────────────────────────
-  if (!skip.includes("email") && email) {
+  // ─── 3) Email Resend (só se origem=site) ────────────
+  if (!skip.includes("email") && email && origem === "site") {
     const t0 = Date.now();
     const html = renderEmailHTML({
       titulo: `[TESTE] ${tpl.titulo}`,
@@ -120,11 +125,19 @@ export async function POST(req: Request) {
       ...(r.ok ? { id: r.id } : { erro: r.error }),
     });
   } else {
-    steps.push({ step: "email", ok: null, skipped: true });
+    steps.push({
+      step: "email",
+      ok: null,
+      skipped: true,
+      motivo:
+        !email ? "sem email"
+        : skip.includes("email") ? "ignorado pelo usuário"
+        : `origem=${origem} (email só roda quando origem=site)`,
+    });
   }
 
-  // ─── 4) WhatsApp Chatwoot ────────────────────────────
-  if (!skip.includes("whatsapp") && telefone) {
+  // ─── 4) WhatsApp Chatwoot (só se origem=whatsapp) ───
+  if (!skip.includes("whatsapp") && telefone && origem === "whatsapp") {
     const t0 = Date.now();
     const templateName = process.env.WPP_TEMPLATE_GENERICO;
     let wppResult;
@@ -172,7 +185,15 @@ export async function POST(req: Request) {
       });
     }
   } else {
-    steps.push({ step: "whatsapp", ok: null, skipped: true });
+    steps.push({
+      step: "whatsapp",
+      ok: null,
+      skipped: true,
+      motivo:
+        !telefone ? "sem telefone"
+        : skip.includes("whatsapp") ? "ignorado pelo usuário"
+        : `origem=${origem} (whatsapp só roda quando origem=whatsapp)`,
+    });
   }
 
   // ─── 5) PDF Generator (interno @react-pdf/renderer) ──

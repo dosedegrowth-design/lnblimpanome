@@ -6,6 +6,10 @@ import { createClient } from "@/lib/supabase/server";
 import { cleanCPF } from "@/lib/utils";
 import { verifyMpWebhookSignature } from "@/lib/mp-webhook-signature";
 
+// PDF + APIs externas precisam de Node runtime
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 /**
  * POST /api/site/mp-webhook
  *
@@ -73,6 +77,14 @@ export async function POST(req: Request) {
   const tipo = String(payment.metadata?.tipo || "").toLowerCase();
   const externalRef = payment.external_reference;
 
+  // ORIGEM: define qual canal de notificação usar
+  // - "site": só email Resend (sem Chatwoot/WhatsApp)
+  // - "whatsapp": só Chatwoot/WhatsApp (n8n Maia continua a conversa)
+  // - default "site" se não setado
+  const origem = String(payment.metadata?.origem || "site").toLowerCase() as
+    | "site"
+    | "whatsapp";
+
   if (!cpf || !telefone) {
     console.error("[mp-webhook] cpf/telefone faltando:", { cpf, telefone, externalRef });
     return NextResponse.json({ ok: false, error: "missing_metadata" }, { status: 400 });
@@ -106,7 +118,7 @@ export async function POST(req: Request) {
     });
     if (rpcErr) console.error("[mp-webhook] webhook_registrar_consulta_paga erro:", rpcErr);
 
-    // Geração de PDF + envio de email/WhatsApp em background (não bloqueia retorno)
+    // Geração de PDF + envio de notificação por origem (background)
     finalizarConsulta({
       cpf,
       nome: payment.payer?.first_name || "",
@@ -114,6 +126,7 @@ export async function POST(req: Request) {
       telefone,
       parsed,
       raw,
+      origem,
     }).catch((e) =>
       console.error("[mp-webhook] erro finalizar consulta:", e)
     );
@@ -136,11 +149,15 @@ export async function GET() {
 }
 
 /**
- * Finaliza a consulta após pagamento confirmado:
+ * Finaliza a consulta após pagamento confirmado.
+ *
+ * Sempre faz:
  * 1. Gera PDF interno (sem n8n)
  * 2. Salva pdf_url em LNB_Consultas (RPC SECURITY DEFINER)
- * 3. Envia email com link
- * 4. Envia WhatsApp via Chatwoot (template Meta ou texto livre)
+ *
+ * Por ORIGEM:
+ * - site:     só envia email Resend (sem WhatsApp — cliente acompanha pelo painel)
+ * - whatsapp: só envia mensagem Chatwoot (n8n Maia continua a conversa)
  *
  * Roda em background — não bloqueia resposta do webhook MP.
  */
@@ -151,16 +168,19 @@ interface FinalizarInput {
   telefone: string;
   parsed: ReturnType<typeof parseConsulta> | null;
   raw: unknown;
+  origem: "site" | "whatsapp";
 }
 
 async function finalizarConsulta(input: FinalizarInput) {
-  const { cpf, nome, email, telefone, parsed, raw } = input;
+  const { cpf, nome, email, telefone, parsed, raw, origem } = input;
   const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://limpanomebrazil.com.br";
 
   // Imports lazy pra não pesar o bundle do webhook
   const { gerarESalvarRelatorio } = await import("@/lib/pdf/gerar-relatorio");
   const { sendEmail, renderEmailHTML } = await import("@/lib/email");
   const { sendWhatsAppTemplate, sendWhatsApp } = await import("@/lib/chatwoot");
+
+  console.log(`[mp-webhook] finalizando consulta cpf=${cpf} origem=${origem}`);
 
   // 1) Extrai score + pendências do raw
   const rawObj = (raw as Record<string, unknown>) || {};
@@ -221,19 +241,23 @@ async function finalizarConsulta(input: FinalizarInput) {
     console.error("[mp-webhook] PDF exception:", e);
   }
 
-  // 3) Email com link do PDF + resumo
-  if (email) {
-    try {
-      const titulo = parsed?.tem_pendencia
-        ? "📨 Seu relatório está pronto"
-        : "🎉 Boa notícia: seu nome está limpo!";
-      const corpo = parsed?.tem_pendencia
-        ? `Encontramos ${parsed.qtd_pendencias} pendência${parsed.qtd_pendencias === 1 ? "" : "s"} no seu CPF, totalizando R$ ${parsed.total_dividas.toFixed(2)}. Acesse seu relatório completo no botão abaixo.`
-        : "Não encontramos pendências no seu CPF. Continue mantendo as contas em dia pra preservar seu score.";
+  const titulo = parsed?.tem_pendencia
+    ? "Seu relatório está pronto"
+    : "Boa notícia: seu nome está limpo!";
+  const corpoEmail = parsed?.tem_pendencia
+    ? `Encontramos ${parsed.qtd_pendencias} pendência${parsed.qtd_pendencias === 1 ? "" : "s"} no seu CPF, totalizando R$ ${parsed.total_dividas.toFixed(2)}. Acesse seu relatório completo no botão abaixo.`
+    : "Não encontramos pendências no seu CPF. Continue mantendo as contas em dia pra preservar seu score.";
+  const corpoWpp = parsed?.tem_pendencia
+    ? `Encontramos ${parsed.qtd_pendencias} pendência(s) no seu CPF (R$ ${parsed.total_dividas.toFixed(2)}). Veja o relatório completo na sua área.`
+    : "Não encontramos pendências no seu CPF. Continue mantendo as contas em dia.";
 
+  // ─── FLUXO SITE: só email Resend ──────────────────────
+  // Cliente acompanha pelo painel /conta/dashboard. Sem WhatsApp.
+  if (origem === "site" && email) {
+    try {
       const html = renderEmailHTML({
-        titulo,
-        corpo,
+        titulo: parsed?.tem_pendencia ? `📨 ${titulo}` : `🎉 ${titulo}`,
+        corpo: corpoEmail,
         mensagemExtra: pdfUrl
           ? `📄 <a href="${pdfUrl}" style="color:#0298d9;">Baixar relatório PDF</a>`
           : undefined,
@@ -245,23 +269,17 @@ async function finalizarConsulta(input: FinalizarInput) {
         to: email,
         subject: `[LNB] ${titulo}`,
         html,
-        text: `${titulo}\n\n${corpo}\n\n${pdfUrl ? "PDF: " + pdfUrl + "\n\n" : ""}Acesse: ${SITE}/conta/dashboard`,
+        text: `${titulo}\n\n${corpoEmail}\n\n${pdfUrl ? "PDF: " + pdfUrl + "\n\n" : ""}Acesse: ${SITE}/conta/dashboard`,
       });
     } catch (e) {
       console.error("[mp-webhook] email erro:", e);
     }
   }
 
-  // 4) WhatsApp via template (se configurado) ou texto livre
-  if (telefone) {
+  // ─── FLUXO WHATSAPP: só Chatwoot ──────────────────────
+  // n8n Maia continua a conversa. Sem email.
+  if (origem === "whatsapp" && telefone) {
     try {
-      const titulo = parsed?.tem_pendencia
-        ? "Seu relatório está pronto"
-        : "Boa notícia: seu nome está limpo!";
-      const corpo = parsed?.tem_pendencia
-        ? `Encontramos ${parsed.qtd_pendencias} pendência(s) no seu CPF (R$ ${parsed.total_dividas.toFixed(2)}). Veja o relatório completo na sua área.`
-        : "Não encontramos pendências no seu CPF. Continue mantendo as contas em dia.";
-
       const templateName = process.env.WPP_TEMPLATE_GENERICO;
       if (templateName) {
         await sendWhatsAppTemplate(
@@ -272,14 +290,14 @@ async function finalizarConsulta(input: FinalizarInput) {
             parameters: [
               nome.split(" ")[0],
               titulo,
-              corpo,
+              corpoWpp,
               `${SITE}/conta/dashboard`,
             ],
           },
           nome
         );
       } else {
-        const texto = `*${titulo}*\n\n${corpo}${pdfUrl ? "\n\nPDF: " + pdfUrl : ""}\n\nAcesse: ${SITE}/conta/dashboard`;
+        const texto = `*${titulo}*\n\n${corpoWpp}${pdfUrl ? "\n\nPDF: " + pdfUrl : ""}\n\nAcesse: ${SITE}/conta/dashboard`;
         await sendWhatsApp(telefone, texto, nome);
       }
     } catch (e) {

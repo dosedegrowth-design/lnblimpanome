@@ -37,6 +37,7 @@ export function TesteFluxoForm() {
     telefone: "5511997440101",
     tipo: "limpeza",
     etapa: "iniciado",
+    origem: "site" as "site" | "whatsapp",
     skip_api_full: false,
     skip_email: false,
     skip_whatsapp: false,
@@ -120,6 +121,24 @@ export function TesteFluxoForm() {
               onChange={(e) => set("telefone", e.target.value.replace(/\D/g, ""))}
               placeholder="5511997440101"
             />
+          </div>
+
+          <div>
+            <Label htmlFor="origem">Origem do cliente</Label>
+            <select
+              id="origem"
+              value={form.origem}
+              onChange={(e) => set("origem", e.target.value as "site" | "whatsapp")}
+              className="w-full h-10 px-3 rounded-lg border border-gray-300 text-sm bg-white"
+            >
+              <option value="site">🌐 Site (cliente self-service)</option>
+              <option value="whatsapp">💬 WhatsApp (Maia + n8n)</option>
+            </select>
+            <p className="text-[11px] text-gray-600 mt-1">
+              {form.origem === "site"
+                ? "Notificação só por EMAIL (sem Chatwoot)."
+                : "Notificação só pelo CHATWOOT (sem email)."}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-2">

@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { gerarESalvarRelatorio } from "@/lib/pdf/gerar-relatorio";
 import { cleanCPF, isValidCPF } from "@/lib/utils";
 
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 /**
  * POST /api/admin/gerar-pdf
  *
