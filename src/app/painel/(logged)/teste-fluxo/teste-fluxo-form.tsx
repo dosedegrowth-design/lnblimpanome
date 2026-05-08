@@ -20,6 +20,7 @@ type Resultado = {
   ok: boolean;
   resumo: { total: number; sucesso: number; falhas: number; ignorados: number };
   cpf: string;
+  pdf_url?: string | null;
   timestamp: string;
   steps: Step[];
 };
@@ -243,6 +244,29 @@ export function TesteFluxoForm() {
                   <Stat label="Falhas" value={resultado.resumo.falhas} color="red" />
                   <Stat label="Ignorados" value={resultado.resumo.ignorados} color="amber" />
                 </div>
+
+                {/* PDF disponível */}
+                {resultado.pdf_url && (
+                  <a
+                    href={resultado.pdf_url}
+                    target="_blank"
+                    rel="noopener"
+                    className="mt-4 flex items-center gap-3 p-3 rounded-xl border-2 border-brand-300 bg-brand-50 hover:bg-brand-100 transition group"
+                  >
+                    <div className="size-10 rounded-lg bg-brand-500 grid place-items-center text-white font-bold shrink-0">
+                      PDF
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-forest-800 text-sm">
+                        Relatório PDF disponível
+                      </p>
+                      <p className="text-xs text-gray-700 truncate">{resultado.pdf_url}</p>
+                    </div>
+                    <span className="text-xs text-brand-700 font-bold whitespace-nowrap">
+                      Abrir →
+                    </span>
+                  </a>
+                )}
               </CardContent>
             </Card>
 
@@ -329,9 +353,10 @@ function stepLabel(step: string): string {
     templates: "2 · Templates de email/WhatsApp",
     email: "3 · Resend — envio de email",
     whatsapp: "4 · Chatwoot — envio de WhatsApp",
-    pdf_webhook: "5 · PDF Generator (n8n)",
-    envs_check: "6 · Envs configuradas",
-    rpc_elegibilidade: "7 · RPC Supabase elegibilidade",
+    pdf_webhook: "5 · PDF Generator (n8n disparado)",
+    pdf_disponivel: "6 · PDF salvo em LNB_Consultas",
+    envs_check: "7 · Envs configuradas",
+    rpc_elegibilidade: "8 · RPC Supabase elegibilidade",
   };
   return labels[step] || step;
 }

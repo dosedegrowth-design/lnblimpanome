@@ -13,25 +13,15 @@ import { cleanCPF, isValidCPF } from "@/lib/utils";
  *
  * Executa em sequência:
  *   1) API Full — consulta CPF
- *   2) Parser — extrai pendências
- *   3) Resend — envia email de teste pra um email real
- *   4) Chatwoot — envia WhatsApp de teste (template ou texto livre)
+ *   2) Templates — pega template ou usa genérico
+ *   3) Resend — envia email de teste
+ *   4) Chatwoot — envia WhatsApp (template Meta ou texto livre)
  *   5) PDF Webhook — dispara n8n PDF Generator
+ *   6) PDF disponível — busca pdf_url salva em LNB_Consultas
+ *   7) Envs check
+ *   8) RPCs Supabase — valida existência e conexão
  *
- * Cada passo retorna: { ok, dados, latencia_ms, erro }
- *
- * IMPORTANTE: NÃO grava em LNB_Consultas/CRM (é dry-run).
- *
- * Body:
- *   {
- *     cpf: "11144477735",
- *     email: "lucas@dosedegrowth.com.br",
- *     telefone: "5511997440101",
- *     nome: "Lucas Teste",
- *     etapa?: "iniciado" | "documentacao" | "finalizado",
- *     tipo?: "limpeza" | "consulta" | "blindagem",
- *     skip?: ["api_full" | "email" | "whatsapp" | "pdf"]
- *   }
+ * NÃO grava em LNB_Consultas/CRM (é dry-run).
  */
 export async function POST(req: Request) {
   await requireAdmin();
@@ -81,24 +71,36 @@ export async function POST(req: Request) {
     steps.push({ step: "api_full", ok: null, skipped: true });
   }
 
-  // ─── 2) Templates de email + WhatsApp ───────────────
-  const tpl = getTemplateEtapa(tipo, etapa);
+  // ─── 2) Templates de email + WhatsApp (com fallback) ───
+  const tplFound = getTemplateEtapa(tipo, etapa);
+  const tpl = tplFound || {
+    titulo: `Atualização do seu processo (${tipo}/${etapa})`,
+    corpo: `Há uma atualização no seu processo de ${tipo}, etapa "${etapa}". Acesse sua área pra mais detalhes.`,
+  };
+
   steps.push({
     step: "templates",
-    ok: !!tpl,
-    encontrado: !!tpl,
-    titulo: tpl?.titulo,
-    corpo_preview: tpl?.corpo?.slice(0, 200),
+    ok: true,
+    encontrado: !!tplFound,
+    fallback: !tplFound,
+    titulo: tpl.titulo,
+    corpo_preview: tpl.corpo.slice(0, 200),
+    aviso: !tplFound
+      ? `Combinação ${tipo}/${etapa} não tem template específico — usando texto genérico.`
+      : undefined,
   });
 
   // ─── 3) Email Resend ────────────────────────────────
-  if (!skip.includes("email") && email && tpl) {
+  if (!skip.includes("email") && email) {
     const t0 = Date.now();
     const html = renderEmailHTML({
       titulo: `[TESTE] ${tpl.titulo}`,
       corpo: tpl.corpo,
       mensagemExtra: parsed
-        ? `Resultado consulta API Full: ${parsed.resumo}`
+        ? `<strong>Resultado da consulta API Full:</strong> ${parsed.resumo}` +
+          (parsed.tem_pendencia
+            ? `<br><br><strong>Pendências encontradas:</strong> ${parsed.qtd_pendencias} | <strong>Total:</strong> R$ ${parsed.total_dividas.toFixed(2)}`
+            : "")
         : "Teste sem consulta API Full",
       nomeCliente: nome.split(" ")[0],
       ctaUrl: `${SITE}/conta/dashboard`,
@@ -118,17 +120,16 @@ export async function POST(req: Request) {
       ...(r.ok ? { id: r.id } : { erro: r.error }),
     });
   } else {
-    steps.push({ step: "email", ok: null, skipped: !email || skip.includes("email") || !tpl });
+    steps.push({ step: "email", ok: null, skipped: true });
   }
 
   // ─── 4) WhatsApp Chatwoot ────────────────────────────
-  if (!skip.includes("whatsapp") && telefone && tpl) {
+  if (!skip.includes("whatsapp") && telefone) {
     const t0 = Date.now();
     const templateName = process.env.WPP_TEMPLATE_GENERICO;
     let wppResult;
 
     if (templateName) {
-      // Modo template (Meta Cloud API)
       wppResult = await sendWhatsAppTemplate(
         telefone,
         {
@@ -155,7 +156,6 @@ export async function POST(req: Request) {
           : { erro: wppResult.error }),
       });
     } else {
-      // Fallback texto livre (só funciona em janela 24h)
       const texto = `*[TESTE] ${tpl.titulo}*\n\n${tpl.corpo}\n\nAcesse: ${SITE}/conta/dashboard`;
       wppResult = await sendWhatsApp(telefone, texto, nome);
       steps.push({
@@ -164,7 +164,8 @@ export async function POST(req: Request) {
         ok: wppResult.ok,
         latencia_ms: Date.now() - t0,
         telefone,
-        aviso: "Sem template configurado. Texto livre só funciona dentro da janela 24h.",
+        aviso:
+          "Sem template Meta configurado. Texto livre SÓ FUNCIONA dentro da janela 24h (cliente precisa ter mandado msg recentemente).",
         ...(wppResult.ok
           ? { conversation_id: wppResult.conversationId }
           : { erro: wppResult.error }),
@@ -193,7 +194,9 @@ export async function POST(req: Request) {
         latencia_ms: Date.now() - t0,
         url: pdfUrl,
         status: r.status,
-        response_preview: text.slice(0, 500),
+        response_preview: text.slice(0, 1000),
+        instrucao_n8n:
+          "Pra gerar o PDF de verdade: o n8n precisa ter o workflow 'PDF Generator LNB v03' importado e ATIVO. Sem isso, esse webhook só recebe a chamada e não faz nada.",
       });
     } catch (e) {
       steps.push({
@@ -208,7 +211,53 @@ export async function POST(req: Request) {
     steps.push({ step: "pdf_webhook", ok: null, skipped: true });
   }
 
-  // ─── 6) Conferência das envs ─────────────────────────
+  // ─── 6) Buscar PDF disponível em LNB_Consultas ───────
+  // O PDF Generator (n8n) salva em Supabase Storage e atualiza pdf_url
+  // na tabela LNB_Consultas. Esse step verifica se já tem PDF salvo.
+  const supa = await createClient();
+  try {
+    const { data: consulta, error } = await supa
+      .from("LNB_Consultas")
+      .select("cpf, pdf_url, consulta_paga, tem_pendencia, qtd_pendencias, total_dividas, created_at")
+      .eq("cpf", cpf)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      steps.push({
+        step: "pdf_disponivel",
+        ok: false,
+        erro: error.message,
+      });
+    } else if (!consulta) {
+      steps.push({
+        step: "pdf_disponivel",
+        ok: false,
+        encontrado: false,
+        aviso: `Nenhuma consulta cadastrada pro CPF ${cpf} em LNB_Consultas. Pra ver PDF real, faça o fluxo completo: comprar consulta → webhook MP → API Full → PDF gerado.`,
+      });
+    } else {
+      steps.push({
+        step: "pdf_disponivel",
+        ok: !!consulta.pdf_url,
+        encontrado: true,
+        consulta_paga: consulta.consulta_paga,
+        tem_pendencia: consulta.tem_pendencia,
+        qtd_pendencias: consulta.qtd_pendencias,
+        total_dividas: consulta.total_dividas,
+        created_at: consulta.created_at,
+        pdf_url: consulta.pdf_url || null,
+        aviso: !consulta.pdf_url
+          ? "Consulta existe mas pdf_url está vazio — o n8n PDF Generator ainda não rodou pra esse CPF. Verifique se o workflow está ativo."
+          : "PDF disponível! Clique em pdf_url pra abrir.",
+      });
+    }
+  } catch (e) {
+    steps.push({ step: "pdf_disponivel", ok: false, erro: String(e) });
+  }
+
+  // ─── 7) Conferência das envs ─────────────────────────
   steps.push({
     step: "envs_check",
     ok: true,
@@ -227,8 +276,7 @@ export async function POST(req: Request) {
     },
   });
 
-  // ─── 7) RPCs Supabase (validar se existem e funcionam) ─
-  const supa = await createClient();
+  // ─── 8) RPCs Supabase ────────────────────────────────
   try {
     const { data: rpcEleg } = await supa.rpc("cliente_pode_contratar_limpeza", {
       p_cpf: cpf,
@@ -245,6 +293,11 @@ export async function POST(req: Request) {
   const totalOk = steps.filter((s) => s.ok === true).length;
   const totalFail = steps.filter((s) => s.ok === false).length;
 
+  // PDF URL pro front mostrar como link clicável
+  const pdfStep = steps.find((s) => s.step === "pdf_disponivel") as
+    | { pdf_url?: string }
+    | undefined;
+
   return NextResponse.json({
     ok: totalFail === 0,
     resumo: {
@@ -254,6 +307,7 @@ export async function POST(req: Request) {
       ignorados: steps.filter((s) => s.ok === null).length,
     },
     cpf,
+    pdf_url: pdfStep?.pdf_url || null,
     timestamp: new Date().toISOString(),
     steps,
   });
@@ -263,7 +317,7 @@ function limitPreview(o: unknown): unknown {
   try {
     const s = JSON.stringify(o);
     if (s.length <= 1500) return o;
-    return JSON.parse(s.slice(0, 1500) + "...\"}").catch?.(() => s.slice(0, 1500)) ?? s.slice(0, 1500);
+    return s.slice(0, 1500) + "... [truncado]";
   } catch {
     return String(o).slice(0, 1500);
   }
