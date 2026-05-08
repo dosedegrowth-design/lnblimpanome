@@ -287,11 +287,13 @@ export async function POST(req: Request) {
         erro: error.message,
       });
     } else if (!consulta) {
+      // Não é falha — é só info: dry-run não grava em LNB_Consultas
       steps.push({
         step: "pdf_disponivel",
-        ok: false,
+        ok: null,
+        skipped: true,
         encontrado: false,
-        aviso: `Nenhuma consulta cadastrada pro CPF ${cpf} em LNB_Consultas. Pra ver PDF real, faça o fluxo completo: comprar consulta → webhook MP → API Full → PDF gerado.`,
+        motivo: `CPF ${cpf} sem registro em LNB_Consultas (esperado em dry-run). Pra ver registro real, complete uma compra de R$ 19,99 em /consultar.`,
       });
     } else {
       steps.push({
