@@ -57,11 +57,21 @@ export async function POST(req: Request) {
     try {
       raw = await consultarCPF(cpf);
       parsed = parseConsulta(raw as Parameters<typeof parseConsulta>[0]);
+      // Lista chaves do nível raiz e do inner pra ajudar debug
+      const rawObj = (raw as Record<string, unknown>) || {};
+      const chavesRaiz = Object.keys(rawObj);
+      const innerObj = (rawObj.data || rawObj.resultado || rawObj.Resultado) as
+        | Record<string, unknown>
+        | undefined;
+      const chavesInner = innerObj ? Object.keys(innerObj) : null;
       steps.push({
         step: "api_full",
         ok: true,
         latencia_ms: Date.now() - t0,
         parsed,
+        chaves_raiz: chavesRaiz,
+        chaves_inner: chavesInner,
+        score_raw: rawObj.Score ?? rawObj.score ?? innerObj?.Score ?? innerObj?.score,
         raw_preview: limitPreview(raw),
       });
     } catch (e) {

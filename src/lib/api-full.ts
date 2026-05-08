@@ -47,31 +47,97 @@ export interface ParsedConsulta {
   resumo: string;
 }
 
+/**
+ * Parser tolerante: tenta múltiplas variações de chaves do JSON da API Full,
+ * porque a estrutura de retorno varia conforme o produto consultado.
+ *
+ * Tenta nesta ordem:
+ *   - r.RegistroDeDebitos (formato e-boavista padrão)
+ *   - r.Pendencias / r.pendencias (formato Serasa)
+ *   - r.RestricoesFinanceiras (variação)
+ *   - r.data?.... (caso retorne envelope)
+ */
 export function parseConsulta(r: APIFullResultado): ParsedConsulta {
   const pendencias: ParsedConsulta["pendencias"] = [];
   let total = 0;
 
-  if (Array.isArray(r.RegistroDeDebitos)) {
-    for (const d of r.RegistroDeDebitos) {
-      const valor = parseFloat(String(d.Valor ?? 0)) || 0;
-      pendencias.push({
-        credor: d.Credor || "Desconhecido",
-        valor,
-        data: d.Data || "",
-      });
-      total += valor;
+  // Helpers pra normalizar — aceita diversos formatos de chave
+  type RawDebito = Record<string, unknown>;
+
+  function pickStr(o: RawDebito, ...keys: string[]): string {
+    for (const k of keys) {
+      if (o[k] != null && o[k] !== "") return String(o[k]);
+    }
+    return "";
+  }
+  function pickNum(o: RawDebito, ...keys: string[]): number {
+    for (const k of keys) {
+      const v = o[k];
+      if (v != null) {
+        const n = parseFloat(String(v).replace(",", "."));
+        if (!isNaN(n)) return n;
+      }
+    }
+    return 0;
+  }
+
+  function processArray(arr: unknown, defaultCredor: string) {
+    if (!Array.isArray(arr)) return;
+    for (const raw of arr) {
+      if (!raw || typeof raw !== "object") continue;
+      const d = raw as RawDebito;
+      const credor = pickStr(
+        d,
+        "Credor",
+        "credor",
+        "NomeCredor",
+        "nome_credor",
+        "Empresa",
+        "empresa",
+        "Origem",
+        "origem"
+      );
+      const valor = pickNum(d, "Valor", "valor", "ValorAtualizado", "valor_atualizado");
+      const data = pickStr(
+        d,
+        "Data",
+        "data",
+        "DataInclusao",
+        "data_inclusao",
+        "DataOcorrencia"
+      );
+      if (valor > 0 || credor) {
+        pendencias.push({
+          credor: credor || defaultCredor,
+          valor,
+          data,
+        });
+        total += valor;
+      }
     }
   }
-  if (Array.isArray(r.Protestos)) {
-    for (const p of r.Protestos) {
-      const valor = parseFloat(String(p.Valor ?? 0)) || 0;
-      pendencias.push({
-        credor: p.Credor || "Protesto",
-        valor,
-        data: p.Data || "",
-      });
-      total += valor;
-    }
+
+  // Tenta TODAS as variações comuns
+  const raw = r as Record<string, unknown>;
+  processArray(raw.RegistroDeDebitos, "Credor");
+  processArray(raw.Pendencias, "Pendência");
+  processArray(raw.pendencias, "Pendência");
+  processArray(raw.Protestos, "Protesto");
+  processArray(raw.RestricoesFinanceiras, "Restrição");
+  processArray(raw.restricoes_financeiras, "Restrição");
+  processArray(raw.Apontamentos, "Apontamento");
+  processArray(raw.apontamentos, "Apontamento");
+
+  // Caso a API retorne dentro de "data" ou "resultado"
+  const inner = (raw.data || raw.resultado || raw.Resultado) as
+    | Record<string, unknown>
+    | undefined;
+  if (inner && typeof inner === "object") {
+    processArray(inner.RegistroDeDebitos, "Credor");
+    processArray(inner.Pendencias, "Pendência");
+    processArray(inner.pendencias, "Pendência");
+    processArray(inner.Protestos, "Protesto");
+    processArray(inner.RestricoesFinanceiras, "Restrição");
   }
 
   const tem_pendencia = pendencias.length > 0;

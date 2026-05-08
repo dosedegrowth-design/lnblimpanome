@@ -31,8 +31,10 @@ const C = {
   amber500: "#D97706",
   emerald500: "#059669",
   emerald100: "#D1FAE5",
+  gray50: "#F9FAFB",
   gray100: "#F3F4F6",
   gray200: "#E5E7EB",
+  gray300: "#D1D5DB",
   gray400: "#9CA3AF",
   gray500: "#6B7280",
   gray600: "#4B5563",
@@ -79,8 +81,7 @@ function scoreFaixa(score: number): string {
 }
 
 /**
- * Gera PDF profissional do relatório de consulta usando pdfkit (puro Node).
- * Funciona em qualquer ambiente serverless sem precisar de Chrome ou fontes externas.
+ * Gera PDF profissional, sóbrio, em UMA página A4. Layout tipo extrato bancário.
  */
 async function montarPdf(data: RelatorioInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -91,7 +92,7 @@ async function montarPdf(data: RelatorioInput): Promise<Buffer> {
         Title: `Relatório CPF ${formatCPF(data.cpf)} — LNB`,
         Author: "Limpa Nome Brazil",
         Subject: "Relatório de Consulta de CPF",
-        Keywords: "CPF, score, Serasa, SPC, Boa Vista, limpa nome",
+        Keywords: "CPF, score, Serasa, SPC, Boa Vista",
       },
     });
 
@@ -102,14 +103,14 @@ async function montarPdf(data: RelatorioInput): Promise<Buffer> {
 
     const PAGE_W = 595.28;
     const PAGE_H = 841.89;
-    const MARGIN = 50;
-    const CONTENT_W = PAGE_W - MARGIN * 2;
+    const M = 40; // margin
+    const W = PAGE_W - M * 2;
 
     const dataStr =
       data.data_consulta ||
       new Date().toLocaleDateString("pt-BR", {
         day: "2-digit",
-        month: "long",
+        month: "2-digit",
         year: "numeric",
       });
     const horaStr = new Date().toLocaleTimeString("pt-BR", {
@@ -122,588 +123,317 @@ async function montarPdf(data: RelatorioInput): Promise<Buffer> {
     const faixa = scoreFaixa(sc);
     const protocolo = `LNB-${data.cpf.replace(/\D/g, "").slice(-6)}-${Date.now().toString().slice(-6)}`;
 
-    // ════════════════ PÁGINA 1 — CAPA ════════════════
-    // Background forest
-    doc.rect(0, 0, PAGE_W, PAGE_H).fill(C.forest800);
+    // ─── HEADER (faixa fina forest no topo) ────────────────
+    const HEADER_H = 56;
+    doc.rect(0, 0, PAGE_W, HEADER_H).fill(C.forest800);
 
-    // Faixa decorativa azul no topo
-    doc.rect(0, 0, PAGE_W, 6).fill(C.brand500);
+    // Logo "LNB" pequeno à esquerda
+    doc.fillColor(C.white).fontSize(15).font("Helvetica-Bold");
+    doc.text("LNB", M, 16);
+    doc.fillColor(C.brand400).fontSize(7).font("Helvetica-Bold");
+    doc.text("LIMPA NOME BRAZIL", M, 36, { characterSpacing: 1.5 });
 
-    // Logo "LNB" estilizado (texto, sem precisar baixar imagem)
-    doc
-      .fillColor(C.white)
-      .font("Helvetica-Bold")
-      .fontSize(28)
-      .text("LNB", MARGIN, 50, { continued: false });
-    doc
-      .fillColor(C.brand400)
-      .fontSize(11)
-      .text("LIMPA NOME BRAZIL", MARGIN, 82, { characterSpacing: 2 });
-
-    // Selo "Documento Autêntico" (canto superior direito)
-    const seloX = PAGE_W - MARGIN - 130;
-    const seloY = 55;
-    doc.rect(seloX, seloY, 130, 24).fill(C.brand500);
-    doc
-      .fillColor(C.white)
-      .font("Helvetica-Bold")
-      .fontSize(8)
-      .text("DOCUMENTO AUTÊNTICO", seloX, seloY + 9, {
-        width: 130,
-        align: "center",
-        characterSpacing: 1,
-      });
-
-    // Conteúdo central
-    doc.fillColor(C.brand400).fontSize(10).font("Helvetica-Bold");
-    doc.text("RELATÓRIO OFICIAL", MARGIN, 200, { characterSpacing: 4 });
-
-    doc.fillColor(C.white).fontSize(36).font("Helvetica-Bold");
-    doc.text("Consulta de CPF", MARGIN, 225, { width: CONTENT_W });
-    doc.text("e Análise de", MARGIN, 270, { width: CONTENT_W });
-    doc.text("Crédito", MARGIN, 315, { width: CONTENT_W });
-
-    doc.fillColor(C.sand).fontSize(12).font("Helvetica");
-    doc.text(
-      "Documento detalhado com score de crédito, pendências, credores e recomendações personalizadas para sua situação financeira.",
-      MARGIN,
-      375,
-      { width: 380, lineGap: 4 }
-    );
-
-    // Box brand com info do consultado
-    const boxY = 460;
-    const boxH = 110;
-    doc
-      .rect(MARGIN, boxY, CONTENT_W, boxH)
-      .fillOpacity(0.15)
-      .fill(C.brand500)
-      .fillOpacity(1);
-
-    // Faixa esquerda do box
-    doc.rect(MARGIN, boxY, 4, boxH).fill(C.brand500);
-
-    doc.fillColor(C.brand400).fontSize(8).font("Helvetica-Bold");
-    doc.text("EMITIDO PARA", MARGIN + 22, boxY + 18, { characterSpacing: 2 });
-    doc.fillColor(C.white).fontSize(18).font("Helvetica-Bold");
-    doc.text(data.nome || "Cliente Limpa Nome Brazil", MARGIN + 22, boxY + 32, {
-      width: CONTENT_W - 40,
-    });
-
-    doc.fillColor(C.brand400).fontSize(8).font("Helvetica-Bold");
-    doc.text("CPF", MARGIN + 22, boxY + 70, { characterSpacing: 2 });
-    doc.fillColor(C.white).fontSize(18).font("Helvetica-Bold");
-    doc.text(formatCPF(data.cpf), MARGIN + 22, boxY + 84);
-
-    // Rodapé da capa
-    const rodapeY = PAGE_H - 130;
-    doc
-      .moveTo(MARGIN, rodapeY)
-      .lineTo(PAGE_W - MARGIN, rodapeY)
-      .strokeColor(C.sand)
-      .strokeOpacity(0.3)
-      .lineWidth(1)
-      .stroke()
-      .strokeOpacity(1);
-
-    doc.fillColor(C.sand).fontSize(9).font("Helvetica");
-    doc.text(`Data:`, MARGIN, rodapeY + 18, { continued: true });
-    doc.font("Helvetica-Bold").fillColor(C.white).text(` ${dataStr} às ${horaStr}`);
-
-    doc.fillColor(C.sand).font("Helvetica");
-    doc.text(`Protocolo:`, MARGIN, rodapeY + 36, { continued: true });
-    doc.font("Helvetica-Bold").fillColor(C.white).text(` ${protocolo}`);
-
-    doc.fillColor(C.sand).font("Helvetica");
-    doc.text(`Fonte:`, MARGIN, rodapeY + 54, { continued: true });
-    doc
-      .font("Helvetica-Bold")
-      .fillColor(C.white)
-      .text(` Boa Vista SCPC · Serasa Experian · SPC Brasil`);
-
-    // Direita
-    doc.fillColor(C.sand).fontSize(9).font("Helvetica");
-    const rightX = PAGE_W - MARGIN - 200;
-    doc.text("limpanomebrazil.com.br", rightX, rodapeY + 18, {
-      width: 200,
-      align: "right",
-    });
-    doc.text("+55 11 99744-0101", rightX, rodapeY + 36, {
-      width: 200,
-      align: "right",
-    });
-    doc.text("contato@limpanomebrazil.com.br", rightX, rodapeY + 54, {
-      width: 200,
-      align: "right",
-    });
-
-    // ════════════════ PÁGINA 2 — DASHBOARD ════════════════
-    doc.addPage({ size: "A4", margin: 0 });
-
-    // Header dark
-    doc.rect(0, 0, PAGE_W, 50).fill(C.forest800);
-    doc.fillColor(C.white).fontSize(14).font("Helvetica-Bold");
-    doc.text("LNB", MARGIN, 18);
-    doc.fillColor(C.brand400).fontSize(8).font("Helvetica-Bold");
-    doc.text("LIMPA NOME BRAZIL", MARGIN, 36, { characterSpacing: 1 });
-
-    doc.fillColor(C.brand400).fontSize(8).font("Helvetica-Bold");
-    doc.text(`RELATÓRIO · ${dataStr.toUpperCase()}`, PAGE_W - MARGIN - 200, 23, {
-      width: 200,
+    // Título do documento à direita
+    doc.fillColor(C.white).fontSize(10).font("Helvetica-Bold");
+    doc.text("RELATÓRIO DE CONSULTA DE CPF", PAGE_W - M - 280, 19, {
+      width: 280,
       align: "right",
       characterSpacing: 1,
     });
-
-    let y = 80;
-
-    // Section 1: Identificação
-    drawSectionHeader(doc, "1. IDENTIFICAÇÃO", "Dados do consultado", MARGIN, y);
-    y += 50;
-
-    // Card sand
-    doc.rect(MARGIN, y, CONTENT_W, 80).fill(C.sandLight);
-
-    const idCols = [
-      { label: "NOME", value: data.nome || "—" },
-      { label: "CPF", value: formatCPF(data.cpf) },
-      { label: "E-MAIL", value: data.email || "—" },
-      { label: "TELEFONE", value: data.telefone || "—" },
-    ];
-    idCols.forEach((col, i) => {
-      const colX = MARGIN + 20 + (i % 2) * (CONTENT_W / 2 - 10);
-      const colY = y + 18 + Math.floor(i / 2) * 30;
-      doc.fillColor(C.gray500).fontSize(7).font("Helvetica-Bold");
-      doc.text(col.label, colX, colY, { characterSpacing: 1 });
-      doc.fillColor(C.forest800).fontSize(11).font("Helvetica-Bold");
-      doc.text(col.value, colX, colY + 10, { width: CONTENT_W / 2 - 30 });
+    doc.fillColor(C.sand).fontSize(8).font("Helvetica");
+    doc.text(`Emitido em ${dataStr} às ${horaStr}`, PAGE_W - M - 280, 36, {
+      width: 280,
+      align: "right",
     });
 
-    y += 100;
+    // ─── BODY ──────────────────────────────────────────────
+    let y = HEADER_H + 24;
 
-    // Section 2: Score
-    drawSectionHeader(
-      doc,
-      "2. SCORE DE CRÉDITO",
-      `Sua pontuação: ${sc}`,
-      MARGIN,
-      y
-    );
-    y += 50;
-
-    // Card score
-    const scoreBoxH = 140;
-    doc.rect(MARGIN, y, CONTENT_W, scoreBoxH).fill(C.gray100);
-
-    // Score number gigante
+    // Título principal
     doc.fillColor(C.gray500).fontSize(8).font("Helvetica-Bold");
-    doc.text("SEU SCORE", MARGIN + 22, y + 22, { characterSpacing: 2 });
-    doc.fillColor(corScore).fontSize(48).font("Helvetica-Bold");
-    doc.text(`${sc}`, MARGIN + 22, y + 32);
-    doc.fillColor(C.gray500).fontSize(10).font("Helvetica");
-    doc.text("de 1000 pontos", MARGIN + 22, y + 92);
-
-    // Badge faixa (canto direito)
-    const badgeW = 110;
-    const badgeX = PAGE_W - MARGIN - 22 - badgeW;
+    doc.text("DADOS DO CONSULTADO", M, y, { characterSpacing: 1.5 });
+    y += 12;
     doc
-      .rect(badgeX, y + 22, badgeW, 28)
-      .fillOpacity(0.15)
-      .fill(corScore)
-      .fillOpacity(1);
-    doc.fillColor(corScore).fontSize(13).font("Helvetica-Bold");
-    doc.text(faixa, badgeX, y + 30, {
-      width: badgeW,
-      align: "center",
-      characterSpacing: 1,
-    });
+      .moveTo(M, y)
+      .lineTo(M + W, y)
+      .lineWidth(0.5)
+      .strokeColor(C.gray200)
+      .stroke();
+    y += 10;
 
-    // Barra de score
-    const barY = y + scoreBoxH - 35;
-    const barW = CONTENT_W - 44;
-    const barX = MARGIN + 22;
-    // Track
-    doc.roundedRect(barX, barY, barW, 10, 5).fill(C.gray200);
-    // Fill
-    const fillW = Math.max(8, (sc / 1000) * barW);
-    doc.roundedRect(barX, barY, fillW, 10, 5).fill(corScore);
-
-    // Ticks
-    ["0", "300", "500", "700", "1000"].forEach((tick, i) => {
-      const tickX = barX + (Number(tick) / 1000) * barW - 8;
+    // Identificação em 2 colunas (label/value)
+    const halfW = W / 2;
+    const identItems: Array<[string, string]> = [
+      ["NOME", data.nome || "—"],
+      ["CPF", formatCPF(data.cpf)],
+      ["E-MAIL", data.email || "—"],
+      ["TELEFONE", data.telefone || "—"],
+    ];
+    identItems.forEach((item, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const ix = M + col * halfW;
+      const iy = y + row * 26;
       doc.fillColor(C.gray500).fontSize(7).font("Helvetica");
-      doc.text(tick, tickX, barY + 14);
+      doc.text(item[0], ix, iy, { characterSpacing: 1 });
+      doc.fillColor(C.forest800).fontSize(10).font("Helvetica-Bold");
+      doc.text(item[1], ix, iy + 9, { width: halfW - 12 });
     });
+    y += 26 * Math.ceil(identItems.length / 2) + 8;
 
-    y += scoreBoxH + 25;
+    // ─── SCORE + STATUS (linha única) ──────────────────────
+    doc.fillColor(C.gray500).fontSize(8).font("Helvetica-Bold");
+    doc.text("ANÁLISE DE CRÉDITO", M, y, { characterSpacing: 1.5 });
+    y += 12;
+    doc
+      .moveTo(M, y)
+      .lineTo(M + W, y)
+      .lineWidth(0.5)
+      .strokeColor(C.gray200)
+      .stroke();
+    y += 14;
 
-    // Section 3: Stats row
-    drawSectionHeader(
-      doc,
-      "3. RESUMO DE PENDÊNCIAS",
-      "Situação atual do CPF",
-      MARGIN,
-      y
-    );
-    y += 50;
-
-    // 3 stats lado a lado
-    const statW = (CONTENT_W - 20) / 3;
-    const statH = 90;
-    const stats = [
+    // 4 boxes lado a lado (Score, Faixa, Pendências, Total)
+    const boxW = (W - 24) / 4;
+    const boxH = 64;
+    const boxes = [
+      {
+        label: "SCORE",
+        value: `${sc}`,
+        sub: "de 1000",
+        color: corScore,
+        big: true,
+      },
+      {
+        label: "FAIXA",
+        value: faixa,
+        sub: faixa === "BOM" ? "ótimo" : faixa === "REGULAR" ? "atenção" : "ação necessária",
+        color: corScore,
+      },
       {
         label: "PENDÊNCIAS",
         value: String(data.qtd_pendencias),
-        sub: data.qtd_pendencias === 1 ? "registro encontrado" : "registros encontrados",
+        sub: data.qtd_pendencias === 1 ? "registro" : "registros",
         color: data.tem_pendencia ? C.red500 : C.emerald500,
+        big: true,
       },
       {
         label: "TOTAL EM DÍVIDAS",
         value: `R$ ${formatBRL(data.total_dividas)}`,
-        sub: "somatório dos credores",
-        color: data.tem_pendencia ? C.red500 : C.gray800,
-      },
-      {
-        label: "STATUS",
-        value: data.tem_pendencia ? "● NEGATIVADO" : "● NOME LIMPO",
-        sub: data.tem_pendencia ? "Ação recomendada" : "Tudo certo",
+        sub: data.tem_pendencia ? "consolidado" : "sem dívidas",
         color: data.tem_pendencia ? C.red500 : C.emerald500,
-        isBadge: true,
       },
     ];
 
-    stats.forEach((s, i) => {
-      const sx = MARGIN + i * (statW + 10);
-      // Card branco com border
-      doc.roundedRect(sx, y, statW, statH, 6).fill(C.white).stroke(C.gray200);
-      doc.lineWidth(1).rect(sx, y, statW, statH).stroke(C.gray200);
+    boxes.forEach((b, i) => {
+      const bx = M + i * (boxW + 8);
+      // Card cinza claro com border esquerda colorida
+      doc.rect(bx, y, boxW, boxH).fill(C.gray50);
+      doc.rect(bx, y, 3, boxH).fill(b.color);
 
       doc.fillColor(C.gray500).fontSize(7).font("Helvetica-Bold");
-      doc.text(s.label, sx + 14, y + 14, { characterSpacing: 1 });
+      doc.text(b.label, bx + 10, y + 9, { characterSpacing: 1, width: boxW - 14 });
 
-      if (s.isBadge) {
-        doc
-          .roundedRect(sx + 14, y + 32, statW - 28, 22, 4)
-          .fillOpacity(0.15)
-          .fill(s.color)
-          .fillOpacity(1);
-        doc.fillColor(s.color).fontSize(10).font("Helvetica-Bold");
-        doc.text(s.value, sx + 14, y + 38, {
-          width: statW - 28,
-          align: "center",
-        });
-      } else {
-        doc.fillColor(s.color).fontSize(s.value.length > 6 ? 17 : 22).font("Helvetica-Bold");
-        doc.text(s.value, sx + 14, y + 30);
-      }
+      // Valor (font size adapta se for grande/longo)
+      const fs = b.big ? 22 : b.value.length > 10 ? 13 : 16;
+      doc.fillColor(b.color).fontSize(fs).font("Helvetica-Bold");
+      doc.text(b.value, bx + 10, y + 22, { width: boxW - 14 });
 
       doc.fillColor(C.gray500).fontSize(8).font("Helvetica");
-      doc.text(s.sub, sx + 14, y + 70);
+      doc.text(b.sub, bx + 10, y + boxH - 14, { width: boxW - 14 });
     });
 
-    y += statH + 25;
+    y += boxH + 20;
 
-    // Watermark autenticação
-    doc.rect(MARGIN, y, CONTENT_W, 70).fill(C.sandLight);
-    // Selo redondo "LNB"
-    doc.circle(MARGIN + 35, y + 35, 22).fill(C.brand500);
-    doc.fillColor(C.white).fontSize(13).font("Helvetica-Bold");
-    doc.text("LNB", MARGIN + 22, y + 28, { width: 26, align: "center" });
-
-    doc.fillColor(C.forest800).fontSize(10).font("Helvetica-Bold");
-    doc.text("Documento autenticado pela Limpa Nome Brazil", MARGIN + 75, y + 18, {
-      width: CONTENT_W - 95,
-    });
-    doc.fillColor(C.gray600).fontSize(8).font("Helvetica");
+    // ─── PENDÊNCIAS (tabela) ───────────────────────────────
+    doc.fillColor(C.gray500).fontSize(8).font("Helvetica-Bold");
     doc.text(
-      `Protocolo ${protocolo} · Verifique a autenticidade em limpanomebrazil.com.br/conta/dashboard usando seu CPF e senha.`,
-      MARGIN + 75,
-      y + 35,
-      { width: CONTENT_W - 95, lineGap: 2 }
+      data.tem_pendencia ? "PENDÊNCIAS REGISTRADAS" : "STATUS DO CPF",
+      M,
+      y,
+      { characterSpacing: 1.5 }
     );
+    y += 12;
+    doc
+      .moveTo(M, y)
+      .lineTo(M + W, y)
+      .lineWidth(0.5)
+      .strokeColor(C.gray200)
+      .stroke();
+    y += 10;
 
-    drawFooter(doc, dataStr);
-
-    // ════════════════ PÁGINA 3 — PENDÊNCIAS ═════════════
     if (data.tem_pendencia && data.pendencias && data.pendencias.length > 0) {
-      doc.addPage({ size: "A4", margin: 0 });
-      drawHeader(doc, dataStr, "DETALHAMENTO");
+      // Header da tabela
+      doc.rect(M, y, W, 22).fill(C.forest800);
+      doc.fillColor(C.white).fontSize(8).font("Helvetica-Bold");
+      doc.text("#", M + 10, y + 8, { width: 20, characterSpacing: 1 });
+      doc.text("CREDOR", M + 36, y + 8, { width: W * 0.5, characterSpacing: 1 });
+      doc.text("DATA", M + W * 0.62, y + 8, { width: W * 0.18, characterSpacing: 1 });
+      doc.text("VALOR", M + W * 0.8, y + 8, {
+        width: W * 0.18 - 10,
+        align: "right",
+        characterSpacing: 1,
+      });
+      y += 22;
 
-      let py = 80;
-      drawSectionHeader(
-        doc,
-        "4. CREDORES E VALORES",
-        "Detalhamento das pendências",
-        MARGIN,
-        py
-      );
-      py += 50;
-
-      doc.fillColor(C.gray600).fontSize(10).font("Helvetica");
-      doc.text(
-        "Lista completa de cada registro de débito identificado. Os valores estão consolidados ao momento da consulta.",
-        MARGIN,
-        py,
-        { width: CONTENT_W, lineGap: 3 }
-      );
-      py += 36;
-
-      // Cada pendência
-      data.pendencias.forEach((p, i) => {
-        const cardH = 60;
-
-        // Card branco com border + faixa esquerda vermelha
-        doc.roundedRect(MARGIN, py, CONTENT_W, cardH, 6).fill(C.white);
-        doc.lineWidth(1).rect(MARGIN, py, CONTENT_W, cardH).stroke(C.gray200);
-        doc.rect(MARGIN, py, 4, cardH).fill(C.red500);
-
-        // Número
-        doc.fillColor(C.gray400).fontSize(9).font("Helvetica-Bold");
-        doc.text(`#${String(i + 1).padStart(2, "0")}`, MARGIN + 18, py + 22);
-
-        // Credor
-        doc.fillColor(C.forest800).fontSize(12).font("Helvetica-Bold");
-        doc.text(p.credor, MARGIN + 60, py + 16, { width: CONTENT_W - 220 });
-
-        // Data
-        doc.fillColor(C.gray500).fontSize(9).font("Helvetica");
-        doc.text(
-          p.data ? `Registrado em ${p.data}` : "Data de registro não disponível",
-          MARGIN + 60,
-          py + 35,
-          { width: CONTENT_W - 220 }
-        );
-
-        // Valor
-        doc.fillColor(C.red500).fontSize(15).font("Helvetica-Bold");
-        doc.text(`R$ ${formatBRL(p.valor)}`, MARGIN + CONTENT_W - 150, py + 22, {
-          width: 130,
+      // Limita a 8 pendências pra caber em 1 página
+      const maxRows = 8;
+      const rowsToShow = data.pendencias.slice(0, maxRows);
+      rowsToShow.forEach((p, i) => {
+        const rowH = 22;
+        if (i % 2 === 0) doc.rect(M, y, W, rowH).fill(C.gray50);
+        doc.fillColor(C.gray500).fontSize(8).font("Helvetica");
+        doc.text(`${String(i + 1).padStart(2, "0")}`, M + 10, y + 7, { width: 20 });
+        doc.fillColor(C.forest800).fontSize(9).font("Helvetica-Bold");
+        doc.text(p.credor, M + 36, y + 7, {
+          width: W * 0.5 - 10,
+          ellipsis: true,
+        });
+        doc.fillColor(C.gray600).fontSize(8).font("Helvetica");
+        doc.text(p.data || "—", M + W * 0.62, y + 7, { width: W * 0.18 });
+        doc.fillColor(C.red500).fontSize(9).font("Helvetica-Bold");
+        doc.text(`R$ ${formatBRL(p.valor)}`, M + W * 0.8, y + 7, {
+          width: W * 0.18 - 10,
           align: "right",
         });
-
-        py += cardH + 8;
+        y += rowH;
       });
+
+      // Indicador de "mais X pendências" se truncou
+      if (data.pendencias.length > maxRows) {
+        doc.rect(M, y, W, 18).fill(C.gray100);
+        doc.fillColor(C.gray600).fontSize(8).font("Helvetica-Oblique");
+        doc.text(
+          `+ ${data.pendencias.length - maxRows} pendência(s) adicional(is) — detalhamento completo na sua área online`,
+          M + 10,
+          y + 5,
+          { width: W - 20, align: "center" }
+        );
+        y += 18;
+      }
 
       // Total
-      py += 8;
-      doc
-        .moveTo(MARGIN, py)
-        .lineTo(PAGE_W - MARGIN, py)
-        .lineWidth(2)
-        .strokeColor(C.forest800)
-        .stroke();
-
-      py += 14;
-      doc.fillColor(C.forest800).fontSize(12).font("Helvetica-Bold");
-      doc.text("TOTAL EM PENDÊNCIAS", MARGIN, py, { characterSpacing: 1 });
-      doc.fillColor(C.red500).fontSize(20).font("Helvetica-Bold");
-      doc.text(`R$ ${formatBRL(data.total_dividas)}`, MARGIN, py - 4, {
-        width: CONTENT_W,
+      doc.rect(M, y, W, 26).fill(C.forest800);
+      doc.fillColor(C.white).fontSize(9).font("Helvetica-Bold");
+      doc.text("TOTAL EM PENDÊNCIAS", M + 10, y + 8, { characterSpacing: 1 });
+      doc.fillColor(C.brand400).fontSize(13).font("Helvetica-Bold");
+      doc.text(`R$ ${formatBRL(data.total_dividas)}`, M, y + 6, {
+        width: W - 12,
         align: "right",
       });
-
-      py += 36;
-      doc.fillColor(C.gray500).fontSize(9).font("Helvetica-Oblique");
-      doc.text(
-        `⚠ Valores podem sofrer atualização por juros, multas e correções diárias. Esta consulta foi realizada em ${dataStr} às ${horaStr}.`,
-        MARGIN,
-        py,
-        { width: CONTENT_W, lineGap: 3 }
-      );
-
-      drawFooter(doc, dataStr);
-    }
-
-    // ════════════════ PÁGINA 4 — SOLUÇÃO LNB ═════════════
-    doc.addPage({ size: "A4", margin: 0 });
-    drawHeader(doc, dataStr, "RECOMENDAÇÃO");
-
-    let sy = 80;
-
-    if (data.tem_pendencia) {
-      drawSectionHeader(
-        doc,
-        data.pendencias && data.pendencias.length > 0 ? "5. PRÓXIMOS PASSOS" : "4. PRÓXIMOS PASSOS",
-        "Como limpar seu nome em até 20 dias",
-        MARGIN,
-        sy
-      );
-      sy += 50;
-
-      doc.fillColor(C.gray600).fontSize(10).font("Helvetica");
-      doc.text(
-        "Veja o passo a passo do processo da Limpa Nome Brazil. Sem negociar com credor, sem quitar dívida.",
-        MARGIN,
-        sy,
-        { width: CONTENT_W, lineGap: 3 }
-      );
-      sy += 32;
-
-      const passos = [
-        {
-          t: "Análise individual de cada pendência",
-          d: "Nossa equipe técnica analisa cada um dos credores e a documentação registrada no seu CPF.",
-        },
-        {
-          t: "Atuação direta junto aos órgãos",
-          d: "Atuamos legalmente junto a Serasa, SPC e Boa Vista para regularizar os registros — sem você precisar negociar com cada credor.",
-        },
-        {
-          t: "Acompanhamento em tempo real",
-          d: "Você recebe atualizações por WhatsApp e email a cada etapa. Pode acompanhar tudo no painel online.",
-        },
-        {
-          t: "Nome limpo em até 20 dias úteis",
-          d: "Ao final do processo, seu CPF volta a estar limpo nos 3 principais bureaus de crédito.",
-        },
-        {
-          t: "Blindagem de CPF inclusa por 12 meses",
-          d: "Monitoramos seu CPF diariamente e alertamos imediatamente se aparecer qualquer nova pendência.",
-        },
-      ];
-
-      passos.forEach((p, i) => {
-        // Bolinha número
-        doc.circle(MARGIN + 14, sy + 10, 12).fill(C.brand500);
-        doc.fillColor(C.white).fontSize(11).font("Helvetica-Bold");
-        doc.text(`${i + 1}`, MARGIN + 8, sy + 5, { width: 12, align: "center" });
-
-        doc.fillColor(C.forest800).fontSize(11).font("Helvetica-Bold");
-        doc.text(p.t, MARGIN + 36, sy + 2, { width: CONTENT_W - 36 });
-
-        doc.fillColor(C.gray600).fontSize(9).font("Helvetica");
-        doc.text(p.d, MARGIN + 36, sy + 18, { width: CONTENT_W - 36, lineGap: 2 });
-
-        sy += 50;
-      });
-
-      sy += 10;
-
-      // Box solução grande
-      const solY = sy;
-      const solH = 200;
-      doc.roundedRect(MARGIN, solY, CONTENT_W, solH, 10).fill(C.forest800);
-
-      doc.fillColor(C.brand400).fontSize(9).font("Helvetica-Bold");
-      doc.text("SOLUÇÃO RECOMENDADA", MARGIN + 24, solY + 22, { characterSpacing: 3 });
-
-      doc.fillColor(C.white).fontSize(20).font("Helvetica-Bold");
-      doc.text("Limpe seu nome agora", MARGIN + 24, solY + 38);
-      doc.text("com a Limpa Nome Brazil", MARGIN + 24, solY + 60);
-
-      doc.fillColor(C.sand).fontSize(10).font("Helvetica");
-      doc.text(
-        "Mais de 10 mil pessoas já voltaram a ter crédito conosco. Sem quitar dívida.",
-        MARGIN + 24,
-        solY + 88,
-        { width: CONTENT_W - 48, lineGap: 2 }
-      );
-
-      // Linha + preço
-      doc
-        .moveTo(MARGIN + 24, solY + 130)
-        .lineTo(PAGE_W - MARGIN - 24, solY + 130)
-        .strokeColor(C.sand)
-        .strokeOpacity(0.2)
-        .stroke()
-        .strokeOpacity(1);
-
-      doc.fillColor(C.brand400).fontSize(9).font("Helvetica-Bold");
-      doc.text("INVESTIMENTO", MARGIN + 24, solY + 145, { characterSpacing: 2 });
-
-      doc.fillColor(C.white).fontSize(28).font("Helvetica-Bold");
-      doc.text("R$ 480,01", MARGIN + 24, solY + 158);
-
-      doc.fillColor(C.brand400).fontSize(9).font("Helvetica");
-      doc.text("À vista · 12 meses de Blindagem inclusa", PAGE_W - MARGIN - 280, solY + 178, {
-        width: 256,
-        align: "right",
-      });
-
-      // CTA button
-      const ctaY = solY + solH + 16;
-      doc.roundedRect(MARGIN, ctaY, CONTENT_W, 40, 6).fill(C.brand500);
-      doc.fillColor(C.white).fontSize(12).font("Helvetica-Bold");
-      doc.text("ACESSE LIMPANOMEBRAZIL.COM.BR", MARGIN, ctaY + 14, {
-        width: CONTENT_W,
-        align: "center",
-        characterSpacing: 2,
-      });
+      y += 26;
     } else {
       // Box "Nome limpo"
-      drawSectionHeader(doc, "RESULTADO POSITIVO", "Tudo certo com seu CPF", MARGIN, sy);
-      sy += 50;
-
-      doc.fillColor(C.gray600).fontSize(10).font("Helvetica");
+      doc.rect(M, y, W, 50).fill(C.emerald100);
+      doc.rect(M, y, 3, 50).fill(C.emerald500);
+      doc.fillColor(C.emerald500).fontSize(11).font("Helvetica-Bold");
+      doc.text("✓ NOME LIMPO", M + 14, y + 12, { characterSpacing: 1 });
+      doc.fillColor(C.gray700).fontSize(9).font("Helvetica");
       doc.text(
-        "Não foram encontradas pendências em seu nome nos órgãos consultados.",
-        MARGIN,
-        sy,
-        { width: CONTENT_W, lineGap: 3 }
+        "Não foram encontradas pendências em seu nome. Continue mantendo as contas em dia.",
+        M + 14,
+        y + 28,
+        { width: W - 28 }
       );
-      sy += 32;
-
-      const boxH = 160;
-      doc.roundedRect(MARGIN, sy, CONTENT_W, boxH, 10).fill(C.emerald500);
-
-      doc.fillColor(C.white).fillOpacity(0.85).fontSize(9).font("Helvetica-Bold");
-      doc.text("NOME LIMPO", MARGIN + 24, sy + 22, { characterSpacing: 2 });
-      doc.fillOpacity(1);
-
-      doc.fillColor(C.white).fontSize(26).font("Helvetica-Bold");
-      doc.text("Parabéns!", MARGIN + 24, sy + 40);
-
-      doc.fillColor(C.white).fontSize(11).font("Helvetica");
-      doc.text(
-        "Seu CPF está limpo e sem pendências registradas em Serasa, SPC e Boa Vista. Continue mantendo as contas em dia para preservar e elevar seu score de crédito.",
-        MARGIN + 24,
-        sy + 78,
-        { width: CONTENT_W - 48, lineGap: 3 }
-      );
+      y += 50;
     }
 
-    drawFooter(doc, dataStr);
+    y += 16;
+
+    // ─── PRÓXIMOS PASSOS / CTA (só se tem pendência) ──────
+    if (data.tem_pendencia) {
+      doc.fillColor(C.gray500).fontSize(8).font("Helvetica-Bold");
+      doc.text("PRÓXIMOS PASSOS", M, y, { characterSpacing: 1.5 });
+      y += 12;
+      doc
+        .moveTo(M, y)
+        .lineTo(M + W, y)
+        .lineWidth(0.5)
+        .strokeColor(C.gray200)
+        .stroke();
+      y += 14;
+
+      // Box compacto com call to action
+      const ctaH = 88;
+      doc.rect(M, y, W, ctaH).fill(C.forest800);
+
+      doc.fillColor(C.brand400).fontSize(8).font("Helvetica-Bold");
+      doc.text("RECOMENDAÇÃO", M + 16, y + 14, { characterSpacing: 1.5 });
+
+      doc.fillColor(C.white).fontSize(13).font("Helvetica-Bold");
+      doc.text("Limpe seu nome em até 20 dias úteis", M + 16, y + 28);
+
+      doc.fillColor(C.sand).fontSize(8).font("Helvetica");
+      doc.text(
+        "Sem quitar dívida · Sem negociar com credor · Blindagem 12 meses inclusa",
+        M + 16,
+        y + 47,
+        { width: W - 200 }
+      );
+
+      doc.fillColor(C.brand400).fontSize(7).font("Helvetica-Bold");
+      doc.text("INVESTIMENTO", M + 16, y + 64, { characterSpacing: 1 });
+      doc.fillColor(C.white).fontSize(15).font("Helvetica-Bold");
+      doc.text("R$ 480,01", M + 84, y + 60);
+
+      // CTA box no canto direito
+      const ctaBoxW = 140;
+      const ctaBoxX = M + W - ctaBoxW - 16;
+      doc.rect(ctaBoxX, y + 22, ctaBoxW, 44).fill(C.brand500);
+      doc.fillColor(C.white).fontSize(8).font("Helvetica-Bold");
+      doc.text("ACESSE", ctaBoxX, y + 30, {
+        width: ctaBoxW,
+        align: "center",
+        characterSpacing: 1.5,
+      });
+      doc.fillColor(C.white).fontSize(10).font("Helvetica-Bold");
+      doc.text("limpanomebrazil.com.br", ctaBoxX, y + 45, {
+        width: ctaBoxW,
+        align: "center",
+      });
+
+      y += ctaH + 8;
+    }
+
+    // ─── FOOTER (rodapé fixo) ──────────────────────────────
+    const FOOTER_Y = PAGE_H - 56;
+    doc
+      .moveTo(M, FOOTER_Y)
+      .lineTo(M + W, FOOTER_Y)
+      .lineWidth(0.5)
+      .strokeColor(C.gray300 || C.gray200)
+      .stroke();
+
+    doc.fillColor(C.gray500).fontSize(7).font("Helvetica");
+    doc.text(`Protocolo: ${protocolo}`, M, FOOTER_Y + 10);
+    doc.text(
+      "Fonte de dados: Boa Vista SCPC, Serasa Experian, SPC Brasil",
+      M,
+      FOOTER_Y + 22
+    );
+    doc.text(
+      "Documento autenticado pela Limpa Nome Brazil · LGPD compatível",
+      M,
+      FOOTER_Y + 34
+    );
+
+    // Lado direito: contatos
+    doc.fillColor(C.forest800).fontSize(8).font("Helvetica-Bold");
+    doc.text("limpanomebrazil.com.br", PAGE_W - M - 200, FOOTER_Y + 10, {
+      width: 200,
+      align: "right",
+    });
+    doc.fillColor(C.gray600).fontSize(7).font("Helvetica");
+    doc.text("contato@limpanomebrazil.com.br", PAGE_W - M - 200, FOOTER_Y + 22, {
+      width: 200,
+      align: "right",
+    });
+    doc.text("WhatsApp (11) 99744-0101", PAGE_W - M - 200, FOOTER_Y + 34, {
+      width: 200,
+      align: "right",
+    });
 
     doc.end();
-  });
-}
-
-function drawHeader(doc: any, dataStr: string, badge: string) {
-  doc.rect(0, 0, 595.28, 50).fill(C.forest800);
-  doc.fillColor(C.white).fontSize(14).font("Helvetica-Bold");
-  doc.text("LNB", 50, 18);
-  doc.fillColor(C.brand400).fontSize(8).font("Helvetica-Bold");
-  doc.text("LIMPA NOME BRAZIL", 50, 36, { characterSpacing: 1 });
-
-  doc.fillColor(C.brand400).fontSize(8).font("Helvetica-Bold");
-  doc.text(`${badge} · ${dataStr.toUpperCase()}`, 595.28 - 50 - 250, 23, {
-    width: 250,
-    align: "right",
-    characterSpacing: 1,
-  });
-}
-
-function drawSectionHeader(doc: any, eyebrow: string, title: string, x: number, y: number) {
-  doc.fillColor(C.brand500).fontSize(9).font("Helvetica-Bold");
-  doc.text(eyebrow, x, y, { characterSpacing: 2 });
-  doc.fillColor(C.forest800).fontSize(20).font("Helvetica-Bold");
-  doc.text(title, x, y + 14);
-}
-
-function drawFooter(doc: any, _dataStr: string) {
-  const PAGE_W = 595.28;
-  const PAGE_H = 841.89;
-  const fY = PAGE_H - 36;
-
-  doc.rect(0, fY, PAGE_W, 36).fill(C.forest900);
-  doc.fillColor(C.sand).fontSize(8).font("Helvetica");
-  doc.text("Limpa Nome Brazil", 50, fY + 12, { continued: true });
-  doc.font("Helvetica").text(" · CNPJ confidencial · LGPD compatível");
-
-  // page number (pdfkit não tem auto-numbering simples, deixa estático)
-  doc.fillColor(C.sand).fontSize(8);
-  doc.text("limpanomebrazil.com.br", PAGE_W - 50 - 200, fY + 12, {
-    width: 200,
-    align: "right",
   });
 }
 
