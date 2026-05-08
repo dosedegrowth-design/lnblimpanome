@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createPreference } from "@/lib/mercadopago";
 import { cleanCPF, isValidCPF } from "@/lib/utils";
 
@@ -87,21 +86,16 @@ export async function POST(req: Request) {
     if (!msg.includes("já cadastrado")) return bad(msg);
   }
 
-  // 2) Upsert CRM com origem='site'
+  // 2) Upsert CRM com origem='site' (via RPC SECURITY DEFINER — sem service_role)
   try {
-    const admin = createAdminClient();
-    await admin.from("LNB - CRM").upsert(
-      {
-        telefone, nome,
-        CPF: cpf,
-        "e-mail": email,
-        Servico: item.titulo,
-        origem: "site",
-        Lead: true,
-        Interessado: true,
-      },
-      { onConflict: "telefone" }
-    );
+    await supa.rpc("checkout_upsert_crm_lead", {
+      p_telefone: telefone,
+      p_nome: nome,
+      p_cpf: cpf,
+      p_email: email,
+      p_servico: item.titulo,
+      p_origem: "site",
+    });
   } catch (e) {
     console.error("[checkout] upsert CRM erro (segue):", e);
   }
@@ -143,17 +137,14 @@ export async function POST(req: Request) {
     );
   }
 
-  // 4) Salva preference_id no CRM
+  // 4) Salva preference_id no CRM (via RPC)
   try {
-    const admin = createAdminClient();
-    await admin
-      .from("LNB - CRM")
-      .update({
-        link_pagamento: preference.init_point,
-        external_ref: externalRef,
-        id_pagamento: preference.id,
-      })
-      .eq("telefone", telefone);
+    await supa.rpc("checkout_save_preference", {
+      p_telefone: telefone,
+      p_link_pagamento: preference.init_point,
+      p_external_ref: externalRef,
+      p_id_pagamento: preference.id,
+    });
   } catch (e) {
     console.error("[checkout] update CRM com preference erro (segue):", e);
   }

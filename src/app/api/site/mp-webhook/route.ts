@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getPayment } from "@/lib/mercadopago";
+import type { APIFullResultado } from "@/lib/api-full";
 import { consultarCPF, parseConsulta } from "@/lib/api-full";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { cleanCPF } from "@/lib/utils";
 
 /**
@@ -9,14 +10,13 @@ import { cleanCPF } from "@/lib/utils";
  *
  * Recebe notificações do Mercado Pago.
  * 1) Busca o pagamento na API MP
- * 2) Se aprovado e tipo="consulta": chama API Full + salva LNB_Consultas
- * 3) Se aprovado e tipo="limpeza*": marca CRM como Fechado
- * 4) Dispara fluxo n8n PDF Generator (mantém o existente)
+ * 2) Se aprovado e tipo="consulta": chama API Full + grava via RPC SECURITY DEFINER
+ * 3) Se aprovado e tipo="limpeza*": grava via RPC SECURITY DEFINER
+ * 4) Dispara fluxo n8n PDF Generator
  *
- * MP envia notification em formatos diferentes:
- *   { action: "payment.updated", data: { id: "12345" } }
- *   ?topic=payment&id=12345 (query string)
- *   { resource: "https://api.mercadopago.com/...", topic: "payment" }
+ * Não usa service_role — todas escritas em LNB_Consultas e "LNB - CRM" passam
+ * por RPCs (webhook_registrar_consulta_paga / webhook_registrar_limpeza_fechada)
+ * que rodam com SECURITY DEFINER no Postgres (bypass RLS dentro do banco).
  */
 export async function POST(req: Request) {
   const url = new URL(req.url);
@@ -63,53 +63,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "missing_metadata" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const supa = await createClient();
 
   // -------- CONSULTA --------
   if (tipo === "consulta" || externalRef.startsWith("CONSULTA")) {
+    let parsed: ReturnType<typeof parseConsulta> | null = null;
+    let raw: APIFullResultado | null = null;
     try {
-      const raw = await consultarCPF(cpf);
-      const r = parseConsulta(raw);
-
-      await admin.from("LNB_Consultas").upsert(
-        {
-          cpf,
-          nome: payment.payer?.first_name || "",
-          email: payment.payer?.email || "",
-          telefone,
-          provider: "apifull",
-          tem_pendencia: r.tem_pendencia,
-          qtd_pendencias: r.qtd_pendencias,
-          total_dividas: r.total_dividas,
-          resumo: r.resumo,
-          consulta_paga: true,
-          resultado_raw: raw as object,
-          origem: "site",
-          mp_preference_consulta: String(externalRef),
-        },
-        { onConflict: "cpf" }
-      );
-
-      await admin
-        .from("LNB - CRM")
-        .update({ status_pagamento: "paid", Qualificado: true })
-        .eq("telefone", telefone);
+      raw = await consultarCPF(cpf);
+      parsed = parseConsulta(raw);
     } catch (e) {
       console.error("[mp-webhook] erro consulta API Full (segue marcando pago):", e);
-      await admin.from("LNB_Consultas").upsert(
-        {
-          cpf,
-          nome: payment.payer?.first_name || "",
-          email: payment.payer?.email || "",
-          telefone,
-          provider: "apifull",
-          consulta_paga: true,
-          origem: "site",
-          mp_preference_consulta: String(externalRef),
-        },
-        { onConflict: "cpf" }
-      );
     }
+
+    const { error: rpcErr } = await supa.rpc("webhook_registrar_consulta_paga", {
+      p_cpf: cpf,
+      p_nome: payment.payer?.first_name || "",
+      p_email: payment.payer?.email || "",
+      p_telefone: telefone,
+      p_provider: "apifull",
+      p_tem_pendencia: parsed?.tem_pendencia ?? null,
+      p_qtd_pendencias: parsed?.qtd_pendencias ?? null,
+      p_total_dividas: parsed?.total_dividas ?? null,
+      p_resumo: parsed?.resumo ?? null,
+      p_resultado_raw: (raw as unknown as object) ?? {},
+      p_external_ref: String(externalRef),
+    });
+    if (rpcErr) console.error("[mp-webhook] webhook_registrar_consulta_paga erro:", rpcErr);
 
     triggerPdfGeneration(cpf).catch((e) =>
       console.error("[mp-webhook] erro disparar PDF n8n:", e)
@@ -118,15 +98,11 @@ export async function POST(req: Request) {
 
   // -------- LIMPEZA --------
   if (tipo.startsWith("limpeza") || externalRef.startsWith("LIMPEZA")) {
-    await admin
-      .from("LNB - CRM")
-      .update({ status_pagamento: "paid", Fechado: true })
-      .eq("telefone", telefone);
-
-    await admin
-      .from("LNB_Consultas")
-      .update({ fechou_limpeza: true })
-      .eq("cpf", cpf);
+    const { error: rpcErr } = await supa.rpc("webhook_registrar_limpeza_fechada", {
+      p_cpf: cpf,
+      p_telefone: telefone,
+    });
+    if (rpcErr) console.error("[mp-webhook] webhook_registrar_limpeza_fechada erro:", rpcErr);
   }
 
   return NextResponse.json({ ok: true });
