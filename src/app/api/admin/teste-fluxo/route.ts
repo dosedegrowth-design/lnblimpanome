@@ -175,40 +175,75 @@ export async function POST(req: Request) {
     steps.push({ step: "whatsapp", ok: null, skipped: true });
   }
 
-  // ─── 5) PDF Generator (n8n) ──────────────────────────
+  // ─── 5) PDF Generator (interno @react-pdf/renderer) ──
+  let pdfUrlGerado: string | null = null;
   if (!skip.includes("pdf")) {
     const t0 = Date.now();
-    const pdfUrl =
-      process.env.LNB_PDF_WEBHOOK ||
-      "https://webhook.dosedegrowth.cloud/webhook/gerar-pdf-lnb";
     try {
-      const r = await fetch(pdfUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cpf, dryRun: true, teste: true }),
-      });
-      const text = await r.text();
-      steps.push({
-        step: "pdf_webhook",
-        ok: r.ok,
-        latencia_ms: Date.now() - t0,
-        url: pdfUrl,
-        status: r.status,
-        response_preview: text.slice(0, 1000),
-        instrucao_n8n:
-          "Pra gerar o PDF de verdade: o n8n precisa ter o workflow 'PDF Generator LNB v03' importado e ATIVO. Sem isso, esse webhook só recebe a chamada e não faz nada.",
-      });
+      const { gerarESalvarRelatorio } = await import("@/lib/pdf/gerar-relatorio");
+
+      // Se tem dados parseados da API Full, usa eles. Senão, gera PDF mock.
+      const dadosPdf = parsed
+        ? {
+            cpf,
+            nome,
+            email,
+            telefone,
+            score:
+              typeof (raw as { Score?: unknown })?.Score === "number"
+                ? ((raw as { Score: number }).Score)
+                : undefined,
+            tem_pendencia: parsed.tem_pendencia,
+            qtd_pendencias: parsed.qtd_pendencias,
+            total_dividas: parsed.total_dividas,
+            pendencias: parsed.pendencias,
+          }
+        : {
+            // Mock pra teste sem API Full
+            cpf,
+            nome: nome + " (TESTE)",
+            email,
+            telefone,
+            score: 412,
+            tem_pendencia: true,
+            qtd_pendencias: 3,
+            total_dividas: 4872.5,
+            pendencias: [
+              { credor: "Banco Exemplo S.A.", valor: 2500, data: "2024-08-15" },
+              { credor: "Loja Demo Ltda.", valor: 1500, data: "2024-10-22" },
+              { credor: "Cartão Teste", valor: 872.5, data: "2025-01-10" },
+            ],
+          };
+
+      const r = await gerarESalvarRelatorio(dadosPdf);
+      if (r.ok) {
+        pdfUrlGerado = r.pdfUrl;
+        steps.push({
+          step: "pdf_gerado",
+          ok: true,
+          latencia_ms: Date.now() - t0,
+          modo: parsed ? "dados_reais_api_full" : "mock_teste",
+          path: r.path,
+          pdf_url: r.pdfUrl,
+        });
+      } else {
+        steps.push({
+          step: "pdf_gerado",
+          ok: false,
+          latencia_ms: Date.now() - t0,
+          erro: r.error,
+        });
+      }
     } catch (e) {
       steps.push({
-        step: "pdf_webhook",
+        step: "pdf_gerado",
         ok: false,
         latencia_ms: Date.now() - t0,
-        url: pdfUrl,
         erro: String(e),
       });
     }
   } else {
-    steps.push({ step: "pdf_webhook", ok: null, skipped: true });
+    steps.push({ step: "pdf_gerado", ok: null, skipped: true });
   }
 
   // ─── 6) Buscar PDF disponível em LNB_Consultas ───────
@@ -294,7 +329,8 @@ export async function POST(req: Request) {
   const totalFail = steps.filter((s) => s.ok === false).length;
 
   // PDF URL pro front mostrar como link clicável
-  const pdfStep = steps.find((s) => s.step === "pdf_disponivel") as
+  // Prioridade: PDF gerado agora > PDF salvo no banco
+  const pdfDisponivel = steps.find((s) => s.step === "pdf_disponivel") as
     | { pdf_url?: string }
     | undefined;
 
@@ -307,7 +343,7 @@ export async function POST(req: Request) {
       ignorados: steps.filter((s) => s.ok === null).length,
     },
     cpf,
-    pdf_url: pdfStep?.pdf_url || null,
+    pdf_url: pdfUrlGerado || pdfDisponivel?.pdf_url || null,
     timestamp: new Date().toISOString(),
     steps,
   });

@@ -353,7 +353,7 @@ function stepLabel(step: string): string {
     templates: "2 · Templates de email/WhatsApp",
     email: "3 · Resend — envio de email",
     whatsapp: "4 · Chatwoot — envio de WhatsApp",
-    pdf_webhook: "5 · PDF Generator (n8n disparado)",
+    pdf_gerado: "5 · PDF Generator (interno · @react-pdf)",
     pdf_disponivel: "6 · PDF salvo em LNB_Consultas",
     envs_check: "7 · Envs configuradas",
     rpc_elegibilidade: "8 · RPC Supabase elegibilidade",

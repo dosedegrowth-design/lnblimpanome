@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/blindagem-diaria",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}
