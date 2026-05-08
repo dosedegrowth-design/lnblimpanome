@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, FileSearch, ShieldCheck, Briefcase,
-  Wallet, Settings as SettingsIcon, LogOut, UserCog,
+  Wallet, Settings as SettingsIcon, LogOut, UserCog, FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
@@ -17,6 +17,7 @@ const items = [
   { href: "/painel/blindagem",     label: "Blindagem",     icon: ShieldCheck },
   { href: "/painel/financeiro",    label: "Financeiro",    icon: Wallet },
   { href: "/painel/equipe",        label: "Equipe",        icon: UserCog },
+  { href: "/painel/teste-fluxo",   label: "Teste de fluxo", icon: FlaskConical },
   { href: "/painel/configuracoes", label: "Configurações", icon: SettingsIcon },
 ];
 
