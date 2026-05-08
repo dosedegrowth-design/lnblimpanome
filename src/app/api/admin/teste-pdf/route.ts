@@ -9,6 +9,8 @@ export const maxDuration = 60;
  *
  * Testa SOMENTE a geração de PDF — sem chamar API Full, sem custar nada.
  * Usa dados mock fixos. Retorna JSON com erro detalhado se falhar.
+ *
+ * Usa cliente Supabase com anon key (sem service_role).
  */
 export async function GET() {
   await requireAdmin();
@@ -47,17 +49,23 @@ export async function GET() {
     debug.buffer_size = buffer.length;
     debug.buffer_ok = true;
 
-    debug.step = "import_admin_client";
-    const { createAdminClient } = await import("@/lib/supabase/admin");
-    debug.admin_client_imported = true;
+    debug.step = "import_supabase_client";
+    const { createClient } = await import("@supabase/supabase-js");
+    debug.supabase_imported = true;
 
-    debug.step = "criar_admin_client";
-    const admin = createAdminClient();
-    debug.admin_client_criado = true;
+    debug.step = "criar_supabase_client";
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    debug.url_ok = !!url;
+    debug.key_ok = !!key;
+    const supa = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    debug.supabase_client_criado = true;
 
     debug.step = "upload_storage";
     const path = `teste/${Date.now()}-teste.pdf`;
-    const { error: upErr } = await admin.storage
+    const { error: upErr } = await supa.storage
       .from("lnb-relatorios")
       .upload(path, buffer, {
         contentType: "application/pdf",
@@ -70,7 +78,7 @@ export async function GET() {
     debug.upload_ok = true;
 
     debug.step = "get_public_url";
-    const { data: urlData } = admin.storage.from("lnb-relatorios").getPublicUrl(path);
+    const { data: urlData } = supa.storage.from("lnb-relatorios").getPublicUrl(path);
     debug.pdf_url = urlData.publicUrl;
 
     return NextResponse.json({

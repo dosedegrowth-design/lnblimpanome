@@ -1,8 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import PDFDocument from "pdfkit";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 const BUCKET = "lnb-relatorios";
+
+/**
+ * Cliente Supabase pra Storage — usa anon key (sem service_role).
+ * As policies do bucket lnb-relatorios autorizam INSERT/UPDATE/SELECT
+ * pra anon, então funciona sem precisar de SUPABASE_SERVICE_ROLE_KEY.
+ */
+function createStorageClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return createSupabaseClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 
 // ─── Paleta LNB ─────────────────────────────────────────
 const C = {
@@ -710,8 +723,8 @@ export async function gerarESalvarRelatorio(
     const ts = Date.now();
     const path = `consultas/${cpfClean}/${ts}-relatorio.pdf`;
 
-    const admin = createAdminClient();
-    const { error: upErr } = await admin.storage.from(BUCKET).upload(path, buffer, {
+    const supa = createStorageClient();
+    const { error: upErr } = await supa.storage.from(BUCKET).upload(path, buffer, {
       contentType: "application/pdf",
       upsert: true,
     });
@@ -719,8 +732,8 @@ export async function gerarESalvarRelatorio(
       return { ok: false, error: `Upload falhou: ${upErr.message}` };
     }
 
-    // 3) URL pública
-    const { data: urlData } = admin.storage.from(BUCKET).getPublicUrl(path);
+    // 3) URL pública (bucket lnb-relatorios é público)
+    const { data: urlData } = supa.storage.from(BUCKET).getPublicUrl(path);
 
     return { ok: true, pdfUrl: urlData.publicUrl, path };
   } catch (e) {
