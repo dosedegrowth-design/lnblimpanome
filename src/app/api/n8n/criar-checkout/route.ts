@@ -3,8 +3,17 @@ import { createClient } from "@/lib/supabase/server";
 import { createPreference } from "@/lib/mercadopago";
 import { checkN8nAuth } from "@/lib/n8n/auth";
 import { cleanCPF, isValidCPF } from "@/lib/utils";
+import { aplicarLabelsLnb, type LnbLabelContext } from "@/lib/chatwoot-labels";
+import { buscarConversationIdPorTelefone } from "@/lib/chatwoot-kanban";
 
 export const runtime = "nodejs";
+
+// Mapa tipo → contexto label
+const LABEL_POR_TIPO: Record<string, LnbLabelContext> = {
+  consulta: "interessado_consulta",
+  limpeza_desconto: "interessado_limpeza",
+  blindagem: "interessado_blindagem",
+};
 
 /**
  * POST /api/n8n/criar-checkout
@@ -127,6 +136,32 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     console.error("[n8n/criar-checkout] save preference erro (segue):", e);
+  }
+
+  // Grava valor_servico + tipo_servico (padrão SPV pra Kanban)
+  const valorFormatado = `R$ ${item.valor
+    .toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  try {
+    await supa.rpc("lnb_crm_set_valor_servico", {
+      p_telefone: telefone,
+      p_valor_servico: valorFormatado,
+      p_tipo_servico: tipo,
+    });
+  } catch (e) {
+    console.error("[n8n/criar-checkout] set valor erro (segue):", e);
+  }
+
+  // Aplica labels Chatwoot automaticamente (interessado_*, aguardando-pagamento)
+  try {
+    const labelContext = LABEL_POR_TIPO[tipo];
+    if (labelContext) {
+      const conv = await buscarConversationIdPorTelefone(telefone);
+      if (conv) {
+        await aplicarLabelsLnb(conv, labelContext);
+      }
+    }
+  } catch (e) {
+    console.error("[n8n/criar-checkout] aplicar labels erro (segue):", e);
   }
 
   return NextResponse.json({

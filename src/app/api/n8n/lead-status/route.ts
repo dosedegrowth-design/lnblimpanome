@@ -46,6 +46,8 @@ export async function POST(req: Request) {
   const email = String(body?.email || "").trim();
   const servico = String(body?.servico || "LNB - Atendimento WhatsApp");
   const conversationIdFromBody = Number(body?.conversation_id);
+  const valorServico = String(body?.valor_servico || "").trim();
+  const tipoServico = String(body?.tipo_servico || "").trim();
 
   if (!telefone) {
     return NextResponse.json({ ok: false, error: "telefone obrigatório" }, { status: 400 });
@@ -90,6 +92,19 @@ export async function POST(req: Request) {
     }
   } catch (e) {
     console.error("[n8n/lead-status] erro stage:", e);
+  }
+
+  // 2.5) Se IA passou valor_servico/tipo_servico, grava no CRM
+  if (valorServico && tipoServico) {
+    try {
+      await supa.rpc("lnb_crm_set_valor_servico", {
+        p_telefone: telefone,
+        p_valor_servico: valorServico,
+        p_tipo_servico: tipoServico,
+      });
+    } catch (e) {
+      console.error("[n8n/lead-status] erro valor_servico:", e);
+    }
   }
 
   // 3) Move o card no Kanban Chatwoot (funil "Limpeza de Nome" id=1)

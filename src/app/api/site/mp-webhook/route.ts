@@ -139,6 +139,11 @@ export async function POST(req: Request) {
       p_telefone: telefone,
     });
     if (rpcErr) console.error("[mp-webhook] webhook_registrar_limpeza_fechada erro:", rpcErr);
+
+    // Aplica labels Chatwoot + handoff humano (background)
+    finalizarLimpezaPaga({ cpf, nome: payment.payer?.first_name || "", telefone, email: payment.payer?.email || "", origem }).catch((e) =>
+      console.error("[mp-webhook] erro finalizar limpeza:", e)
+    );
   }
 
   return NextResponse.json({ ok: true });
@@ -146,6 +151,74 @@ export async function POST(req: Request) {
 
 export async function GET() {
   return NextResponse.json({ ok: true, message: "MP webhook ativo" });
+}
+
+/**
+ * Finaliza pagamento da Limpeza (R$ 480,01).
+ * - Aplica label "pago-limpeza" no Chatwoot
+ * - Manda mensagem de boas-vindas no WhatsApp avisando que equipe assume
+ * - Email de confirmação se tiver email
+ * - (futuro) cria registro em lnb_processos com etapa "iniciado"
+ */
+interface FinalizarLimpezaInput {
+  cpf: string;
+  nome: string;
+  email: string;
+  telefone: string;
+  origem: "site" | "whatsapp";
+}
+
+async function finalizarLimpezaPaga(i: FinalizarLimpezaInput) {
+  const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://limpanomebrazil.com.br";
+  console.log(`[mp-webhook] limpeza paga cpf=${i.cpf} origem=${i.origem}`);
+
+  const titulo = "🎉 Limpeza contratada — equipe inicia em até 4h úteis";
+  const corpo = `Recebemos seu pagamento de R$ 480,01 com sucesso! Em até 4 horas úteis nossa equipe especializada inicia o processo de limpeza do seu nome. Você será atualizado a cada etapa por aqui e por email.\n\n📋 Próximos passos:\n• Análise dos credores (em até 2 dias)\n• Atuação junto aos órgãos (Boa Vista/Serasa/SPC)\n• Acompanhamento online no painel\n• Conclusão em até 20 dias úteis\n\nObrigado pela confiança 💙`;
+
+  // WhatsApp via Chatwoot (se origem=whatsapp)
+  if (i.origem === "whatsapp" && i.telefone) {
+    try {
+      const { aplicarLabelsLnb } = await import("@/lib/chatwoot-labels");
+      const { buscarConversationIdPorTelefone } = await import("@/lib/chatwoot-kanban");
+      const { enviarTextoChatwoot } = await import("@/lib/chatwoot-attach");
+      const { registrarLimpezaPagaNoCard } = await import("@/lib/chatwoot-attributes");
+
+      const convId = await buscarConversationIdPorTelefone(i.telefone);
+      if (convId) {
+        // Labels + atribute + nota
+        await aplicarLabelsLnb(convId, "pago_limpeza");
+        await registrarLimpezaPagaNoCard(convId, {
+          cpf: i.cpf,
+          valor: "R$ 480,01",
+        });
+        // Mensagem visível pro cliente
+        await enviarTextoChatwoot(convId, `*${titulo}*\n\n${corpo}`);
+      }
+    } catch (e) {
+      console.error("[mp-webhook] limpeza chatwoot erro:", e);
+    }
+  }
+
+  // Email (sempre que tiver email)
+  if (i.email) {
+    try {
+      const { sendEmail, renderEmailHTML } = await import("@/lib/email");
+      await sendEmail({
+        to: i.email,
+        subject: `[LNB] ${titulo}`,
+        html: renderEmailHTML({
+          titulo,
+          corpo: corpo.replace(/\n/g, "<br>"),
+          nomeCliente: i.nome.split(" ")[0],
+          ctaUrl: `${SITE}/conta/dashboard`,
+          ctaTexto: "Acompanhar processo",
+        }),
+        text: `${titulo}\n\n${corpo}\n\nAcesse: ${SITE}/conta/dashboard`,
+      });
+    } catch (e) {
+      console.error("[mp-webhook] limpeza email erro:", e);
+    }
+  }
 }
 
 /**
@@ -227,11 +300,20 @@ async function finalizarConsulta(input: FinalizarInput) {
     });
     if (r.ok) {
       pdfUrl = r.pdfUrl;
-      // Salva pdf_url via RPC
       const { createClient } = await import("@/lib/supabase/server");
       const supa = await createClient();
+      // Salva pdf_url + dados consulta na LNB_Consultas
       await supa.rpc("webhook_set_pdf_url" as never, {
         p_cpf: cpf,
+        p_pdf_url: pdfUrl,
+      } as never);
+      // Também grava no LNB - CRM (padrão SPV — Kanban completo)
+      await supa.rpc("lnb_crm_set_consulta_resultado" as never, {
+        p_telefone: telefone,
+        p_score: score ?? null,
+        p_tem_pendencia: !!parsed?.tem_pendencia,
+        p_qtd_pendencias: parsed?.qtd_pendencias || 0,
+        p_total_dividas: parsed?.total_dividas || 0,
         p_pdf_url: pdfUrl,
       } as never);
     } else {
@@ -239,6 +321,38 @@ async function finalizarConsulta(input: FinalizarInput) {
     }
   } catch (e) {
     console.error("[mp-webhook] PDF exception:", e);
+  }
+
+  // 2.5) Aplica labels + custom attributes + private note no card Chatwoot
+  if (origem === "whatsapp" && telefone) {
+    try {
+      const { aplicarLabelsLnb } = await import("@/lib/chatwoot-labels");
+      const { buscarConversationIdPorTelefone } = await import("@/lib/chatwoot-kanban");
+      const { registrarConsultaNoCard } = await import("@/lib/chatwoot-attributes");
+
+      const convId = await buscarConversationIdPorTelefone(telefone);
+      if (convId) {
+        // Labels: pago_consulta + resultado
+        await aplicarLabelsLnb(convId, "pago_consulta");
+        if (parsed?.tem_pendencia) {
+          await aplicarLabelsLnb(convId, "consulta_resultado_com_pendencia", { score });
+        } else {
+          await aplicarLabelsLnb(convId, "consulta_resultado_sem_pendencia", { score });
+        }
+
+        // Custom attributes + private note (PDF fica visível no painel lateral)
+        await registrarConsultaNoCard(convId, {
+          cpf,
+          score,
+          tem_pendencia: !!parsed?.tem_pendencia,
+          qtd_pendencias: parsed?.qtd_pendencias,
+          total_dividas: parsed?.total_dividas,
+          pdf_url: pdfUrl ?? undefined,
+        });
+      }
+    } catch (e) {
+      console.error("[mp-webhook] chatwoot card erro (segue):", e);
+    }
   }
 
   const titulo = parsed?.tem_pendencia
@@ -276,32 +390,78 @@ async function finalizarConsulta(input: FinalizarInput) {
     }
   }
 
-  // ─── FLUXO WHATSAPP: só Chatwoot ──────────────────────
-  // n8n Maia continua a conversa. Sem email.
+  // ─── FLUXO WHATSAPP: Chatwoot + PDF anexo + email backup ──
+  // 1) Manda PDF como anexo direto na conversa Chatwoot (UX rápida)
+  // 2) Manda email Resend como backup (se email existir)
+  // n8n Maia continua a conversa depois.
   if (origem === "whatsapp" && telefone) {
     try {
-      const templateName = process.env.WPP_TEMPLATE_GENERICO;
-      if (templateName) {
-        await sendWhatsAppTemplate(
-          telefone,
-          {
-            name: templateName,
-            language: process.env.WPP_TEMPLATE_LANG || "pt_BR",
-            parameters: [
-              nome.split(" ")[0],
-              titulo,
-              corpoWpp,
-              `${SITE}/conta/dashboard`,
-            ],
-          },
-          nome
-        );
+      const { buscarConversationIdPorTelefone } = await import("@/lib/chatwoot-kanban");
+      const { enviarTextoChatwoot, enviarAnexoChatwoot } = await import("@/lib/chatwoot-attach");
+      const convId = await buscarConversationIdPorTelefone(telefone);
+      if (convId) {
+        // 1ª mensagem: texto resumo
+        const textoResumo = `*${titulo}*\n\n${corpoWpp}\n\n${parsed?.tem_pendencia ? "Vou te explicar como funciona a limpeza." : "Recomendo a Blindagem mensal pra manter assim."}`;
+        await enviarTextoChatwoot(convId, textoResumo);
+
+        // 2ª mensagem: PDF anexo (se gerou)
+        if (pdfUrl) {
+          await enviarAnexoChatwoot(
+            convId,
+            pdfUrl,
+            "📄 Aqui está seu relatório completo. Pode salvar pra consultar depois.",
+            `relatorio-cpf-${cpf}.pdf`
+          );
+        }
       } else {
-        const texto = `*${titulo}*\n\n${corpoWpp}${pdfUrl ? "\n\nPDF: " + pdfUrl : ""}\n\nAcesse: ${SITE}/conta/dashboard`;
-        await sendWhatsApp(telefone, texto, nome);
+        // Fallback: usa template Meta (cliente não respondeu nas últimas 24h)
+        const templateName = process.env.WPP_TEMPLATE_GENERICO;
+        if (templateName) {
+          await sendWhatsAppTemplate(
+            telefone,
+            {
+              name: templateName,
+              language: process.env.WPP_TEMPLATE_LANG || "pt_BR",
+              parameters: [
+                nome.split(" ")[0],
+                titulo,
+                corpoWpp,
+                `${SITE}/conta/dashboard`,
+              ],
+            },
+            nome
+          );
+        } else {
+          const texto = `*${titulo}*\n\n${corpoWpp}${pdfUrl ? "\n\nPDF: " + pdfUrl : ""}\n\nAcesse: ${SITE}/conta/dashboard`;
+          await sendWhatsApp(telefone, texto, nome);
+        }
       }
     } catch (e) {
-      console.error("[mp-webhook] whatsapp erro:", e);
+      console.error("[mp-webhook] whatsapp/chatwoot erro:", e);
+    }
+
+    // Email backup (se cliente passou email)
+    if (email) {
+      try {
+        const html = renderEmailHTML({
+          titulo: parsed?.tem_pendencia ? `📨 ${titulo}` : `🎉 ${titulo}`,
+          corpo: corpoEmail,
+          mensagemExtra: pdfUrl
+            ? `📄 <a href="${pdfUrl}" style="color:#0298d9;">Baixar relatório PDF</a>`
+            : undefined,
+          nomeCliente: nome.split(" ")[0],
+          ctaUrl: `${SITE}/conta/dashboard`,
+          ctaTexto: "Acessar minha área",
+        });
+        await sendEmail({
+          to: email,
+          subject: `[LNB] ${titulo}`,
+          html,
+          text: `${titulo}\n\n${corpoEmail}\n\n${pdfUrl ? "PDF: " + pdfUrl + "\n\n" : ""}Acesse: ${SITE}/conta/dashboard`,
+        });
+      } catch (e) {
+        console.error("[mp-webhook] email backup erro:", e);
+      }
     }
   }
 }
