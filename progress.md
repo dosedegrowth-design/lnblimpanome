@@ -4,6 +4,42 @@
 
 ---
 
+## 🔵 09/05/2026 (cont.) — v07 ENXUTO criado ✅
+
+### Multi Agentes LNB v07
+**Construído do ZERO** (não clonado do SPV) — 100% LNB usando SPV apenas como **referência arquitetural**.
+
+**Estrutura final (24 nós):**
+```
+Webhook5 → If2 (inbox==12) → SetFieldsBasic
+  → Mover Lead (Auto) [garante stage Lead na 1ª msg]
+  → FromMe Switch [filtra incoming]
+  → RedisPushMsgs → Wait 8s → ListaMsg-Redis
+  → Should Continue? → AgruparMSGs → ClearMsgs-Redis
+  → Maia (AI Agent + Gemini LNB + Redis Memory + 7 tools LNB)
+  → Send to Chatwoot → Respond to Webhook
+```
+
+**Auditoria 12/12 OK:**
+- ✅ Webhook5 path correto (6ef87fae-...)
+- ✅ If2 inbox.id == 12
+- ✅ SetFieldsBasic com 11 campos Chatwoot oficial
+- ✅ Maia prompt 100% LNB (zero resíduos SPV)
+- ✅ Gemini LNB cred (id YMZPVHkbJQW9giMq)
+- ✅ 7 tools LNB ($fromAI + Bearer + keypair)
+- ✅ onError: continueRegularOutput em 19/19 nós críticos
+- ✅ Respond to Webhook JSON body fixo
+- ✅ Maia recebe 9 conexões AI (1 model + 1 memory + 7 tools)
+- ✅ Cadeia íntegra Webhook5 → Send to Chatwoot
+- ✅ Mover Lead Auto presente
+
+**Versão a ativar:** `Multi Agentes LNB v07.json` (37KB, 24 nós)
+
+**Próxima ação:** importar v07 no n8n + ativar + testar mensagem real WhatsApp.
+
+---
+
+
 ## 🔵 09/05/2026 — Sessão atual (em andamento)
 
 ### Estrutura de persistência criada

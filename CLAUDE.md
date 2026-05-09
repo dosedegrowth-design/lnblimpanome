@@ -35,8 +35,8 @@ Vende 3 produtos:
 - Site público completo (home, /consultar, /contratar, /conta, painel admin)
 
 ### 🟡 Em progresso
-- **Multi Agentes LNB v06** — gerado mas **com bugs** (Webhook5 path errado + 12 URLs SPV remanescentes + 12 nós com palavras SPV + 23 nós órfãos)
-- **PRÓXIMO PASSO:** construir **v07 do zero ENXUTO** — só essencial LNB (Webhook + AI Agent + 7 tools), sem clone do SPV inteiro
+- **Multi Agentes LNB v07** — ✅ CRIADO ENXUTO (24 nós, auditoria 12/12 OK, 100% LNB sem resíduo SPV)
+- **PRÓXIMO PASSO:** importar v07 no n8n + ativar + testar mensagem real WhatsApp
 
 ### ❌ Bloqueios
 Nenhum bloqueio crítico. Painel está pronto. Falta só fluxo n8n correto.
@@ -88,7 +88,7 @@ Estamos em [contexto atual]
 
 ---
 
-**🚦 Próxima ação:** construir Multi Agentes LNB v07 enxuto (só Webhook + AI Agent + 7 tools — sem cargo SPV)
+**🚦 Próxima ação:** importar `Multi Agentes LNB v07.json` (24 nós) no n8n + ativar + testar via WhatsApp pra +55 11 99744-0101
 
 
 ---
