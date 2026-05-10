@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkN8nAuth } from "@/lib/n8n/auth";
 import { cleanCPF, isValidCPF } from "@/lib/utils";
+import { setCustomAttributes, criarPrivateNote } from "@/lib/chatwoot-attributes";
+import { addLabels } from "@/lib/chatwoot-labels";
+import { buscarConversationIdPorTelefone } from "@/lib/chatwoot-kanban";
 
 export const runtime = "nodejs";
 
@@ -60,7 +63,45 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, blindagem: data });
+  // Sincroniza Chatwoot: custom attrs + label + private note
+  const chatwootSync = { custom_attrs: false, label: false, note: false };
+  try {
+    const conversationId = await buscarConversationIdPorTelefone(telefone);
+    if (conversationId) {
+      const r1 = await setCustomAttributes(conversationId, {
+        blindagem_ativa: "sim",
+        blindagem_plano: plano,
+        blindagem_valor: `R$ ${valor.toFixed(2).replace(".", ",")}`,
+        blindagem_cpf: cpf,
+      });
+      chatwootSync.custom_attrs = r1.ok;
+      const r2 = await addLabels(conversationId, ["blindagem-mensal", "aguardando-pagamento"]);
+      chatwootSync.label = r2.ok;
+      const r3 = await criarPrivateNote(
+        conversationId,
+        `🛡️ **Blindagem cadastrada**\n• Plano: ${plano}\n• Valor: R$ ${valor.toFixed(2).replace(".", ",")}\n• CPF: ${cpf}\n\n*Aguardando confirmação de pagamento.*`
+      );
+      chatwootSync.note = r3.ok;
+    }
+  } catch (e) {
+    console.error("[n8n/blindagem-cadastro] erro sync Chatwoot:", e);
+  }
+
+  // Audit log
+  try {
+    await supa.rpc("lnb_audit_insert", {
+      p_actor_id: telefone,
+      p_actor_type: "system",
+      p_action: "blindagem_cadastrada",
+      p_resource_type: "lnb_blindagem",
+      p_resource_id: cpf,
+      p_metadata: { plano, valor, source: "n8n" },
+    });
+  } catch (e) {
+    console.error("[n8n/blindagem-cadastro] erro audit:", e);
+  }
+
+  return NextResponse.json({ ok: true, blindagem: data, chatwoot_sync: chatwootSync });
 }
 
 export async function GET() {

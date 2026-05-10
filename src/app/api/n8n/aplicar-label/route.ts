@@ -1,9 +1,44 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { checkN8nAuth } from "@/lib/n8n/auth";
 import { aplicarLabelsLnb, type LnbLabelContext } from "@/lib/chatwoot-labels";
 import { buscarConversationIdPorTelefone } from "@/lib/chatwoot-kanban";
 
 export const runtime = "nodejs";
+
+// Mapeia contexto → labels resultantes (espelha lógica de aplicarLabelsLnb)
+function labelsByContexto(c: LnbLabelContext, score?: number): string[] {
+  switch (c) {
+    case "interessado_consulta": return ["consulta-cpf", "aguardando-pagamento"];
+    case "pago_consulta": return ["pago-consulta"];
+    case "consulta_resultado_com_pendencia": {
+      const out = ["tem-pendencia"];
+      if (typeof score === "number") {
+        if (score >= 700) out.push("score-bom");
+        else if (score >= 500) out.push("score-regular");
+        else out.push("score-baixo");
+      }
+      return out;
+    }
+    case "consulta_resultado_sem_pendencia": {
+      const out = ["nome-limpo"];
+      if (typeof score === "number") {
+        if (score >= 700) out.push("score-bom");
+        else if (score >= 500) out.push("score-regular");
+        else out.push("score-baixo");
+      }
+      return out;
+    }
+    case "interessado_limpeza": return ["limpeza-nome", "aguardando-pagamento"];
+    case "pago_limpeza": return ["pago-limpeza"];
+    case "interessado_blindagem": return ["blindagem-mensal", "aguardando-pagamento"];
+    case "pago_blindagem": return ["pago-blindagem"];
+    case "conflito": return ["conflito"];
+    case "origem_whatsapp": return ["origem-whatsapp"];
+    case "origem_site": return ["origem-site"];
+    case "vip": return ["vip"];
+  }
+}
 
 const CONTEXTOS_VALIDOS: LnbLabelContext[] = [
   "interessado_consulta",
@@ -74,8 +109,25 @@ export async function POST(req: Request) {
     );
   }
 
-  // Aplica
+  // Aplica no Chatwoot
   const result = await aplicarLabelsLnb(conversationId, contexto, { score });
+
+  // Sincroniza no painel: grava labels_aplicadas[] em LNB - CRM
+  const labelsApplied = labelsByContexto(contexto, score);
+  let crmSync = false;
+  if (labelsApplied.length > 0) {
+    try {
+      const supa = await createClient();
+      const { data } = await supa.rpc("lnb_crm_add_label", {
+        p_telefone: telefone,
+        p_labels: labelsApplied,
+      });
+      const r = data as { ok: boolean };
+      crmSync = !!r?.ok;
+    } catch (e) {
+      console.error("[n8n/aplicar-label] erro sync CRM:", e);
+    }
+  }
 
   return NextResponse.json({
     ok: true,
@@ -84,6 +136,8 @@ export async function POST(req: Request) {
     contexto,
     score,
     aplicado: result,
+    labels: labelsApplied,
+    crm_sync: crmSync,
   });
 }
 

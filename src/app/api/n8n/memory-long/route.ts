@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkN8nAuth } from "@/lib/n8n/auth";
+import { setCustomAttributes } from "@/lib/chatwoot-attributes";
+import { buscarConversationIdPorTelefone } from "@/lib/chatwoot-kanban";
 
 export const runtime = "nodejs";
 
@@ -34,6 +36,7 @@ export async function POST(req: Request) {
   }
 
   const supa = await createClient();
+  let crmOk = false;
   try {
     const { data, error } = await supa.rpc("n8n_atualizar_memoria_longa", {
       p_telefone: telefone,
@@ -42,7 +45,22 @@ export async function POST(req: Request) {
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
-    return NextResponse.json({ ok: true, ...(data as object) });
+    crmOk = true;
+    // Sincroniza Chatwoot Custom Attribute (resumo_lead) — equipe vê no painel lateral
+    try {
+      const conversationId = await buscarConversationIdPorTelefone(telefone);
+      if (conversationId) {
+        // Trunca pra evitar payload gigante
+        const resumoTruncado = memoria.slice(0, 2000);
+        await setCustomAttributes(conversationId, {
+          resumo_lead: resumoTruncado,
+          resumo_lead_atualizado_em: new Date().toISOString(),
+        });
+      }
+    } catch (e) {
+      console.error("[n8n/memory-long] erro sync Chatwoot:", e);
+    }
+    return NextResponse.json({ ok: true, crm_atualizado: crmOk, ...(data as object) });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
   }
