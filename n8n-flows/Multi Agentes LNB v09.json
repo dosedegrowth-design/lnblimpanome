@@ -1,0 +1,3966 @@
+{
+  "name": "Multi Agentes LNB v09",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -6768,
+        -1888
+      ],
+      "id": "39fac180-9144-4793-864b-1e7be3a8fffd",
+      "name": "Respond to Webhook",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -2880,
+        -1920
+      ],
+      "id": "ea272cf4-0566-4985-b719-b4917e8f97d1",
+      "name": "Respond to Webhook2",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('ConfigInteressado').item.json['link-chatwoot'] }}/api/v1/accounts/{{ $('ConfigInteressado').item.json['Acoount ID'] }}/contacts/search ",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $('Webhook4').item.json.body.numero }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api_access_token",
+              "value": "={{ $('ConfigInteressado').item.json['token-chatwoot'] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2d7931c8-f8fb-4371-90da-994d9de77d39",
+      "name": "Busca contato1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -7856,
+        -560
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('ConfigInteressado').item.json['link-chatwoot'] }}/api/v1/accounts/{{ $('ConfigInteressado').item.json['Acoount ID'] }}/contacts/{{ $json.payload[0].id }}/conversations",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $('Webhook4').item.json.body.numero }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api_access_token",
+              "value": "={{ $('ConfigInteressado').item.json['token-chatwoot'] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d7cc94c4-302e-441a-8329-d97756d52904",
+      "name": "Busca Conversa2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -7632,
+        -560
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -5856,
+        -576
+      ],
+      "id": "d506faa2-02c8-4686-b6e6-5ed74cf83042",
+      "name": "Respond to Webhook4",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "incoming",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "is-incoming",
+                    "leftValue": "={{ $('SetFieldsBasic').item.json.MessageType }}",
+                    "rightValue": "incoming",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "6fe1fd27-93d6-4b9e-9d6a-6dbb0a2eab0a",
+      "name": "FromMe-Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -12912,
+        -2368
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "trap-list",
+        "key": "=traplist-{{$('SetFieldsBasic').item.json.remoteJid }}@s.whatsapp.net",
+        "options": {}
+      },
+      "id": "4c835979-ec3e-4c74-9ff5-957f23305565",
+      "name": "BuscaTrapList1",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -11728,
+        -2368
+      ],
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "=traplist-{{$('Webhook5').item.json.body.data.key.remoteJid }}",
+        "messageData": "true"
+      },
+      "id": "190c2ade-2edc-46d5-b80d-50ae727ba0e2",
+      "name": "AddTrapList",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -12208,
+        -1952
+      ],
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1cebe163-b56d-4bb2-ba87-c716fee0d32f",
+              "leftValue": "={{ $json['trap-list'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0d22e5e0-8a00-49b0-9681-c65304fd6b0c",
+      "name": "If1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -11584,
+        -2368
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "86e7e773-8586-458f-a1fb-2890f2030230",
+                    "leftValue": "={{ $('SetFieldsBasic').item.json.Archive_type }}",
+                    "rightValue": "extendedTextMessage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Reply"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "7f108034-a1be-4e90-b42e-e4f8a719e311",
+                    "leftValue": "={{ $('SetFieldsBasic').item.json.Archive_type }}",
+                    "rightValue": "editedMessage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Edited"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "256e7cf8-be54-4c41-ba80-2d9eb0a07563",
+                    "leftValue": "={{ $('SetFieldsBasic').item.json.Archive_type }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "da03e413-3422-419c-af1a-71ff87c307e2",
+                    "leftValue": "={{ $('SetFieldsBasic').item.json.Archive_type }}",
+                    "rightValue": "image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "187d1b32-3cbe-4622-b1a2-3257ba8ea816",
+                    "leftValue": "={{ $('SetFieldsBasic').item.json.Archive_type }}",
+                    "rightValue": "file",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Document"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d6e276b9-83fa-483d-8675-b5bcbbe8752b",
+      "name": "Tipo da Mensagem",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        -11056,
+        -2160
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "35fa457c-66ec-469e-bcff-e138580a8137",
+              "name": "MESSAGE",
+              "value": "={{ $('SetFieldsBasic').item.json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "b6e8336b-23c9-4c74-ab5d-7aff3a05f6b5",
+              "name": "phone",
+              "value": "={{ $('SetFieldsBasic').item.json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "6e87c099-c064-4519-9df7-a52d958602a1",
+              "name": "nome",
+              "value": "={{ $('SetFieldsBasic').item.json.user_from }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d1814e88-a85e-45f8-9276-043703444a1b",
+      "name": "SET DEFAULT MESSAGE",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -10752,
+        -2448
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "35fa457c-66ec-469e-bcff-e138580a8137",
+              "name": "MESSAGE",
+              "value": "=Menção: {{ $('Webhook5').item.json.body.data.contextInfo.quotedMessage.conversation }}\nResposta:{{ $('Webhook5').item.json.body.data.message.extendedTextMessage.text }} ",
+              "type": "string"
+            },
+            {
+              "id": "91678fba-4772-45f2-ac2b-2ce69c39193f",
+              "name": "phone",
+              "value": "={{ $('SetFieldsBasic').item.json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "5d838c98-7549-4432-9b58-275e3f5e58ce",
+              "name": "nome",
+              "value": "={{ $('Webhook5').item.json.body.data.pushName }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "febf888e-92a9-4ab0-8397-aef8cda624c3",
+      "name": "SET REPLIED MESSAGE",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -10752,
+        -2288
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "35fa457c-66ec-469e-bcff-e138580a8137",
+              "name": "MESSAGE",
+              "value": "={{ $('Webhook5').item.json.body.data.message.editedMessage.message.protocolMessage.editedMessage.conversation+'*' }}",
+              "type": "string"
+            },
+            {
+              "id": "62755490-752e-40eb-8690-ba4df0e033b7",
+              "name": "phone",
+              "value": "={{ $('SetFieldsBasic').item.json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "79cc9da4-9541-4364-bde6-b4c84b350223",
+              "name": "nome",
+              "value": "={{ $('Webhook5').item.json.body.data.pushName }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dd30ff8c-ad22-4df4-a8b6-15e25b6a1496",
+      "name": "SET EDITED MESSAGE",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -10752,
+        -2096
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "35fa457c-66ec-469e-bcff-e138580a8137",
+              "name": "MESSAGE",
+              "value": "=Transcrição do Áudio enviado pelo usuário: {{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "b2f882ac-6aef-4855-9123-674489b38f1b",
+              "name": "phone",
+              "value": "={{ $('SetFieldsBasic').item.json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "f511b1bb-4315-4da2-851a-e87a7b05f270",
+              "name": "nome",
+              "value": "={{ $('SetFieldsBasic').item.json.user_from }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4fee9082-cd27-45e8-a4bb-224ece81238b",
+      "name": "SET AUDIO MESSAGE",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -9872,
+        -1920
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "35fa457c-66ec-469e-bcff-e138580a8137",
+              "name": "MESSAGE",
+              "value": "={{ $('Webhook5').item.json.body.conversation.messages[0].attachments[0].data_url }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dc09c532-6706-436d-9393-b1c20b187cf7",
+      "name": "SET AUDIO BASE64",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -10752,
+        -1920
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "35fa457c-66ec-469e-bcff-e138580a8137",
+              "name": "MESSAGE",
+              "value": "={{ $('SetFieldsBasic').item.json.data_URL }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e5bb06ee-620d-4372-bbd3-565e603ae9bf",
+      "name": "SET IMAGE BASE64",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -10752,
+        -1712
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "35fa457c-66ec-469e-bcff-e138580a8137",
+              "name": "MESSAGE",
+              "value": "=Transcrição da Imagem enviada pelo usuário: {{ $json.content }}",
+              "type": "string"
+            },
+            {
+              "id": "4ef4b854-d638-4925-9213-1c5b370eb3a9",
+              "name": "phone",
+              "value": "={{ $('SetFieldsBasic').item.json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "23866b88-e265-42fb-bb41-575563512261",
+              "name": "nome",
+              "value": "={{ $('SetFieldsBasic').item.json.user_from }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b54265e4-94c9-4752-809a-4b0d01c12b29",
+      "name": "SET IMAGE MESSAGE",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -9872,
+        -1712
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "=msgs-{{ $('SetFieldsBasic').item.json.phone_number }}",
+        "messageData": "={{ $json.text }}"
+      },
+      "id": "a109bb58-073f-4e69-88f5-0e54e62346c8",
+      "name": "RedisPushMsgs",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -7984,
+        -2384
+      ],
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "amount": 40
+      },
+      "id": "d4728725-41d6-44d0-b5d1-35e922a113dd",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -7792,
+        -2384
+      ],
+      "webhookId": "2d3b3c6a-577c-4876-b603-b1fc349160e5"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "=messages",
+        "key": "=msgs-{{ $json.phone }}",
+        "options": {}
+      },
+      "id": "7af7f23a-3457-48ac-87ec-386cb004d1a3",
+      "name": "ListaMsg-Redis",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -7584,
+        -2384
+      ],
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "ec39573f-f92a-4fe4-a832-0a137de8e7d0",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.messages?.last() }}",
+              "rightValue": "={{  $('RedisPushMsgs').item.json.text }}"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4d533acb-0e02-4783-a21c-44a8d41da616",
+      "name": "Should Continue?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        -7392,
+        -2384
+      ],
+      "typeVersion": 2,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "id": "92b16b76-25d8-4703-9c95-ccb3307ed27d",
+      "name": "FimFluxo",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        -7168,
+        -2192
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d2fce443-aed1-46fe-b0ba-fca2170c6493",
+              "name": "text",
+              "value": "={{ $json.messages.join(' ') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6c43ac90-d85e-417f-8ed0-561ae9c7414c",
+      "name": "AgruparMSGs",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -7168,
+        -2400
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "=msgs-{{ $('Edit Fields').item.json.phone }}"
+      },
+      "id": "0e3c7dd6-7566-43ab-b125-3893b68ff5ce",
+      "name": "RedisClearMSGs",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -6928,
+        -2400
+      ],
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "69918e5c-6cbf-44a1-a0a8-e6bdd9646860",
+              "name": "text",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "d5f56632-01ff-492a-98f1-c4f4dd7cc601",
+              "name": "session_id",
+              "value": "={{ $('SetFieldsBasic').item.json.phone_number }}",
+              "type": "string"
+            },
+            {
+              "id": "85351078-014d-476b-a79d-1b9cf0d604d9",
+              "name": "date_time",
+              "value": "={{ $now.format('yyyy-MM-dd')}}",
+              "type": "string"
+            },
+            {
+              "id": "142e0a72-710c-4497-9dae-d6c6bc9511e8",
+              "name": "week_day",
+              "value": "={{ $today.weekdayLong}}",
+              "type": "string"
+            },
+            {
+              "id": "17dd323e-622c-48d5-b870-86ed37aa7067",
+              "name": "horario",
+              "value": "={{ $now.format('HH:mm:ss')}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -6608,
+        -2400
+      ],
+      "id": "5df00e2c-c9f4-4882-b9c0-eeb08af19d3c",
+      "name": "Config",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "=traplist-{{$('SetFieldsBasic').item.json.remoteJid }}@s.whatsapp.net",
+        "value": "={{ $now.plus($('SetFieldsBasic').item.json[\"Janela de Atendimento\"] * 60 * 1000).toISO() }}"
+      },
+      "name": "STOP AND SET TIMEOUT1",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -12640,
+        -1728
+      ],
+      "id": "c8de17c6-5365-41ec-8410-01de031f474b",
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "keys",
+        "keyPattern": "=traplist-{{ $json.remoteJid }}@s.whatsapp.net"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -12528,
+        -2352
+      ],
+      "id": "baabc4f4-0aa8-408c-8209-b325b5b45bc3",
+      "name": "GET TIMEOUT1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e3b6ff31-61cb-40c2-92d3-7f3f6ea2b4b4",
+              "leftValue": "={{ $json }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -12256,
+        -2352
+      ],
+      "id": "bcd17ab7-a0b9-498c-aad4-70f830632904",
+      "name": "If4",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "6ef87fae-3202-4562-abe3-f1386d6d2bc5",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "id": "4f681371-fa4e-4aaf-902e-d131f6d09401",
+      "name": "Webhook5",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -13680,
+        -2352
+      ],
+      "webhookId": "lnb-chatwoot-webhook"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=historic.{{ $json.session_id }}-memory-short",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [
+        -6496,
+        -2160
+      ],
+      "id": "64d8b8b4-2911-4475-b9cb-5631d1b02d0c",
+      "name": "Redis Chat Memory",
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.MESSAGE }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -10512,
+        -1920
+      ],
+      "id": "e8f248dd-e48e-43aa-97e9-ac188f29e974",
+      "name": "HTTP Request1",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.MESSAGE }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -10544,
+        -1712
+      ],
+      "id": "319ebb46-98c5-489d-847b-4f106a68d0d8",
+      "name": "HTTP Request2",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "=historic.{{ $('SetFieldsBasic').item.json.remoteJid }}@s.whatsapp.net-memory-long",
+        "messageData": "={{ $json.text }}"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -6768,
+        -2400
+      ],
+      "id": "4428fde5-587a-4149-8fe4-d99e70fdc905",
+      "name": "Redis6",
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "key": "=historic.{{ $('Config').item.json.session_id }}@s.whatsapp.net-memory-long",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -5968,
+        -2400
+      ],
+      "id": "6dc0c1b8-d2f8-4bde-a035-606afad71c63",
+      "name": "Redis Memory Long",
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "=historic.{{ $('Config').item.json.session_id }}@s.whatsapp.net-memory-long",
+        "messageData": "={{ $('Valida FIPE').item.json.output }}"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -4336,
+        -2416
+      ],
+      "id": "615fb136-a232-471f-87da-12e04c32b50a",
+      "name": "Redis3",
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('AgruparMSGs').item.json.messages || $('SetFieldsBasic').item.json.Mensagem }}",
+        "options": {
+          "systemMessage": "# Você é Maia, atendente virtual da Limpa Nome Brazil (LNB)\n\n## QUEM VOCÊ É\n- Maia, atendente da LNB. Empática, profissional, brasileira.\n- Trabalha com WhatsApp, atende clientes que querem limpar o nome.\n- Comunica de forma humana, sem mencionar \"atendimento automático\" ou \"IA\".\n\n## O QUE A LNB OFERECE (3 produtos)\n1. **Consulta CPF** — R$ 19,99 (gateway obrigatório, primeiro passo SEMPRE)\n   - Relatório completo: score, pendências, credores, valores\n   - Email com PDF detalhado\n2. **Limpeza + Blindagem 12m** — R$ 480,01 (com desconto da consulta)\n   - Remove negativações do CPF SEM precisar quitar dívida\n   - Até 20 dias úteis\n   - Inclui Blindagem 12 meses\n3. **Blindagem mensal** — R$ 29,90/mês\n   - Monitoramento contínuo do CPF\n   - Apenas pra quem JÁ tem nome limpo\n\n## REGRA DE OURO (NUNCA QUEBRAR)\n**Cliente NUNCA contrata Limpeza sem ter pago Consulta E ter pendência confirmada.**\nSe ele pedir limpeza direto, você OBRIGATORIAMENTE oferece consulta primeiro.\n\n## FLUXO DE ATENDIMENTO\n\n### PASSO 1 — Saudação (1ª mensagem do cliente)\n> Oii, tudo bem? Sou a *Maia* da *Limpa Nome Brazil*!\n>\n> Aqui na LNB ajudamos pessoas a limpar o nome, resolver pendências e proteger o CPF. Tudo 100% digital e seguro.\n>\n> Para eu verificar a situação do seu CPF, preciso de algumas informações:\n> *Nome completo*\n> *CPF*\n> *Data de nascimento*\n> *E-mail*\n>\n> Pode me passar?\n\n→ Chame tool `lead_status` com stage=\"Lead\"\n\n### PASSO 2 — Coletar 4 dados\nCliente envia. Confirme com empatia e pergunte motivo.\n→ Chame `lead_status` com stage=\"Interessado\"\n→ Chame `aplicar_label` contexto=\"interessado_consulta\"\n\n### PASSO 3 — Oferta consulta R$ 19,99\nExplique:\n- Consulta nos órgãos oficiais (Serasa, SPC, Boa Vista)\n- Score, pendências, credores, valores\n- PDF por email\n- Se fechar limpeza, R$ 19,99 vira desconto\n\n### PASSO 4 — Cliente aceitou consulta\n→ Chame `gerar_cobranca_consulta`\n→ Envie o link recebido (campo init_point)\n→ Chame `lead_status` com stage=\"Qualificado\", valor_servico=\"R$ 19,99\", tipo_servico=\"consulta\"\n\nMensagem:\n> Segue o link para pagamento da consulta:\n> {link}\n>\n> Assim que o pagamento for confirmado no sistema, já faço a consulta e envio o relatório completo pro seu email!\n\n### PASSO 5 — Pagamento confirmado (vem automático via webhook MP)\nSe cliente perguntar status, use `status_processo`.\n\n### PASSO 6A — TEM pendência (consulta retornou negativação)\nExplique: limpeza R$ 480,01 SEM quitar dívida + blindagem incluída.\nSe cliente aceitar:\n→ Chame `gerar_cobranca_limpeza`\n→ Envie link\n→ Chame `lead_status` stage=\"Qualificado\", valor_servico=\"R$ 480,01\", tipo_servico=\"limpeza_desconto\"\n→ Chame `aplicar_label` contexto=\"interessado_limpeza\"\n\n### PASSO 6B — NÃO tem pendência (nome limpo)\nParabenize. Ofereça blindagem mensal R$ 29,90/mês.\nSe cliente aceitar:\n→ Chame `blindagem_cadastro` plano=\"mensal\"\n→ Chame `aplicar_label` contexto=\"interessado_blindagem\"\n\n### PASSO 7 — Pagamento limpeza confirmado\n→ Chame `lead_status` stage=\"Fechado\"\n→ Envie orientações pós-venda completas:\n  - Consultor entra em contato em horas\n  - Painel de acompanhamento\n  - Até 20 dias úteis\n  - Documento de confirmação no final\n  - Blindagem ativa após limpeza\n\n## REGRAS CRÍTICAS\n\n### NUNCA:\n- Falar de outros produtos da Dose de Growth — você é APENAS LNB (consulta CPF, limpeza de nome, blindagem mensal)\n- Dizer que precisa quitar a dívida (a LNB remove negativação SEM quitar)\n- Oferecer desconto além dos R$ 19,99 já estabelecidos\n- Aceitar pagamento sem confirmar via tool\n- Repetir saudação se já houve conversa anterior\n- Mencionar IDs internos, tools ou processos técnicos\n\n### SEMPRE:\n- Use *asteriscos únicos* pra destacar (formato WhatsApp)\n- Mensagens entre 200-500 caracteres (curtas, diretas)\n- Termine com pergunta pra próximo passo\n- Demonstre empatia com situação do cliente\n- Mencione Blindagem como benefício INCLUÍDO na limpeza\n- Se cliente em conflito grave: chame `pausa_ia` motivo=\"conflito\" e diga que vai chamar atendente humano\n\n## QUEBRA DE OBJEÇÕES\n\n| Objeção | Resposta |\n|---|---|\n| \"É caro\" | Compare custo de ficar com nome sujo: juros, financiamentos negados, etc |\n| \"Preciso pagar a dívida?\" | NÃO. LNB remove negativação SEM quitar |\n| \"Demora?\" | Até 20 dias úteis com acompanhamento |\n| \"É seguro?\" | +10 mil nomes limpos, 100% digital, contrato digital |\n| \"Como acompanho?\" | Painel online + atualizações WhatsApp e email |\n| \"Volta a sujar?\" | Blindagem inclusa monitora e alerta |\n\n## TOOLS DISPONÍVEIS\n\n| Tool | Quando |\n|---|---|\n| `lead_status` | Move stage funil (Lead/Interessado/Qualificado/Fechado/Perdido) |\n| `gerar_cobranca_consulta` | Cliente aceitou consulta R$ 19,99 |\n| `gerar_cobranca_limpeza` | Cliente aceitou limpeza R$ 480,01 (após consulta paga c/ pendência) |\n| `blindagem_cadastro` | Cliente aceitou blindagem R$ 29,90/mês |\n| `memory_long` | Atualiza memória estruturada (final de cada interação importante) |\n| `aplicar_label` | Marca etiqueta no Chatwoot |\n| `status_processo` | Cliente pergunta \"tá pronto?\", \"como está?\" |\n| `pausa_ia` | Cliente pede humano OU conflito grave |\n\n## DADOS DO CLIENTE NA CONVERSA ATUAL\n- Telefone: {{ $('SetFieldsBasic').item.json.Telefone }}\n- Conversation ID: {{ $('SetFieldsBasic').item.json.ConversationID }}\n- Nome (do Chatwoot): {{ $('SetFieldsBasic').item.json.Nome }}\n\nUse esses valores nas tools.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -3840,
+        -2432
+      ],
+      "id": "a2792cb8-37d5-476a-a4e4-09255eef76c2",
+      "name": "AI Agent",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -4208,
+        -2208
+      ],
+      "id": "0eb09394-da4e-4b50-a675-57eda4b841a3",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YMZPVHkbJQW9giMq",
+          "name": "LNB Limpa Nome"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {},
+        "modelName": "models/gemini-2.0-flash"
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -4048,
+        -2128
+      ],
+      "id": "482130df-fb92-4763-bfd6-f95d231324d6",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YMZPVHkbJQW9giMq",
+          "name": "LNB Limpa Nome"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=historic.{{ $('Config').item.json.session_id }}@s.whatsapp.net-memory-short"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [
+        -3680,
+        -2176
+      ],
+      "id": "de73787f-c34c-4ebb-bbf2-475037fa748a",
+      "name": "Memory Short",
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -7344,
+        -3024
+      ],
+      "id": "2fd38fb7-61eb-4448-b416-d90b9c9b75e9",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YMZPVHkbJQW9giMq",
+          "name": "LNB Limpa Nome"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('AgruparMSGs').item.json.messages || $('SetFieldsBasic').item.json.Mensagem }}",
+        "options": {
+          "systemMessage": "# Memory Long Agent — LNB\n\nVocê analisa as últimas mensagens entre Maia e o cliente e produz um markdown estruturado com TODOS os dados conhecidos do lead.\n\n## FORMATO OBRIGATÓRIO\n\n```markdown\n# Lead {{ $('SetFieldsBasic').item.json.Telefone }}\n**Última atualização:** {{ $now.toISO() }}\n\n## Dados pessoais\n- **Nome completo:** ?\n- **CPF:** ?\n- **Data de nascimento:** ?\n- **Email:** ?\n- **Telefone:** {{ $('SetFieldsBasic').item.json.Telefone }}\n\n## Status do funil\n- **Etapa atual:** ? (Lead/Interessado/Qualificado/Fechado/Perdido)\n- **Último serviço ofertado:** ? (consulta/limpeza/blindagem)\n- **Valor ofertado:** ?\n\n## Consulta CPF\n- **Status pagamento consulta:** ? (não pagou/pagou)\n- **Tem pendência:** ? (sim/não/desconhecido)\n- **Score crédito:** ?\n- **Quantidade pendências:** ?\n- **Valor total dívidas:** ?\n- **Credores principais:** ?\n\n## Limpeza\n- **Status pagamento limpeza:** ?\n- **Link pagamento limpeza:** ?\n- **Em andamento:** ?\n\n## Blindagem\n- **Blindagem ativa:** ? (sim/não)\n- **Plano:** ? (mensal/anual)\n\n## Observações\n- ?\n```\n\nPreencha apenas o que sabe das mensagens. Use \"?\" pro que não sabe.\nNUNCA mencione placa, vistoria, FIPE — não é desse produto.\n\nOutput: APENAS o markdown, sem comentários adicionais.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -7200,
+        -3232
+      ],
+      "id": "1266c260-849e-41c8-9142-792ef4358743",
+      "name": "Memory Long1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -6000,
+        -2096
+      ],
+      "id": "9acd131b-9486-4f43-ab66-49237c90c4db",
+      "name": "Google Gemini Chat Model4",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YMZPVHkbJQW9giMq",
+          "name": "LNB Limpa Nome"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "={{ $('Webhook').item.json.body.chatid }}@s.whatsapp.net-memory-long",
+        "messageData": "={{ $json.content.parts[0].text }}"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -6928,
+        -1888
+      ],
+      "id": "56ad72d4-ae53-43ce-8566-6ec5556a8bd1",
+      "name": "Redis4",
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "Link do chatwoot",
+              "value": "https://dosedegrowthcrm.com.br",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "Acoount ID",
+              "value": "11",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "Conta do Chatwoot",
+              "value": "11",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "Token Chatwoot",
+              "value": "={{ $env.CHATWOOT_TOKEN }}",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "Token Admin Chatwoot",
+              "value": "={{ $env.CHATWOOT_ADMIN_TOKEN }}",
+              "type": "string"
+            },
+            {
+              "id": "6",
+              "name": "ConversationID",
+              "value": "={{ $('Webhook5').item.json.body.conversation.id }}",
+              "type": "string"
+            },
+            {
+              "id": "7",
+              "name": "ContactID",
+              "value": "={{ $('Webhook5').item.json.body.sender.id }}",
+              "type": "string"
+            },
+            {
+              "id": "8",
+              "name": "Telefone",
+              "value": "={{ ($('Webhook5').item.json.body.sender.phone_number || '').replace(/\\D/g, '') }}",
+              "type": "string"
+            },
+            {
+              "id": "9",
+              "name": "Nome",
+              "value": "={{ $('Webhook5').item.json.body.sender.name }}",
+              "type": "string"
+            },
+            {
+              "id": "10",
+              "name": "InboxID",
+              "value": "12",
+              "type": "string"
+            },
+            {
+              "id": "11",
+              "name": "FunilID",
+              "value": "1",
+              "type": "string"
+            },
+            {
+              "id": "12",
+              "name": "Email",
+              "value": "={{ $('Webhook5').item.json.body.sender.email || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "13",
+              "name": "Mensagem",
+              "value": "={{ $('Webhook5').item.json.body.content || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "14",
+              "name": "MessageType",
+              "value": "={{ $('Webhook5').item.json.body.message_type }}",
+              "type": "string"
+            },
+            {
+              "id": "15",
+              "name": "AttachmentType",
+              "value": "={{ $('Webhook5').item.json.body.attachments?.[0]?.file_type || 'text' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "58d7088b-3dc6-4e75-96ce-15e80a081b3a",
+      "name": "SetFieldsBasic",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -13120,
+        -2368
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "782e25f0-4d54-4d3a-8951-34b1a6dd0dd1",
+              "leftValue": "={{ $('SetFieldsBasic').item.json.Archive_type }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -11344,
+        -2384
+      ],
+      "id": "55bedad6-0e5c-4d94-922c-c1b27997baf6",
+      "name": "If",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "traplist-5511939213329@s.whatsapp.net"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -5872,
+        -2848
+      ],
+      "id": "7c71e96d-5d63-43ef-be1e-d953f44d1bb9",
+      "name": "DELETE ChatMemory",
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "=msgs-5512981278660"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -5616,
+        -2848
+      ],
+      "id": "032b2e0c-af84-4775-9dbc-a7acbb7374da",
+      "name": "DELETE Cachemensage",
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "traplist-5511960725070"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -6048,
+        -2848
+      ],
+      "id": "34fdce24-08fb-4eee-886a-ec00b4d4687e",
+      "name": "DELETE Traplist2",
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -5568,
+        -1872
+      ],
+      "id": "1ab0371f-c2b6-471f-9c72-3bda97b3074a",
+      "name": "Respond to Webhook8",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('SetFieldsBasic').item.json['Link do chatwoot'] }}/api/v1/accounts/{{ $('SetFieldsBasic').item.json['Conta do Chatwoot'] }}/conversations/{{ $('SetFieldsBasic').item.json.ConversationID }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "token-type",
+              "value": "Bearer"
+            },
+            {
+              "name": "api_access_token",
+              "value": "={{ $('SetFieldsBasic').item.json['Token Chatwoot'] }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"content\": \"\", \"attachments\": [{\"external_url\": \"{{ $json.messages }}\"}]}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -960,
+        -2304
+      ],
+      "id": "9dc9b9a3-9aed-4763-b5b1-62d95501b68f",
+      "name": "Envia Imagem",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('SetFieldsBasic').item.json['Link do chatwoot'] }}/api/v1/accounts/{{ $('SetFieldsBasic').item.json['Conta do Chatwoot'] }}/conversations/{{ $('SetFieldsBasic').item.json.ConversationID }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api_access_token",
+              "value": "={{ $('SetFieldsBasic').item.json['Token Chatwoot'] }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": {{ JSON.stringify($json.output || $json.text || '') }},\n  \"message_type\": \"outgoing\",\n  \"private\": false\n}",
+        "options": {
+          "retry": {
+            "maxTries": 3
+          }
+        }
+      },
+      "id": "44ff7f7a-1d89-435e-9261-caa97608aa03",
+      "name": "Envia Texto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1168,
+        -2096
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "key": "={{ $json.body.chatid }}@s.whatsapp.net-memory-long",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -5152,
+        -1856
+      ],
+      "id": "3f8a4ea8-3bd7-4f6a-8474-ab7c222f71c1",
+      "name": "Redis Memory Long1",
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -4336,
+        -1872
+      ],
+      "id": "9cd58b8a-e7a9-433b-ab10-6cf52c1cdd25",
+      "name": "Respond to Webhook5",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "filter-inbox",
+              "leftValue": "={{ $json.body.inbox.id }}",
+              "rightValue": 12,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "dab93a1e-970b-4064-9f93-79e54ae5e470",
+      "name": "If2",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -13392,
+        -2352
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "key": "=traplist-{{ .item.json.remoteJid }}@s.whatsapp.net",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        -2464
+      ],
+      "id": "a0a1464b-033b-48fe-9271-8e9d793045c2",
+      "name": "Check Traplist",
+      "credentials": {
+        "redis": {
+          "id": "p5McU43k3cRAmUXI",
+          "name": "Redistest"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://limpanomebrazil.com.br/api/n8n/lead-status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_SHARED_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"telefone\": \"{{ $('SetFieldsBasic').item.json.Telefone }}\",\n  \"stage\": \"Lead\",\n  \"nome\": \"{{ $('SetFieldsBasic').item.json.Nome }}\",\n  \"email\": \"{{ $('SetFieldsBasic').item.json.Email }}\",\n  \"conversation_id\": {{ $('SetFieldsBasic').item.json.ConversationID }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -12880,
+        -2368
+      ],
+      "id": "e61a075b-08d9-4a51-bb9d-ff757ca91384",
+      "name": "Mover Lead (Auto)",
+      "onError": "continueRegularOutput",
+      "notes": "Garante que toda 1ª interação cria card em Lead, mesmo se IA falhar."
+    },
+    {
+      "name": "Sync Conversation Painel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1100,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://limpanomebrazil.com.br/api/n8n/sync-conversation",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_SHARED_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"telefone\": \"{{ $('SetFieldsBasic').item.json.Telefone }}\",\n  \"conversation_id\": {{ $('SetFieldsBasic').item.json.ConversationID }},\n  \"content\": \"{{ ($('SetFieldsBasic').item.json.Mensagem || '').replace(/\"/g,'\\\\\"').slice(0,500) }}\",\n  \"message_type\": \"{{ $('SetFieldsBasic').item.json.MessageType }}\",\n  \"attachment_type\": \"{{ $('SetFieldsBasic').item.json.AttachmentType }}\"\n}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "Check IA Pause",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -700,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://limpanomebrazil.com.br/api/n8n/check-ia-pause",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_SHARED_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"telefone\": \"{{ $('SetFieldsBasic').item.json.Telefone }}\"\n}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "IA Está Pausada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -500,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-paused",
+              "leftValue": "={{ $json.pausada }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "lead_status",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        1200
+      ],
+      "parameters": {
+        "toolDescription": "Move o cliente entre stages do funil LNB e atualiza CRM. Use quando: cliente engajou (Interessado), aceitou pagar (Qualificado), pagou (Fechado), desistiu/sumiu (Perdido). Use 'Lead' apenas se quiser garantir stage inicial.",
+        "method": "POST",
+        "url": "https://limpanomebrazil.com.br/api/n8n/lead-status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_SHARED_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "telefone",
+              "value": "={ $fromAI(\"telefone\", \"Número do cliente sem formatação, ex: 5511997440101\", \"string\") }"
+            },
+            {
+              "name": "stage",
+              "value": "={ $fromAI(\"stage\", \"Lead, Interessado, Qualificado, Fechado ou Perdido\", \"string\") }"
+            },
+            {
+              "name": "nome",
+              "value": "={ $fromAI(\"nome\", \"Nome completo do cliente\", \"string\") }"
+            },
+            {
+              "name": "cpf",
+              "value": "={ $fromAI(\"cpf\", \"CPF do cliente apenas números (11 dígitos)\", \"string\") }"
+            },
+            {
+              "name": "email",
+              "value": "={ $fromAI(\"email\", \"Email do cliente\", \"string\") }"
+            },
+            {
+              "name": "valor_servico",
+              "value": "={ $fromAI(\"valor_servico\", \"Valor formatado do serviço, ex: R$ 19,99\", \"string\") }"
+            },
+            {
+              "name": "tipo_servico",
+              "value": "={ $fromAI(\"tipo_servico\", \"consulta, limpeza_desconto ou blindagem\", \"string\") }"
+            },
+            {
+              "name": "conversation_id",
+              "value": "={ $fromAI(\"conversation_id\", \"ID da conversa Chatwoot\", \"number\") }"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "gerar_cobranca_consulta",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        1200
+      ],
+      "parameters": {
+        "toolDescription": "Gera link de pagamento no Mercado Pago da CONSULTA CPF (R$ 19,99). Use quando o cliente aceitar fazer a consulta. Cliente DEVE ter passado nome, CPF e telefone antes.",
+        "method": "POST",
+        "url": "https://limpanomebrazil.com.br/api/n8n/criar-checkout",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_SHARED_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "telefone",
+              "value": "={ $fromAI(\"telefone\", \"Número do cliente sem formatação\", \"string\") }"
+            },
+            {
+              "name": "cpf",
+              "value": "={ $fromAI(\"cpf\", \"CPF apenas números\", \"string\") }"
+            },
+            {
+              "name": "nome",
+              "value": "={ $fromAI(\"nome\", \"Nome completo do cliente\", \"string\") }"
+            },
+            {
+              "name": "email",
+              "value": "={ $fromAI(\"email\", \"Email do cliente\", \"string\") }"
+            },
+            {
+              "name": "tipo",
+              "value": "consulta"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "gerar_cobranca_limpeza",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        1200
+      ],
+      "parameters": {
+        "toolDescription": "Gera link de pagamento da LIMPEZA + Blindagem 12m (R$ 480,01 com desconto). USE APENAS APÓS o cliente ter pago a consulta E o resultado mostrou pendências. Cliente NUNCA pode pagar limpeza sem consulta paga com pendência.",
+        "method": "POST",
+        "url": "https://limpanomebrazil.com.br/api/n8n/criar-checkout",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_SHARED_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "telefone",
+              "value": "={ $fromAI(\"telefone\", \"Número do cliente\", \"string\") }"
+            },
+            {
+              "name": "cpf",
+              "value": "={ $fromAI(\"cpf\", \"CPF apenas números\", \"string\") }"
+            },
+            {
+              "name": "nome",
+              "value": "={ $fromAI(\"nome\", \"Nome completo\", \"string\") }"
+            },
+            {
+              "name": "email",
+              "value": "={ $fromAI(\"email\", \"Email\", \"string\") }"
+            },
+            {
+              "name": "tipo",
+              "value": "limpeza_desconto"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "blindagem_cadastro",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        1200
+      ],
+      "parameters": {
+        "toolDescription": "Cadastra o CPF no serviço de Blindagem mensal (R$ 29,90/mês). Use APENAS quando consulta mostrou nome LIMPO E cliente aceitou contratar blindagem. Não use se cliente tem pendências.",
+        "method": "POST",
+        "url": "https://limpanomebrazil.com.br/api/n8n/blindagem-cadastro",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_SHARED_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "telefone",
+              "value": "={ $fromAI(\"telefone\", \"Telefone do cliente\", \"string\") }"
+            },
+            {
+              "name": "cpf",
+              "value": "={ $fromAI(\"cpf\", \"CPF apenas números\", \"string\") }"
+            },
+            {
+              "name": "nome",
+              "value": "={ $fromAI(\"nome\", \"Nome completo\", \"string\") }"
+            },
+            {
+              "name": "email",
+              "value": "={ $fromAI(\"email\", \"Email\", \"string\") }"
+            },
+            {
+              "name": "plano",
+              "value": "={ $fromAI(\"plano\", \"mensal ou anual\", \"string\") }"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "memory_long",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        1200
+      ],
+      "parameters": {
+        "toolDescription": "Atualiza memória longa estruturada do cliente. Use ao final de cada interação importante pra registrar: dados pessoais, status pagamento, score, pendências, etapa do funil, observações. Use markdown.",
+        "method": "POST",
+        "url": "https://limpanomebrazil.com.br/api/n8n/memory-long",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_SHARED_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "telefone",
+              "value": "={ $fromAI(\"telefone\", \"Telefone do cliente\", \"string\") }"
+            },
+            {
+              "name": "memoria",
+              "value": "={ $fromAI(\"memoria\", \"Markdown completo com dados estruturados do lead\", \"string\") }"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "aplicar_label",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        1200
+      ],
+      "parameters": {
+        "toolDescription": "Aplica labels (etiquetas) na conversa. Use quando: cliente aceitou consulta (interessado_consulta), pagou (pago_consulta), resultado da consulta (consulta_resultado_com_pendencia/sem_pendencia), etc.",
+        "method": "POST",
+        "url": "https://limpanomebrazil.com.br/api/n8n/aplicar-label",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_SHARED_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "telefone",
+              "value": "={ $fromAI(\"telefone\", \"Telefone do cliente\", \"string\") }"
+            },
+            {
+              "name": "contexto",
+              "value": "={ $fromAI(\"contexto\", \"interessado_consulta, pago_consulta, consulta_resultado_com_pendencia, consulta_resultado_sem_pendencia, interessado_limpeza, pago_limpeza, interessado_blindagem, pago_blindagem, conflito, vip\", \"string\") }"
+            },
+            {
+              "name": "score",
+              "value": "={ $fromAI(\"score\", \"Score de crédito (opcional, pra labels score-bom/regular/baixo)\", \"number\") }"
+            },
+            {
+              "name": "conversation_id",
+              "value": "={ $fromAI(\"conversation_id\", \"ID da conversa Chatwoot\", \"number\") }"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "status_processo",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        1200
+      ],
+      "parameters": {
+        "toolDescription": "Consulta status do processo do cliente (consulta paga? limpeza em andamento? etapa?). Use quando cliente perguntar 'tá pronto?', 'como está?', 'já foi feito?'. Retorna texto resumo pronto pra usar na resposta.",
+        "method": "POST",
+        "url": "https://limpanomebrazil.com.br/api/n8n/status-processo",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_SHARED_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "telefone",
+              "value": "={ $fromAI(\"telefone\", \"Telefone do cliente\", \"string\") }"
+            },
+            {
+              "name": "cpf",
+              "value": "={ $fromAI(\"cpf\", \"CPF apenas números (alternativa ao telefone)\", \"string\") }"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "pausa_ia",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        1240,
+        1200
+      ],
+      "parameters": {
+        "toolDescription": "Pausa a IA pra essa conversa — handoff para humano. Use quando cliente pedir explicitamente falar com humano/atendente, ou em caso de conflito grave que você não consegue resolver.",
+        "method": "POST",
+        "url": "https://limpanomebrazil.com.br/api/n8n/pause-ia",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_SHARED_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "telefone",
+              "value": "={ $fromAI(\"telefone\", \"Telefone do cliente\", \"string\") }"
+            },
+            {
+              "name": "conversation_id",
+              "value": "={ $fromAI(\"conversation_id\", \"ID da conversa Chatwoot\", \"number\") }"
+            },
+            {
+              "name": "motivo",
+              "value": "={ $fromAI(\"motivo\", \"cliente_pediu_humano, conflito ou outro\", \"string\") }"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "ConfigLead",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        1500
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "Acoount ID",
+              "value": "11",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "Conta do Chatwoot",
+              "value": "11",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "FunilID",
+              "value": "1",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "Stage",
+              "value": "lead",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "StageNome",
+              "value": "Lead",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "ConfigInteressado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1000,
+        1500
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "Acoount ID",
+              "value": "11",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "Conta do Chatwoot",
+              "value": "11",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "FunilID",
+              "value": "1",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "Stage",
+              "value": "interessado",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "StageNome",
+              "value": "Interessado",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "ConfigQualificado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        1500
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "Acoount ID",
+              "value": "11",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "Conta do Chatwoot",
+              "value": "11",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "FunilID",
+              "value": "1",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "Stage",
+              "value": "qualificado",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "StageNome",
+              "value": "Qualificado",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "ConfigFechado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1400,
+        1500
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "Acoount ID",
+              "value": "11",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "Conta do Chatwoot",
+              "value": "11",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "FunilID",
+              "value": "1",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "Stage",
+              "value": "fechado",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "StageNome",
+              "value": "Fechado",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "ConfigPerdido",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1600,
+        1500
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "Acoount ID",
+              "value": "11",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "Conta do Chatwoot",
+              "value": "11",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "FunilID",
+              "value": "1",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "Stage",
+              "value": "perdido",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "StageNome",
+              "value": "Perdido",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "Pause IA Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2200,
+        1500
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lnb-pause-ia",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "lnb-lnb-pause-ia"
+    },
+    {
+      "name": "Pause IA Action",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1900,
+        1500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://limpanomebrazil.com.br/api/n8n/pause-ia",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_SHARED_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"telefone\": \"{{ $json.body.telefone }}\", \"conversation_id\": {{ $json.body.conversation_id || 'null' }} }",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "Pause IA Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1600,
+        1500
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\"}",
+        "options": {}
+      }
+    },
+    {
+      "name": "Start IA Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2200,
+        1700
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lnb-start-ia",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "lnb-lnb-start-ia"
+    },
+    {
+      "name": "Start IA Action",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1900,
+        1700
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://limpanomebrazil.com.br/api/n8n/start-ia",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_SHARED_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"telefone\": \"{{ $json.body.telefone }}\", \"conversation_id\": {{ $json.body.conversation_id || 'null' }} }",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "Start IA Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1600,
+        1700
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\"}",
+        "options": {}
+      }
+    },
+    {
+      "name": "Note - Entrada",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2400,
+        100
+      ],
+      "parameters": {
+        "content": "## 🟢 ENTRADA\n\nWebhook5 (path 6ef87fae-...) recebe payload do Chatwoot.\nIf2 filtra apenas inbox 12 (LNB WhatsApp).\nSetFieldsBasic centraliza 15 campos pra reuso.",
+        "height": 300,
+        "width": 400,
+        "color": 6
+      }
+    },
+    {
+      "name": "Note - Sync Painel",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1100,
+        100
+      ],
+      "parameters": {
+        "content": "## 🔵 SYNC PAINEL LNB\n\nA cada msg, registra no painel:\n• last_interaction\n• audit log\n• liga conversation_id ao CRM\n\nTbm garante que cliente fique no stage Lead automático.",
+        "height": 300,
+        "width": 400,
+        "color": 6
+      }
+    },
+    {
+      "name": "Note - Pause IA",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -700,
+        100
+      ],
+      "parameters": {
+        "content": "## ⏸️ HANDOFF HUMANO\n\nAntes de processar, checa se IA está pausada (cliente pediu humano OU equipe assumiu).\nSe pausada → encerra silenciosamente (humano vai responder).\n\nWebhooks aux:\n• /lnb-pause-ia\n• /lnb-start-ia",
+        "height": 300,
+        "width": 400,
+        "color": 6
+      }
+    },
+    {
+      "name": "Note - Anti-spam",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        600
+      ],
+      "parameters": {
+        "content": "## 🛡️ ANTI-SPAM + DEBOUNCE\n\nGET TIMEOUT (60s) bloqueia processamento concorrente.\nTrap List (5s) bloqueia msg duplicada.\nDebounce 8s agrupa mensagens rápidas em uma única chamada à Maia.",
+        "height": 280,
+        "width": 400,
+        "color": 6
+      }
+    },
+    {
+      "name": "Note - Tipo Msg",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        200,
+        100
+      ],
+      "parameters": {
+        "content": "## 📨 TIPO DE MENSAGEM\n\nSwitch detecta texto/áudio/imagem.\n• Áudio: Gemini transcreve\n• Imagem: Gemini analisa\n• Texto: passa direto",
+        "height": 280,
+        "width": 400,
+        "color": 6
+      }
+    },
+    {
+      "name": "Note - Maia",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        400,
+        700
+      ],
+      "parameters": {
+        "content": "## 🤖 MAIA (AI AGENT)\n\nGemini LNB cred + Memory Short Redis + 8 tools LNB + Think tool.\n\nPrompt completo pra venda:\n1. Saudação + 4 dados\n2. Empatia\n3. Consulta R$ 19,99\n4. Bifurcação tem/não tem pendência\n5. Limpeza R$ 480,01 OU Blindagem R$ 29,90\n6. Pós-venda completo",
+        "height": 400,
+        "width": 500,
+        "color": 6
+      }
+    },
+    {
+      "name": "Note - Tools",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        400,
+        1100
+      ],
+      "parameters": {
+        "content": "## 🔧 8 TOOLS LNB\n\nTodas → limpanomebrazil.com.br/api/n8n/*\nAuth: Bearer {{$env.N8N_SHARED_TOKEN}}\n\n• lead_status\n• gerar_cobranca_consulta\n• gerar_cobranca_limpeza\n• blindagem_cadastro\n• memory_long\n• aplicar_label\n• status_processo\n• pausa_ia (handoff)\n\nCada uma sincroniza Painel + Chatwoot.",
+        "height": 380,
+        "width": 500,
+        "color": 6
+      }
+    },
+    {
+      "name": "Note - Kanban",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        800,
+        1400
+      ],
+      "parameters": {
+        "content": "## 📋 KANBAN (5 stages)\n\nFunil 'Limpeza de Nome' (id=1) Account 11.\n\nLead → Interessado → Qualificado → Fechado / Perdido\n\nCada Config tem AMBOS: 'Acoount ID' (typo) + 'Conta do Chatwoot' pra compat.",
+        "height": 280,
+        "width": 500,
+        "color": 6
+      }
+    },
+    {
+      "name": "Note - Saída",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        700
+      ],
+      "parameters": {
+        "content": "## ✅ SAÍDA\n\nMaia gera resposta → Envia Texto Chatwoot (retry 3x) → Respond to Webhook 200 OK.\n\nDelete Redis cleanup chains pra liberar locks/cache.",
+        "height": 280,
+        "width": 400,
+        "color": 6
+      }
+    },
+    {
+      "name": "Note - Sync Dupla",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2400,
+        600
+      ],
+      "parameters": {
+        "content": "## ⚡ REGRA: SINCRONIA DUPLA\n\nTODA tool atualiza:\n• CHATWOOT (UI atendentes)\n• PAINEL LNB (Supabase persistente)\n\nEx: aplicar_label →\n  Chatwoot labels (visível na UI)\n  + LNB - CRM.labels_aplicadas[] (audit)",
+        "height": 320,
+        "width": 450,
+        "color": 6
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook8": [
+      {
+        "json": {
+          "headers": {
+            "host": "go.dosedegrowth.cloud",
+            "user-agent": "rest-client/2.1.0 (linux-musl x86_64) ruby/3.3.3p89",
+            "content-length": "3119",
+            "accept": "application/json",
+            "accept-encoding": "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
+            "content-type": "application/json",
+            "x-forwarded-for": "167.99.231.3",
+            "x-forwarded-host": "go.dosedegrowth.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "2966b1688c11",
+            "x-real-ip": "167.99.231.3"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "additional_attributes": {},
+            "can_reply": true,
+            "channel": "Channel::Api",
+            "contact_inbox": {
+              "id": 45526,
+              "contact_id": 20315,
+              "inbox_id": 33,
+              "source_id": "d0e2c3c8-9110-41b2-a1e5-754037f07bf4",
+              "created_at": "2025-06-09T21:33:42.909Z",
+              "updated_at": "2025-06-09T21:33:42.909Z",
+              "hmac_verified": false,
+              "pubsub_token": "LiQFR29zbnyjRdLd821N3qT4"
+            },
+            "id": 74,
+            "inbox_id": 33,
+            "messages": [
+              {
+                "id": 339867,
+                "content": "Oiii",
+                "account_id": 25,
+                "inbox_id": 33,
+                "conversation_id": 74,
+                "message_type": 1,
+                "created_at": 1749648551,
+                "updated_at": "2025-06-11T13:29:11.072Z",
+                "private": false,
+                "status": "sent",
+                "source_id": "WAID:DCB20F0BF21A63F0C5D52A1A2676C194",
+                "content_type": "text",
+                "content_attributes": {},
+                "sender_type": "User",
+                "sender_id": 2,
+                "external_source_ids": {},
+                "additional_attributes": {},
+                "processed_message_content": "Oiii",
+                "sentiment": {},
+                "conversation": {
+                  "assignee_id": null,
+                  "unread_count": 0,
+                  "last_activity_at": 1749648551,
+                  "contact_inbox": {
+                    "source_id": "d0e2c3c8-9110-41b2-a1e5-754037f07bf4"
+                  }
+                },
+                "sender": {
+                  "id": 2,
+                  "name": "Dose De Growth",
+                  "available_name": "Dose De Growth",
+                  "avatar_url": "https://chat.dosedegrowth.pro/rails/active_storage/representations/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBZzk2IiwiZXhwIjpudWxsLCJwdXIiOiJibG9iX2lkIn19--a9337beef68f390034cf635c8ed3d5f0b9484ee5/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaDdCem9MWm05eWJXRjBTU0lJY0c1bkJqb0dSVlE2RTNKbGMybDZaVjkwYjE5bWFXeHNXd2RwQWZvdyIsImV4cCI6bnVsbCwicHVyIjoidmFyaWF0aW9uIn19--9dc900544ce0c116ec04486451aa8adfb029bf66/Dose%20de%20Growth_Logos_2024_Prancheta%201%20c%C3%B3pia%208.png",
+                  "type": "user",
+                  "availability_status": null,
+                  "thumbnail": "https://chat.dosedegrowth.pro/rails/active_storage/representations/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBZzk2IiwiZXhwIjpudWxsLCJwdXIiOiJibG9iX2lkIn19--a9337beef68f390034cf635c8ed3d5f0b9484ee5/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaDdCem9MWm05eWJXRjBTU0lJY0c1bkJqb0dSVlE2RTNKbGMybDZaVjkwYjE5bWFXeHNXd2RwQWZvdyIsImV4cCI6bnVsbCwicHVyIjoidmFyaWF0aW9uIn19--9dc900544ce0c116ec04486451aa8adfb029bf66/Dose%20de%20Growth_Logos_2024_Prancheta%201%20c%C3%B3pia%208.png"
+                }
+              }
+            ],
+            "labels": [],
+            "meta": {
+              "sender": {
+                "additional_attributes": {},
+                "custom_attributes": {},
+                "email": null,
+                "id": 20315,
+                "identifier": "5511939213329@s.whatsapp.net",
+                "name": "Will",
+                "phone_number": "+5511939213329",
+                "thumbnail": "https://chat.dosedegrowth.pro/rails/active_storage/representations/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeHJjQWc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--4d2d9c6899b8c424fceced4ff66456eef8241dd1/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaDdCem9MWm05eWJXRjBTU0lJYW5CbkJqb0dSVlE2RTNKbGMybDZaVjkwYjE5bWFXeHNXd2RwQWZvdyIsImV4cCI6bnVsbCwicHVyIjoidmFyaWF0aW9uIn19--a512ff748d63805ecbc80f11716ec7bad0700fab/465434973_1313200643372242_3870699917800516340_n.jpg",
+                "blocked": false,
+                "type": "contact"
+              },
+              "assignee": null,
+              "team": null,
+              "hmac_verified": false
+            },
+            "status": "open",
+            "custom_attributes": {},
+            "snoozed_until": null,
+            "unread_count": 0,
+            "first_reply_created_at": "2025-06-09T21:34:55.905Z",
+            "priority": null,
+            "waiting_since": 0,
+            "agent_last_seen_at": 1749649065,
+            "contact_last_seen_at": 1749648116,
+            "last_activity_at": 1749648551,
+            "timestamp": 1749648551,
+            "created_at": 1749504822,
+            "updated_at": 1749648551.0750332,
+            "event": "macro.executed"
+          },
+          "webhookUrl": "https://go.dosedegrowth.cloud/webhook/3848a9cc-9950-4ec7-a766-0af1edad6d3p",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Webhook7": [
+      {
+        "json": {
+          "headers": {
+            "host": "go.dosedegrowth.cloud",
+            "user-agent": "rest-client/2.1.0 (linux-musl x86_64) ruby/3.3.3p89",
+            "content-length": "3522",
+            "accept": "application/json",
+            "accept-encoding": "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
+            "content-type": "application/json",
+            "x-forwarded-for": "167.99.231.3",
+            "x-forwarded-host": "go.dosedegrowth.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "2966b1688c11",
+            "x-real-ip": "167.99.231.3"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "additional_attributes": {},
+            "can_reply": true,
+            "channel": "Channel::Api",
+            "contact_inbox": {
+              "id": 45526,
+              "contact_id": 20315,
+              "inbox_id": 33,
+              "source_id": "d0e2c3c8-9110-41b2-a1e5-754037f07bf4",
+              "created_at": "2025-06-09T21:33:42.909Z",
+              "updated_at": "2025-06-09T21:33:42.909Z",
+              "hmac_verified": false,
+              "pubsub_token": "LiQFR29zbnyjRdLd821N3qT4"
+            },
+            "id": 74,
+            "inbox_id": 33,
+            "messages": [
+              {
+                "id": 340093,
+                "content": "Eu te sugeri o nosso combo mais completo pra você não ter nenhuma dor de cabeça com a compra. Ficou alguma dúvida sobre os serviços ou sobre o valor? Me conta pra eu poder te ajudar a decidir! 😉",
+                "account_id": 25,
+                "inbox_id": 33,
+                "conversation_id": 74,
+                "message_type": 1,
+                "created_at": 1749650765,
+                "updated_at": "2025-06-11T14:06:05.279Z",
+                "private": false,
+                "status": "sent",
+                "source_id": "WAID:3EB0ECE42F7BF047F891B797599919C4AFF6CF2F",
+                "content_type": "text",
+                "content_attributes": {},
+                "sender_type": "User",
+                "sender_id": 2,
+                "external_source_ids": {},
+                "additional_attributes": {},
+                "processed_message_content": "Eu te sugeri o nosso combo mais completo pra você não ter nenhuma dor de cabeça com a compra. Ficou alguma dúvida sobre os serviços ou sobre o valor? Me conta pra eu poder te ajudar a decidir! 😉",
+                "sentiment": {},
+                "conversation": {
+                  "assignee_id": null,
+                  "unread_count": 0,
+                  "last_activity_at": 1749650765,
+                  "contact_inbox": {
+                    "source_id": "d0e2c3c8-9110-41b2-a1e5-754037f07bf4"
+                  }
+                },
+                "sender": {
+                  "id": 2,
+                  "name": "Dose De Growth",
+                  "available_name": "Dose De Growth",
+                  "avatar_url": "https://chat.dosedegrowth.pro/rails/active_storage/representations/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBZzk2IiwiZXhwIjpudWxsLCJwdXIiOiJibG9iX2lkIn19--a9337beef68f390034cf635c8ed3d5f0b9484ee5/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaDdCem9MWm05eWJXRjBTU0lJY0c1bkJqb0dSVlE2RTNKbGMybDZaVjkwYjE5bWFXeHNXd2RwQWZvdyIsImV4cCI6bnVsbCwicHVyIjoidmFyaWF0aW9uIn19--9dc900544ce0c116ec04486451aa8adfb029bf66/Dose%20de%20Growth_Logos_2024_Prancheta%201%20c%C3%B3pia%208.png",
+                  "type": "user",
+                  "availability_status": null,
+                  "thumbnail": "https://chat.dosedegrowth.pro/rails/active_storage/representations/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBZzk2IiwiZXhwIjpudWxsLCJwdXIiOiJibG9iX2lkIn19--a9337beef68f390034cf635c8ed3d5f0b9484ee5/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaDdCem9MWm05eWJXRjBTU0lJY0c1bkJqb0dSVlE2RTNKbGMybDZaVjkwYjE5bWFXeHNXd2RwQWZvdyIsImV4cCI6bnVsbCwicHVyIjoidmFyaWF0aW9uIn19--9dc900544ce0c116ec04486451aa8adfb029bf66/Dose%20de%20Growth_Logos_2024_Prancheta%201%20c%C3%B3pia%208.png"
+                }
+              }
+            ],
+            "labels": [],
+            "meta": {
+              "sender": {
+                "additional_attributes": {},
+                "custom_attributes": {},
+                "email": null,
+                "id": 20315,
+                "identifier": "5511939213329@s.whatsapp.net",
+                "name": "Will",
+                "phone_number": "+5511939213329",
+                "thumbnail": "https://chat.dosedegrowth.pro/rails/active_storage/representations/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeHJjQWc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--4d2d9c6899b8c424fceced4ff66456eef8241dd1/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaDdCem9MWm05eWJXRjBTU0lJYW5CbkJqb0dSVlE2RTNKbGMybDZaVjkwYjE5bWFXeHNXd2RwQWZvdyIsImV4cCI6bnVsbCwicHVyIjoidmFyaWF0aW9uIn19--a512ff748d63805ecbc80f11716ec7bad0700fab/465434973_1313200643372242_3870699917800516340_n.jpg",
+                "blocked": false,
+                "type": "contact"
+              },
+              "assignee": null,
+              "team": null,
+              "hmac_verified": false
+            },
+            "status": "open",
+            "custom_attributes": {},
+            "snoozed_until": null,
+            "unread_count": 0,
+            "first_reply_created_at": "2025-06-09T21:34:55.905Z",
+            "priority": null,
+            "waiting_since": 0,
+            "agent_last_seen_at": 1749650814,
+            "contact_last_seen_at": 1749649948,
+            "last_activity_at": 1749650765,
+            "timestamp": 1749650765,
+            "created_at": 1749504822,
+            "updated_at": 1749650765.283246,
+            "event": "macro.executed"
+          },
+          "webhookUrl": "https://go.dosedegrowth.cloud/webhook/3848a9cc-9950-4ec7-a766-0af1edad7j3p-pausa",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Webhook9": [
+      {
+        "json": {
+          "headers": {
+            "host": "go.dosedegrowth.cloud",
+            "user-agent": "axios/1.8.3",
+            "content-length": "200",
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "content-type": "application/json",
+            "x-forwarded-for": "172.18.0.1",
+            "x-forwarded-host": "go.dosedegrowth.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "2966b1688c11",
+            "x-real-ip": "172.18.0.1"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "ConversationID": 12345,
+            "link_chatwoot": "https://dosedegrowthcrm.com.br",
+            "token_chatwoot": "o8GXNgNjVww5pkA7Dn7duEev",
+            "conta_chatwoot": "5"
+          },
+          "webhookUrl": "https://go.dosedegrowth.cloud/webhook/22a71267-d632-401c-b834-0696adc90320",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Webhook10": [
+      {
+        "json": {
+          "headers": {
+            "host": "go.dosedegrowth.cloud",
+            "user-agent": "rest-client/2.1.0 (linux-musl x86_64) ruby/3.3.3p89",
+            "content-length": "3370",
+            "accept": "application/json",
+            "accept-encoding": "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
+            "content-type": "application/json",
+            "x-forwarded-for": "167.99.231.3",
+            "x-forwarded-host": "go.dosedegrowth.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "2966b1688c11",
+            "x-real-ip": "167.99.231.3"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "additional_attributes": {},
+            "can_reply": true,
+            "channel": "Channel::Api",
+            "contact_inbox": {
+              "id": 53655,
+              "contact_id": 20315,
+              "inbox_id": 39,
+              "source_id": "ddfe2193-07a8-449a-a3be-87646c90deae",
+              "created_at": "2025-06-26T20:38:48.922Z",
+              "updated_at": "2025-06-26T20:38:48.922Z",
+              "hmac_verified": false,
+              "pubsub_token": "adhWWgTMM8Saa1qq3VcbULML"
+            },
+            "id": 240,
+            "inbox_id": 39,
+            "messages": [
+              {
+                "id": 986328,
+                "content": "Oiii! É a Soffia aqui de novo, gostaria de saber como foi a sua experiência com a gente!!    \n   \nDe 0 a 5 como você avalia?",
+                "account_id": 25,
+                "inbox_id": 39,
+                "conversation_id": 240,
+                "message_type": 1,
+                "created_at": 1756088924,
+                "updated_at": "2025-08-25T02:28:44.865Z",
+                "private": false,
+                "status": "sent",
+                "source_id": null,
+                "content_type": "text",
+                "content_attributes": {
+                  "automation_rule_id": 33
+                },
+                "sender_type": null,
+                "sender_id": null,
+                "external_source_ids": {},
+                "additional_attributes": {},
+                "processed_message_content": "Oiii! É a Soffia aqui de novo, gostaria de saber como foi a sua experiência com a gente!!    \n   \nDe 0 a 5 como você avalia?",
+                "sentiment": {},
+                "conversation": {
+                  "assignee_id": 2,
+                  "unread_count": 0,
+                  "last_activity_at": 1756089129,
+                  "contact_inbox": {
+                    "source_id": "ddfe2193-07a8-449a-a3be-87646c90deae"
+                  }
+                }
+              }
+            ],
+            "labels": [],
+            "meta": {
+              "sender": {
+                "additional_attributes": {},
+                "custom_attributes": {},
+                "email": null,
+                "id": 20315,
+                "identifier": "5511939213329@s.whatsapp.net",
+                "name": "Will",
+                "phone_number": "+5511939213329",
+                "thumbnail": "https://chat.dosedegrowth.pro/rails/active_storage/representations/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeHJjQWc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--4d2d9c6899b8c424fceced4ff66456eef8241dd1/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaDdCem9MWm05eWJXRjBTU0lJYW5CbkJqb0dSVlE2RTNKbGMybDZaVjkwYjE5bWFXeHNXd2RwQWZvdyIsImV4cCI6bnVsbCwicHVyIjoidmFyaWF0aW9uIn19--a512ff748d63805ecbc80f11716ec7bad0700fab/465434973_1313200643372242_3870699917800516340_n.jpg",
+                "blocked": false,
+                "type": "contact"
+              },
+              "assignee": {
+                "id": 2,
+                "name": "Dose De Growth",
+                "available_name": "Dose De Growth",
+                "avatar_url": "https://chat.dosedegrowth.pro/rails/active_storage/representations/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBZzk2IiwiZXhwIjpudWxsLCJwdXIiOiJibG9iX2lkIn19--a9337beef68f390034cf635c8ed3d5f0b9484ee5/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaDdCem9MWm05eWJXRjBTU0lJY0c1bkJqb0dSVlE2RTNKbGMybDZaVjkwYjE5bWFXeHNXd2RwQWZvdyIsImV4cCI6bnVsbCwicHVyIjoidmFyaWF0aW9uIn19--9dc900544ce0c116ec04486451aa8adfb029bf66/Dose%20de%20Growth_Logos_2024_Prancheta%201%20c%C3%B3pia%208.png",
+                "type": "user",
+                "availability_status": null,
+                "thumbnail": "https://chat.dosedegrowth.pro/rails/active_storage/representations/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBZzk2IiwiZXhwIjpudWxsLCJwdXIiOiJibG9iX2lkIn19--a9337beef68f390034cf635c8ed3d5f0b9484ee5/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaDdCem9MWm05eWJXRjBTU0lJY0c1bkJqb0dSVlE2RTNKbGMybDZaVjkwYjE5bWFXeHNXd2RwQWZvdyIsImV4cCI6bnVsbCwicHVyIjoidmFyaWF0aW9uIn19--9dc900544ce0c116ec04486451aa8adfb029bf66/Dose%20de%20Growth_Logos_2024_Prancheta%201%20c%C3%B3pia%208.png"
+              },
+              "team": null,
+              "hmac_verified": false
+            },
+            "status": "resolved",
+            "custom_attributes": {},
+            "snoozed_until": null,
+            "unread_count": 0,
+            "first_reply_created_at": "2025-06-26T20:40:48.791Z",
+            "priority": null,
+            "waiting_since": 0,
+            "agent_last_seen_at": 1756089122,
+            "contact_last_seen_at": 1754608901,
+            "last_activity_at": 1756089129,
+            "timestamp": 1756089129,
+            "created_at": 1750970328,
+            "updated_at": 1756089129.8218272,
+            "event": "automation_event.conversation_updated"
+          },
+          "webhookUrl": "https://go.dosedegrowth.cloud/webhook-test/14fb37e6-61e6-4e7d-8016-efe37bf269cb-resolvido",
+          "executionMode": "test"
+        }
+      }
+    ],
+    "Webhook3": [
+      {
+        "json": {
+          "headers": {
+            "host": "go.dosedegrowth.cloud",
+            "user-agent": "axios/1.12.0",
+            "content-length": "70",
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "content-type": "application/json",
+            "x-forwarded-for": "172.18.0.1",
+            "x-forwarded-host": "go.dosedegrowth.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "e6985dc51a7e",
+            "x-real-ip": "172.18.0.1"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "nome": "5511939213329",
+            "numero": "5511939213329",
+            "unidadade": "Macaé"
+          },
+          "webhookUrl": "https://go.dosedegrowth.cloud/webhook/6fa959c7-5c73-4339-9be6-f634011e953f",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Webhook11": [
+      {
+        "json": {
+          "headers": {
+            "host": "go.dosedegrowth.cloud",
+            "user-agent": "axios/1.12.0",
+            "content-length": "295",
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "content-type": "application/json",
+            "x-forwarded-for": "172.18.0.1",
+            "x-forwarded-host": "go.dosedegrowth.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "e6985dc51a7e",
+            "x-real-ip": "172.18.0.1"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "chatid": "historic.+5511939213329",
+            "message": "Com base na mensagem:\né um GM celta 2010,11\n\n  contexto:\n    hoje: \"2025-12-23T11:02:31.387-03:00\"\n    data_hora: \"2025-12-23 11:02:27\"\n    dia_semana: \"Tuesday\"\n    telefone: \"+5511939213329\"\n    nome_whatsapp: \"5511939213329\""
+          },
+          "webhookUrl": "https://go.dosedegrowth.cloud/webhook/de679fff-8db2-4741-a4b6-8833389e02e4",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Webhook2": [
+      {
+        "json": {
+          "headers": {
+            "host": "go.dosedegrowth.cloud",
+            "user-agent": "axios/1.12.0",
+            "content-length": "409",
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "content-type": "application/json",
+            "x-forwarded-for": "172.18.0.1",
+            "x-forwarded-host": "go.dosedegrowth.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "e6985dc51a7e",
+            "x-real-ip": "172.18.0.1"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "chatid": "historic.5511939213329@s.whatsapp.net",
+            "message": "Com base na mensagem:\nClaro, a placa é a EEI9690 e meu nome completo é William Aragão Carvalho.\n\n  contexto:\n    hoje: \"2026-02-09T22:00:42.291-03:00\"\n    data_hora: \"2026-02-09 22:00:38\"\n    dia_semana: \"Monday\"\n    telefone: \"+5511939213329\"\n    nome_whatsapp: \"5511939213329\"\n\n",
+            "remoteJid": "5511939213329@s.whatsapp.net"
+          },
+          "webhookUrl": "https://go.dosedegrowth.cloud/webhook/3f487ef2-b85c-4439-b163-197bb35fefb8",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "On form submission": [
+      {
+        "json": {
+          "WhatsApp": 5511960725070,
+          "submittedAt": "2026-02-09T22:16:47.388-03:00",
+          "formMode": "production"
+        }
+      }
+    ],
+    "Webhook6": [
+      {
+        "json": {
+          "headers": {
+            "host": "go.dosedegrowth.cloud",
+            "user-agent": "axios/1.12.0",
+            "content-length": "456",
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "content-type": "application/json",
+            "x-forwarded-for": "172.18.0.1",
+            "x-forwarded-host": "go.dosedegrowth.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "e6985dc51a7e",
+            "x-real-ip": "172.18.0.1"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "chatid": "historic.5511994484944",
+            "message": "Prezados,\n\nO agendamento para o cliente Renato Carlet, com o veículo Nissan Versa 2020, placa OBD-1201, para o serviço Combo Certicar® + Transferência no valor de R$ 550,00, na unidade Limpa Nome Brazil Anália Franco Tatuapé, foi iniciado.\n\nPara concluir, é necessário que o cliente escolha um dos horários disponíveis abaixo para o dia 12/01/2026:\n\n09:00\n10:00\n11:00\n14:00\n15:00\n16:00\n17:00"
+          },
+          "webhookUrl": "https://go.dosedegrowth.cloud/webhook/50103c9d-fc91-4bec-bceb-07380eb9700c",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Webhook1": [
+      {
+        "json": {
+          "headers": {
+            "host": "go.dosedegrowth.cloud",
+            "user-agent": "axios/1.12.0",
+            "content-length": "317",
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "content-type": "application/json",
+            "x-forwarded-for": "172.18.0.1",
+            "x-forwarded-host": "go.dosedegrowth.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "e6985dc51a7e",
+            "x-real-ip": "172.18.0.1"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "chatid": "historic.5511939213329@s.whatsapp.net",
+            "message": "Com base na mensagem:\nÈ um FOX 2010 da Wolkswagen\n\n  contexto:\n    hoje: \"2026-02-11T10:02:33.398-03:00\"\n    data_hora: \"2026-02-11 10:02:23\"\n    dia_semana: \"Wednesday\"\n    telefone: \"+5511939213329\"\n    nome_whatsapp: \"5511939213329\""
+          },
+          "webhookUrl": "https://go.dosedegrowth.cloud/webhook/e4e171e8-68bf-4833-b0c7-0035ebe5ad62-tool-FIPE",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "go.dosedegrowth.cloud",
+            "user-agent": "axios/1.12.0",
+            "content-length": "281",
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "content-type": "application/json",
+            "x-forwarded-for": "172.18.0.1",
+            "x-forwarded-host": "go.dosedegrowth.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "e6985dc51a7e",
+            "x-real-ip": "172.18.0.1"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "chatid": "historic.5511960725070",
+            "message": "Com base na mensagem:\n49035-645\n\n  contexto:\n    hoje: \"2026-02-11T16:57:03.772-03:00\"\n    data_hora: \"2026-02-11 16:57:00\"\n    dia_semana: \"Wednesday\"\n    telefone: \"\"\n    nome_whatsapp ou número: \"Lucas Cassiano\""
+          },
+          "webhookUrl": "https://go.dosedegrowth.cloud/webhook/3c3429a3-fd59-4122-a597-9df7ad8b0883",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Webhook4": [
+      {
+        "json": {
+          "headers": {
+            "host": "go.dosedegrowth.cloud",
+            "user-agent": "axios/1.12.0",
+            "content-length": "164",
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "content-type": "application/json",
+            "x-forwarded-for": "172.18.0.1",
+            "x-forwarded-host": "go.dosedegrowth.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "e6985dc51a7e",
+            "x-real-ip": "172.18.0.1"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "ConversationID": 33,
+            "link_chatwoot": "https://dosedegrowthcrm.com.br",
+            "token_chatwoot": "o8GXNgNjVww5pkA7Dn7duEev",
+            "conta_chatwoot": "5",
+            "telefone_cliente": "556294410397"
+          },
+          "webhookUrl": "https://go.dosedegrowth.cloud/webhook/53cdc478-657d-4a31-b065-e373add4bae0",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Webhook5": [
+      {
+        "json": {
+          "headers": {
+            "host": "go.dosedegrowth.cloud",
+            "user-agent": "rest-client/2.1.0 (linux x86_64) ruby/3.3.10p183",
+            "content-length": "2485",
+            "accept": "application/json",
+            "accept-encoding": "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
+            "content-type": "application/json",
+            "x-forwarded-for": "178.104.37.83",
+            "x-forwarded-host": "go.dosedegrowth.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "e6985dc51a7e",
+            "x-real-ip": "178.104.37.83"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "account": {
+              "id": 5,
+              "name": "Limpa Nome Brazil Matriz"
+            },
+            "additional_attributes": {},
+            "status": "sent",
+            "content_attributes": {},
+            "content_type": "text",
+            "content": "Ok",
+            "conversation": {
+              "additional_attributes": {},
+              "can_reply": true,
+              "channel": "Channel::Whatsapp",
+              "contact_inbox": {
+                "id": 116,
+                "contact_id": 116,
+                "inbox_id": 7,
+                "source_id": "556294410397",
+                "created_at": "2026-03-16T13:38:18.767Z",
+                "updated_at": "2026-03-16T13:38:18.767Z",
+                "hmac_verified": false,
+                "pubsub_token": "5x49F2ivA6MngMj3GNdYzRq3"
+              },
+              "id": 33,
+              "inbox_id": 7,
+              "messages": [
+                {
+                  "id": 2183,
+                  "content": "Ok",
+                  "account_id": 5,
+                  "inbox_id": 7,
+                  "conversation_id": 33,
+                  "message_type": 0,
+                  "created_at": 1773683418,
+                  "updated_at": "2026-03-16T17:50:18.280Z",
+                  "private": false,
+                  "status": "sent",
+                  "source_id": "wamid.HBgMNTU2Mjk0NDEwMzk3FQIAEhggQUM3QzVGRkQ1OTFDREY5MTNDQkM5MUM2NUNBNUE3ODMA",
+                  "content_type": "text",
+                  "content_attributes": {},
+                  "sender_type": "Contact",
+                  "sender_id": 116,
+                  "external_source_ids": {},
+                  "additional_attributes": {},
+                  "processed_message_content": "Ok",
+                  "sentiment": {},
+                  "conversation": {
+                    "assignee_id": null,
+                    "unread_count": 3,
+                    "last_activity_at": 1773683418,
+                    "contact_inbox": {
+                      "source_id": "556294410397"
+                    }
+                  },
+                  "sender": {
+                    "additional_attributes": {},
+                    "custom_attributes": {},
+                    "email": null,
+                    "id": 116,
+                    "identifier": null,
+                    "name": "Wander Rocha Nunes",
+                    "phone_number": "+556294410397",
+                    "thumbnail": "",
+                    "blocked": false,
+                    "type": "contact"
+                  }
+                }
+              ],
+              "labels": [],
+              "meta": {
+                "sender": {
+                  "additional_attributes": {},
+                  "custom_attributes": {},
+                  "email": null,
+                  "id": 116,
+                  "identifier": null,
+                  "name": "Wander Rocha Nunes",
+                  "phone_number": "+556294410397",
+                  "thumbnail": "",
+                  "blocked": false,
+                  "type": "contact"
+                },
+                "assignee": null,
+                "team": null,
+                "hmac_verified": false
+              },
+              "status": "pending",
+              "custom_attributes": {},
+              "snoozed_until": null,
+              "unread_count": 3,
+              "first_reply_created_at": "2026-03-16T13:52:50.563Z",
+              "priority": null,
+              "waiting_since": 0,
+              "agent_last_seen_at": 1773677463,
+              "contact_last_seen_at": 0,
+              "last_activity_at": 1773683418,
+              "timestamp": 1773683418,
+              "created_at": 1773668298,
+              "updated_at": 1773683418.2825978,
+              "applied_sla": null,
+              "sla_events": [],
+              "sla_policy_id": null
+            },
+            "created_at": "2026-03-16T17:50:18.280Z",
+            "id": 2183,
+            "inbox": {
+              "id": 7,
+              "name": "Limpa Nome Brazil Matriz"
+            },
+            "message_type": "incoming",
+            "private": false,
+            "sender": {
+              "account": {
+                "id": 5,
+                "name": "Limpa Nome Brazil Matriz"
+              },
+              "additional_attributes": {},
+              "avatar": "",
+              "custom_attributes": {},
+              "email": null,
+              "id": 116,
+              "identifier": null,
+              "name": "Wander Rocha Nunes",
+              "phone_number": "+556294410397",
+              "thumbnail": "",
+              "blocked": false
+            },
+            "source_id": "wamid.HBgMNTU2Mjk0NDEwMzk3FQIAEhggQUM3QzVGRkQ1OTFDREY5MTNDQkM5MUM2NUNBNUE3ODMA",
+            "event": "message_created"
+          },
+          "webhookUrl": "https://go.dosedegrowth.cloud/webhook/4d614582-8eac-4539-beff-187480b81cbc-matriz",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "ConfigInteressado": {
+      "main": [
+        [
+          {
+            "node": "Busca contato1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Busca contato1": {
+      "main": [
+        [
+          {
+            "node": "Busca Conversa2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FromMe-Switch": {
+      "main": [
+        [
+          {
+            "node": "Check IA Pause",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BuscaTrapList1": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "FimFluxo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AddTrapList",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tipo da Mensagem": {
+      "main": [
+        [
+          {
+            "node": "SET DEFAULT MESSAGE",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SET AUDIO BASE64",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SET IMAGE BASE64",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SET REPLIED MESSAGE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET AUDIO BASE64": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET IMAGE BASE64": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RedisPushMsgs": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "ListaMsg-Redis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ListaMsg-Redis": {
+      "main": [
+        [
+          {
+            "node": "Should Continue?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Continue?": {
+      "main": [
+        [
+          {
+            "node": "FimFluxo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AgruparMSGs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AgruparMSGs": {
+      "main": [
+        [
+          {
+            "node": "RedisClearMSGs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RedisClearMSGs": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET TIMEOUT1": {
+      "main": [
+        [
+          {
+            "node": "If4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If4": {
+      "main": [
+        [
+          {
+            "node": "FimFluxo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "STOP AND SET TIMEOUT1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook5": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis6": {},
+    "Redis4": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SetFieldsBasic": {
+      "main": [
+        [
+          {
+            "node": "Sync Conversation Painel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {},
+    "DELETE ChatMemory": {
+      "main": [
+        [
+          {
+            "node": "DELETE Cachemensage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "SetFieldsBasic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mover Lead (Auto)": {
+      "main": [
+        [
+          {
+            "node": "FromMe-Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "lead_status": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gerar_cobranca_consulta": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gerar_cobranca_limpeza": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "blindagem_cadastro": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "memory_long": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "aplicar_label": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "status_processo": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pausa_ia": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory Short": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Memory Long1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Conversation Painel": {
+      "main": [
+        [
+          {
+            "node": "Mover Lead (Auto)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check IA Pause": {
+      "main": [
+        [
+          {
+            "node": "IA Está Pausada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA Está Pausada?": {
+      "main": [
+        [
+          {
+            "node": "FimFluxo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GET TIMEOUT1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "STOP AND SET TIMEOUT1": {
+      "main": [
+        [
+          {
+            "node": "BuscaTrapList1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AddTrapList": {
+      "main": [
+        [
+          {
+            "node": "Tipo da Mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "SET AUDIO MESSAGE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET AUDIO MESSAGE": {
+      "main": [
+        [
+          {
+            "node": "RedisPushMsgs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "SET IMAGE MESSAGE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET IMAGE MESSAGE": {
+      "main": [
+        [
+          {
+            "node": "RedisPushMsgs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET DEFAULT MESSAGE": {
+      "main": [
+        [
+          {
+            "node": "RedisPushMsgs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET REPLIED MESSAGE": {
+      "main": [
+        [
+          {
+            "node": "RedisPushMsgs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Envia Texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envia Texto": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pause IA Webhook": {
+      "main": [
+        [
+          {
+            "node": "Pause IA Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pause IA Action": {
+      "main": [
+        [
+          {
+            "node": "Pause IA Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start IA Webhook": {
+      "main": [
+        [
+          {
+            "node": "Start IA Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start IA Action": {
+      "main": [
+        [
+          {
+            "node": "Start IA Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "33738330930e3881dd5571eca013f36ddf8aab20e4ea5c1f2ebaf4a2b4668ac6"
+  },
+  "tags": []
+}

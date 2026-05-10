@@ -25,18 +25,26 @@ Vende 3 produtos:
 ## ⚡ Estado em 09/05/2026
 
 ### ✅ Funcionando 100%
-- Backend painel completo (28+ rotas, 7 endpoints `/api/n8n/*` Bearer auth)
+- Backend painel completo (28+ rotas, 9 endpoints `/api/n8n/*` Bearer auth)
 - Webhook MP com HMAC validation
 - PDF interno pdfkit (1 página A4 sóbrio)
 - Email Resend (domínio verificado)
-- Supabase com 6 tabelas LNB + 16 RPCs SECURITY DEFINER + 3 buckets
+- Supabase com 6 tabelas LNB + 20 RPCs SECURITY DEFINER + 3 buckets
 - Chatwoot integration: 16 labels + Custom Attributes + Private Notes + PDF anexo
 - 16 envs configuradas no Vercel
 - Site público completo (home, /consultar, /contratar, /conta, painel admin)
+- **Sincronia DUPLA Painel↔Chatwoot** em todas as tools (labels, custom attrs, audit log)
 
 ### 🟡 Em progresso
-- **Multi Agentes LNB v07** — ✅ CRIADO ENXUTO (24 nós, auditoria 12/12 OK, 100% LNB sem resíduo SPV)
-- **PRÓXIMO PASSO:** importar v07 no n8n + ativar + testar mensagem real WhatsApp
+- **Multi Agentes LNB v09** — ✅ CRIADO (88 nós, auditoria 42/42 = 100%, clone-and-adapt do v06)
+  - 9 endpoints `/api/n8n/*` (sync-conversation, pause-ia, start-ia, check-ia-pause novos)
+  - 8 tools LNB: lead_status, gerar_cobranca_consulta/limpeza, blindagem_cadastro, memory_long, aplicar_label, status_processo, pausa_ia
+  - 5 Configs Kanban (Lead/Interessado/Qualificado/Fechado/Perdido)
+  - 2 webhooks aux (lnb-pause-ia + lnb-start-ia) pra handoff humano
+  - Áudio + Imagem via Gemini multimodal preservados
+  - Anti-spam (TrapList) + Debounce 8s + STOP TIMEOUT 60s preservados
+  - Maia prompt 100% LNB baseado em LNB-v2-fluxo-definitivo.md
+- **PRÓXIMO PASSO:** importar `n8n-flows/Multi Agentes LNB v09.json` no n8n + ativar + testar via WhatsApp
 
 ### ❌ Bloqueios
 Nenhum bloqueio crítico. Painel está pronto. Falta só fluxo n8n correto.
@@ -88,7 +96,21 @@ Estamos em [contexto atual]
 
 ---
 
-**🚦 Próxima ação:** importar `Multi Agentes LNB v07.json` (24 nós) no n8n + ativar + testar via WhatsApp pra +55 11 99744-0101
+**🚦 Próxima ação:** importar `n8n-flows/Multi Agentes LNB v09.json` (88 nós, auditoria 100%) no n8n + ativar + testar via WhatsApp pra +55 11 99744-0101
+
+### Endpoints `/api/n8n/*` ativos (9)
+| Endpoint | Função |
+|---|---|
+| `/lead-status` | Move stage funil + atualiza CRM + Kanban Chatwoot |
+| `/criar-checkout` | Gera preference Mercado Pago + aplica labels |
+| `/aplicar-label` | Labels Chatwoot + grava `labels_aplicadas[]` em CRM |
+| `/blindagem-cadastro` | Cadastra blindagem + notifica Chatwoot |
+| `/memory-long` | Memória longa CRM + sync Chatwoot Custom Attribute |
+| `/status-processo` | READ ONLY: status consulta/limpeza/blindagem |
+| `/sync-conversation` ⭐ | Loga cada msg em audit + atualiza last_interaction |
+| `/pause-ia` ⭐ | Pausa IA (CRM + label + private note + audit) |
+| `/start-ia` ⭐ | Reativa IA |
+| `/check-ia-pause` ⭐ | n8n consulta antes de chamar Maia |
 
 
 ---

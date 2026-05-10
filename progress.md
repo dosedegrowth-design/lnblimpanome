@@ -4,6 +4,84 @@
 
 ---
 
+## 🟢 09/05/2026 (final) — v09 PRONTO ✅ AUDITORIA 42/42 (100%)
+
+### Estratégia adotada: clone-and-adapt do v06 (não from-scratch)
+Após auditoria honesta dos arquivos anteriores:
+- **v07 (24 nós)**: enxuto demais, perdeu áudio/imagem/anti-spam/debounce
+- **v08 (60 nós)**: tentativa intermediária from-scratch ainda perdia detalhes
+- **v06 (171 nós)**: completo mas com 42 órfãos + 25 lixo (Evolution disabled, MCP Client, Valida FIPE residual)
+
+### Multi Agentes LNB v09 — final
+**Estratégia:** carregar v06 → deletar 71 nós lixo → reconectar órfãos → adaptar prompts/URLs.
+
+**Estrutura final (88 nós, 52 conexões):**
+```
+Webhook5 (path 6ef87fae-...) → If2 (inbox 12) → SetFieldsBasic (15 campos)
+  → Sync Conversation Painel ⭐ → Mover Lead Auto → FromMe-Switch
+  → Check IA Pause ⭐ → IA Está Pausada?
+    [true]  → FimFluxo silencioso
+    [false] → GET TIMEOUT1 → If4 → STOP AND SET TIMEOUT
+              → BuscaTrapList1 → If1 → AddTrapList
+              → Tipo da Mensagem (4 branches)
+                ├─ Texto: SET DEFAULT MESSAGE
+                ├─ Áudio: SET AUDIO BASE64 → HTTP Req → SET AUDIO MESSAGE
+                ├─ Imagem: SET IMAGE BASE64 → HTTP Req → SET IMAGE MESSAGE
+                └─ Replied: SET REPLIED MESSAGE
+              → RedisPushMsgs → Wait 8s → ListaMsg → Should Continue?
+                → AgruparMSGs → RedisClearMSGs
+                → Maia (AI Agent) [Gemini LNB + Memory Short + 8 tools]
+                → Envia Texto Chatwoot (retry 3x)
+                → Respond to Webhook
+```
+
+**Auditoria 42/42 OK:**
+- ✅ Webhook5 path correto + responseMode=responseNode
+- ✅ If2 inbox.id == 12
+- ✅ SetFieldsBasic com 15 campos (AMBOS Acoount ID + Conta do Chatwoot)
+- ✅ FromMe-Switch incoming only
+- ✅ Maia prompt 100% LNB (zero resíduo SPV)
+- ✅ 8 tools LNB ($fromAI + Bearer + URL LNB + bodyParameters)
+- ✅ 8/8 tools conectadas a Maia (ai_tool)
+- ✅ Memory Short → AI Agent (ai_memory)
+- ✅ Gemini LNB cred (id YMZPVHkbJQW9giMq) → AI Agent
+- ✅ 5 Configs Kanban com AMBOS campos
+- ✅ Envia Texto retry 3x
+- ✅ onError continueRegularOutput em 58/58 nós críticos
+- ✅ Webhooks aux: lnb-pause-ia + lnb-start-ia
+- ✅ 10 sticky notes documentação
+- ✅ Cadeia Webhook5 → AI Agent íntegra (BFS)
+- ✅ Sem URLs SPV residuais
+- ✅ Sem nós disabled
+
+### Painel LNB v09 — endpoints novos + melhorias
+
+**4 endpoints novos:**
+- `POST /api/n8n/sync-conversation` — registra cada msg em audit + atualiza last_interaction + liga conversation_id
+- `POST /api/n8n/pause-ia` — pausa IA (CRM + label `ia-pausada` + private note + audit)
+- `POST /api/n8n/start-ia` — reativa IA
+- `POST /api/n8n/check-ia-pause` — n8n consulta antes de chamar Maia
+
+**3 endpoints melhorados (sincronia dupla Painel↔Chatwoot):**
+- `aplicar-label` agora grava `labels_aplicadas[]` em LNB - CRM via RPC `lnb_crm_add_label`
+- `memory-long` agora sincroniza Chatwoot Custom Attribute `resumo_lead`
+- `blindagem-cadastro` agora notifica Chatwoot (custom attrs + label + private note + audit)
+
+**Migrations Supabase aplicadas:**
+- RPCs novas: `lnb_crm_set_last_interaction`, `lnb_crm_add_label`, `lnb_audit_insert`, `lnb_crm_set_ia_pause`
+- Colunas novas em `LNB - CRM`: `ia_pausada`, `ia_pausada_em`, `ia_pausa_motivo`
+
+**Build local + lint + tsc OK. Build Vercel OK.**
+
+### Próxima ação:
+1. Importar `n8n-flows/Multi Agentes LNB v09.json` no n8n
+2. Garantir credenciais corretas (Gemini LNB Limpa Nome, Supabase Oficial Account, Redis Redistest)
+3. Configurar env `N8N_SHARED_TOKEN` no n8n
+4. Ativar workflow
+5. Testar mensagem real WhatsApp pra +55 11 99744-0101
+
+---
+
 ## 🔵 09/05/2026 (cont.) — v07 ENXUTO criado ✅
 
 ### Multi Agentes LNB v07
