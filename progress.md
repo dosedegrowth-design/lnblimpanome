@@ -4,6 +4,53 @@
 
 ---
 
+## 🔧 11/05/2026 — BUGFIX: Site checkout não gravava em "LNB - CRM"
+
+### Verificação ponta-a-ponta do fluxo de consulta pelo site
+Validei todo o fluxo `/consultar` (front) → `/api/site/checkout` (cria preference MP) → `/api/site/mp-webhook` (pós-pagamento) → API Full (Boa Vista) → PDF (pdfkit) → Email (Resend) → polling `/api/site/consulta-status/[cpf]`.
+
+### Status produção verificado
+| Endpoint | Status |
+|---|---|
+| `GET /consultar` | ✅ 200 OK (21KB) |
+| `GET /api/site/mp-webhook` | ✅ `{ok:true, message:"MP webhook ativo"}` |
+| `GET /api/site/consulta-status/[cpf]` | ✅ JSON com flags corretas |
+| `POST /api/site/checkout` (validação) | ✅ retorna 400 com erro correto |
+| `POST /api/site/checkout` (com dados válidos) | ✅ retorna `init_point` real do MP |
+
+### Bug encontrado e corrigido
+**Sintoma:** após cliente preencher `/consultar` + pagar, o registro chegava em `lnb_cliente_auth` mas NÃO em `LNB - CRM`. Painel admin não enxergava o lead.
+
+**Causa raiz:** RPC `checkout_upsert_crm_lead` faz `INSERT ... ON CONFLICT (telefone) DO UPDATE`, mas a tabela `LNB - CRM` não tinha UNIQUE constraint em `telefone`. PostgreSQL retornava:
+```
+ERROR 42P10: there is no unique or exclusion constraint matching the ON CONFLICT specification
+```
+O `try/catch` do TypeScript engolia o erro silenciosamente (com `console.error`), então o checkout retornava 200 OK mas o CRM ficava vazio.
+
+**Fix aplicado:** migration `20260511_lnb_crm_telefone_unique.sql`:
+```sql
+ALTER TABLE "LNB - CRM"
+  ADD CONSTRAINT lnb_crm_telefone_unique UNIQUE (telefone);
+```
+
+### Re-teste end-to-end pós-fix
+Checkout produção criou registro completo em CRM:
+- `Lead=true, Interessado=true`
+- `origem=site` (separa do canal whatsapp)
+- `link_pagamento`, `external_ref`, `id_pagamento` MP gravados
+- `last_interaction` atualizado
+
+### RPCs Supabase críticas (8/8 verificadas)
+`webhook_registrar_consulta_paga`, `webhook_registrar_limpeza_fechada`, `webhook_set_pdf_url`, `lnb_cliente_register`, `checkout_upsert_crm_lead`, `checkout_save_preference`, `cliente_pode_contratar_limpeza`, `lnb_crm_set_consulta_resultado`
+
+### Storage
+✅ Bucket `lnb-relatorios` (public) confirmado
+
+### Conclusão
+**Fluxo do site rodando 100%** após o fix de constraint. Pronto pra cliente real pagar consulta CPF, receber PDF por email e acessar área logada.
+
+---
+
 ## 🟢 09/05/2026 (FINAL DEFINITIVO) — v10 PRONTO ✅ AUDITORIA 45/45 (100%)
 
 ### Decisão estratégica final
