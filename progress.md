@@ -4,6 +4,61 @@
 
 ---
 
+## 🟢 09/05/2026 (FINAL DEFINITIVO) — v10 PRONTO ✅ AUDITORIA 45/45 (100%)
+
+### Decisão estratégica final
+Usuário apontou que **v09 (88 nós) estava fora da estrutura canônica**. Voltamos pro arquivo original `Multi Agentes LNB.json` (184 nós, Evolution-based mas com arquitetura correta) e fizemos **adaptação cirúrgica** Evolution→Chatwoot + URLs SPV→URLs LNB.
+
+### Multi Agentes LNB v10 — final definitivo
+**Base:** `Multi Agentes LNB.json` original (184 nós, ATIVO em produção Evolution).
+**Resultado:** 195 nós (+11 novos pra LNB), preservando 100% da estrutura canônica.
+
+**Estrutura preservada:**
+- **Pipeline DUAL AI Agent**: AI Agent1 (Orquestrador) → AI Agent (Maia)
+  - Orquestrador chama tools internas → contexto pronto
+  - Maia responde cliente baseado no que Orquestrador apurou
+- **7 webhooks** distintos (cada um com função específica)
+- **Áudio + Imagem com convert**: CONVERT TO MP3 + CONVERT TO JPG (download Chatwoot → convert → análise multimodal)
+- **16 Supabase queries** com cred LNB Oficial Account
+- **3 Memory components**: Memory Short (Maia), Memory Short1 (Orquestrador), Memory Long1 (chain paralela)
+- **Anti-spam (TrapList) + Debounce 8s + STOP TIMEOUT 60s**
+- **9 Switches** de orquestração granular
+- **DELETE chains cleanup** (Cachemensage, ChatMemory, Traplist, Delete a row Supabase)
+- **26 sticky notes** documentação
+
+**Adaptações cirúrgicas aplicadas:**
+1. Webhook5 path mantido (`6ef87fae-...`)
+2. SetFieldsBasic: 23 campos Chatwoot
+3. Brasilia→ConfigLead, Brasilia3→ConfigInteressado, Data_lead→ConfigQualificado
+4. If2: filtra `body.inbox.id == 12`
+5. FromMe-Switch: `body.message_type == 'incoming'`
+6. Tipo da Mensagem: usa `body.attachments[0].file_type`
+7. HTTP Request1/2: download Chatwoot attachment URL
+8. 9 nós Evolution substituídos por HTTP Request Chatwoot
+9. 10 tools LNB com URLs `https://limpanomebrazil.com.br/api/n8n/*`
+10. 7 webhooks adaptados (paths LNB + chamadas pro painel)
+11. Sync Conversation Painel + Check IA Pause (novos)
+12. Credenciais SPV→LNB (Supabase Oficial Account, Gemini LNB, Redis Redistest)
+13. OpenAI substituído por Gemini (consolidação)
+14. Prompts Maia + Orquestrador + Memory Long1 reescritos 100% LNB
+
+**Auditoria 45/45 OK** (todos os checks passaram)
+
+### Próxima ação:
+1. Importar `n8n-flows/Multi Agentes LNB v10.json` no n8n
+2. Verificar credenciais conectadas
+3. Configurar envs no n8n (N8N_SHARED_TOKEN, CHATWOOT_TOKEN, CHATWOOT_ADMIN_TOKEN)
+4. Ativar workflow
+5. Testar mensagem real WhatsApp pra +55 11 99744-0101
+
+---
+
+## 🔴 09/05/2026 — v09 DESCARTADO
+
+Versão clone-and-adapt do v06 (88 nós) ficou fora da estrutura canônica. Por isso v10 voltou ao original 184 nós e fez adaptação cirúrgica.
+
+---
+
 ## 🟢 09/05/2026 (final) — v09 PRONTO ✅ AUDITORIA 42/42 (100%)
 
 ### Estratégia adotada: clone-and-adapt do v06 (não from-scratch)

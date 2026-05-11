@@ -36,15 +36,25 @@ Vende 3 produtos:
 - **Sincronia DUPLA Painel↔Chatwoot** em todas as tools (labels, custom attrs, audit log)
 
 ### 🟡 Em progresso
-- **Multi Agentes LNB v09** — ✅ CRIADO (88 nós, auditoria 42/42 = 100%, clone-and-adapt do v06)
-  - 9 endpoints `/api/n8n/*` (sync-conversation, pause-ia, start-ia, check-ia-pause novos)
-  - 8 tools LNB: lead_status, gerar_cobranca_consulta/limpeza, blindagem_cadastro, memory_long, aplicar_label, status_processo, pausa_ia
-  - 5 Configs Kanban (Lead/Interessado/Qualificado/Fechado/Perdido)
-  - 2 webhooks aux (lnb-pause-ia + lnb-start-ia) pra handoff humano
-  - Áudio + Imagem via Gemini multimodal preservados
+- **Multi Agentes LNB v10** — ✅ CRIADO (195 nós, auditoria 45/45 = 100%, clone do original 184 nós)
+  - **Pipeline DUAL AI Agent** preservado: AI Agent1 (Orquestrador) → AI Agent (Maia)
+  - 7 webhooks adaptados pra LNB:
+    - Webhook5 (main Chatwoot, path `6ef87fae-...`)
+    - Webhook3 (lnb-tool-lead → /api/n8n/lead-status)
+    - Webhook4 (lnb-tool-interessado → /api/n8n/lead-status)
+    - Webhook (lnb-tool-checkout → /api/n8n/criar-checkout)
+    - Webhook6 (long_memory chain paralela)
+    - Webhook7 (pause IA externo)
+    - Webhook8 (start IA externo)
+  - 10 tools LNB: Lead_kanban, interessado, Qualificado, long_memory, blindagem_cadastro, aplicar_label, pausa_ia, status_processo, conflito, Think
+  - Áudio + Imagem com convert (CONVERT TO MP3 + CONVERT TO JPG) preservados
+  - 16 Supabase queries com cred LNB Oficial Account
+  - 8 Gemini models com cred LNB Limpa Nome (consolidado, sem OpenAI)
+  - 38 Redis nós com cred Redistest
   - Anti-spam (TrapList) + Debounce 8s + STOP TIMEOUT 60s preservados
-  - Maia prompt 100% LNB baseado em LNB-v2-fluxo-definitivo.md
-- **PRÓXIMO PASSO:** importar `n8n-flows/Multi Agentes LNB v09.json` no n8n + ativar + testar via WhatsApp
+  - 125/125 nós críticos com onError continueRegularOutput
+  - Maia + Orquestrador prompts 100% LNB
+- **PRÓXIMO PASSO:** importar `n8n-flows/Multi Agentes LNB v10.json` no n8n + ativar + testar via WhatsApp
 
 ### ❌ Bloqueios
 Nenhum bloqueio crítico. Painel está pronto. Falta só fluxo n8n correto.
@@ -96,7 +106,7 @@ Estamos em [contexto atual]
 
 ---
 
-**🚦 Próxima ação:** importar `n8n-flows/Multi Agentes LNB v09.json` (88 nós, auditoria 100%) no n8n + ativar + testar via WhatsApp pra +55 11 99744-0101
+**🚦 Próxima ação:** importar `n8n-flows/Multi Agentes LNB v10.json` (195 nós, auditoria 45/45 100%) no n8n + ativar + testar via WhatsApp pra +55 11 99744-0101
 
 ### Endpoints `/api/n8n/*` ativos (9)
 | Endpoint | Função |
