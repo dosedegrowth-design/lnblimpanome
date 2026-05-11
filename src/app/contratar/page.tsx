@@ -105,12 +105,34 @@ function ContratarForm() {
     return null;
   }
 
+  // Mapeia planoTipo → tipo de termos (consulta ou limpeza)
+  const tipoTermos: "consulta" | "limpeza" =
+    planoTipo === "limpeza_desconto" ? "limpeza" : "consulta";
+
   async function processarPagamento() {
     const err = validate();
     if (err) return toast.error(err);
 
     setLoading(true);
     try {
+      // 1) Registra aceite dos termos antes do checkout (timestamp + IP via servidor)
+      try {
+        await fetch("/api/site/aceite-termos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cpf: cleanCPF(form.cpf),
+            tipo: tipoTermos,
+            versao: "1.0",
+            telefone: form.telefone.replace(/\D/g, ""),
+            nome: form.nome,
+          }),
+        });
+      } catch (e) {
+        console.error("[contratar] aceite-termos erro (segue):", e);
+      }
+
+      // 2) Cria preference Mercado Pago
       const r = await fetch("/api/site/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -430,23 +452,43 @@ function ContratarForm() {
                         </div>
                       </div>
 
-                      <label className="flex items-start gap-2.5 pt-2 cursor-pointer">
+                      <label
+                        htmlFor="aceite-termos-limpeza"
+                        className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          form.aceiteTermos
+                            ? "bg-emerald-50 border-emerald-200"
+                            : "bg-amber-50 border-amber-200"
+                        }`}
+                      >
                         <input
+                          id="aceite-termos-limpeza"
                           type="checkbox"
                           checked={form.aceiteTermos}
                           onChange={(e) => set("aceiteTermos", e.target.checked)}
-                          className="mt-1 rounded text-brand-500 focus:ring-brand-500 size-4"
+                          className="mt-0.5 size-5 rounded border-2 border-gray-300 text-brand-600 focus:ring-2 focus:ring-brand-500 cursor-pointer flex-shrink-0"
                         />
-                        <span className="text-xs sm:text-sm text-gray-700 font-medium leading-relaxed">
-                          Li e aceito os{" "}
-                          <Link href="/termos" target="_blank" className="text-brand-600 hover:underline font-semibold">
-                            Termos de uso
+                        <span className="text-xs sm:text-sm text-forest-800 leading-relaxed">
+                          Li e concordo com os{" "}
+                          <Link
+                            href={`/termos/${tipoTermos}`}
+                            target="_blank"
+                            className="font-bold text-brand-600 underline hover:text-brand-700"
+                          >
+                            Termos e Condições do{" "}
+                            {tipoTermos === "limpeza"
+                              ? "serviço de Limpeza + Blindagem"
+                              : "serviço de Consulta CPF"}
                           </Link>
-                          {" "}e a{" "}
-                          <Link href="/privacidade" target="_blank" className="text-brand-600 hover:underline font-semibold">
-                            Política de privacidade
+                          , com a{" "}
+                          <Link
+                            href="/privacidade"
+                            target="_blank"
+                            className="font-bold text-brand-600 underline hover:text-brand-700"
+                          >
+                            Política de Privacidade (LGPD)
                           </Link>
-                          .
+                          , e autorizo a Limpa Nome Brazil a executar este serviço
+                          conforme descrito.
                         </span>
                       </label>
 

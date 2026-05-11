@@ -36,6 +36,7 @@ function ConsultarWizard() {
 
   const [step, setStep] = useState<1 | 2 | 3>(initialStep as 1 | 2 | 3);
   const [loading, setLoading] = useState(false);
+  const [aceitouTermos, setAceitouTermos] = useState(false);
   const [polling, setPolling] = useState(false);
   const [pollResult, setPollResult] = useState<{
     paga: boolean;
@@ -76,8 +77,30 @@ function ConsultarWizard() {
   }
 
   async function processarPagamento() {
+    if (!aceitouTermos) {
+      toast.error("Você precisa aceitar os Termos pra continuar");
+      return;
+    }
     setLoading(true);
     try {
+      // 1) Registra aceite dos termos (timestamp + IP via servidor)
+      try {
+        await fetch("/api/site/aceite-termos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cpf: cleanCPF(form.cpf),
+            tipo: "consulta",
+            versao: "1.0",
+            telefone: form.telefone.replace(/\D/g, ""),
+            nome: form.nome,
+          }),
+        });
+      } catch (e) {
+        console.error("[consultar] aceite-termos erro (segue):", e);
+      }
+
+      // 2) Cria preference Mercado Pago
       const r = await fetch("/api/site/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -278,11 +301,58 @@ function ConsultarWizard() {
                   </ol>
                 </div>
 
+                {/* Aceite obrigatório dos Termos */}
+                <label
+                  htmlFor="aceite-termos"
+                  className={`flex items-start gap-3 p-4 mb-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    aceitouTermos
+                      ? "bg-emerald-50 border-emerald-200"
+                      : "bg-amber-50 border-amber-200"
+                  }`}
+                >
+                  <input
+                    id="aceite-termos"
+                    type="checkbox"
+                    checked={aceitouTermos}
+                    onChange={(e) => setAceitouTermos(e.target.checked)}
+                    className="mt-0.5 size-5 rounded border-2 border-gray-300 text-brand-600 focus:ring-2 focus:ring-brand-500 cursor-pointer flex-shrink-0"
+                  />
+                  <span className="text-sm leading-relaxed text-forest-800">
+                    Li e concordo com os{" "}
+                    <a
+                      href="/termos/consulta"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-bold text-brand-600 underline hover:text-brand-700"
+                    >
+                      Termos e Condições da Consulta CPF
+                    </a>
+                    , com a{" "}
+                    <a
+                      href="/privacidade"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-bold text-brand-600 underline hover:text-brand-700"
+                    >
+                      Política de Privacidade (LGPD)
+                    </a>
+                    , e autorizo a Limpa Nome Brazil a consultar meu CPF nos órgãos
+                    oficiais de proteção ao crédito (SPC, Serasa, IEPTB, Boa Vista).
+                  </span>
+                </label>
+
                 <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
                   <Button variant="outline" size="lg" width="full" className="sm:w-auto" onClick={() => setStep(1)}>
                     <ArrowLeft className="size-4" /> Voltar
                   </Button>
-                  <Button onClick={processarPagamento} loading={loading} size="lg" width="full" className="sm:w-auto gap-2">
+                  <Button
+                    onClick={processarPagamento}
+                    loading={loading}
+                    disabled={!aceitouTermos}
+                    size="lg"
+                    width="full"
+                    className="sm:w-auto gap-2"
+                  >
                     Ir para pagamento {formatBRL(19.99)}
                     <ArrowRight className="size-4" />
                   </Button>
