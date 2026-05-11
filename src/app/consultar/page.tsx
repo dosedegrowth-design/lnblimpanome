@@ -278,11 +278,11 @@ function ConsultarWizard() {
                   </ol>
                 </div>
 
-                <div className="flex justify-between">
-                  <Button variant="outline" size="lg" onClick={() => setStep(1)}>
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
+                  <Button variant="outline" size="lg" width="full" className="sm:w-auto" onClick={() => setStep(1)}>
                     <ArrowLeft className="size-4" /> Voltar
                   </Button>
-                  <Button onClick={processarPagamento} loading={loading} size="lg" className="gap-2">
+                  <Button onClick={processarPagamento} loading={loading} size="lg" width="full" className="sm:w-auto gap-2">
                     Ir para pagamento {formatBRL(19.99)}
                     <ArrowRight className="size-4" />
                   </Button>

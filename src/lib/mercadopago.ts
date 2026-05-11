@@ -63,6 +63,19 @@ export async function createPreference(i: CreatePreferenceInput): Promise<MPPref
         pending: i.pendingUrl,
       },
       auto_return: "approved",
+      // Habilita TODOS os métodos: PIX, cartão, boleto.
+      // payment_methods vazio = MP usa default da conta (que pode estar bloqueando PIX).
+      // Forçamos liberar PIX + cartão + boleto explicitamente.
+      payment_methods: {
+        excluded_payment_types: [], // não exclui nada
+        excluded_payment_methods: [], // não exclui nada
+        installments: 12, // até 12x no cartão
+        default_installments: 1,
+      },
+      // Statement descriptor que aparece na fatura do cartão do cliente
+      statement_descriptor: "LIMPANOMEBR",
+      // Binary mode false permite pagamentos pendentes (PIX/boleto)
+      binary_mode: false,
       metadata: i.metadata,
     }),
   });
