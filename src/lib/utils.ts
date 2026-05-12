@@ -34,6 +34,55 @@ export function isValidCPF(cpf: string): boolean {
   return d2 === parseInt(c[10]);
 }
 
+/* ============= CNPJ ============= */
+
+export function cleanCNPJ(cnpj: string): string {
+  return (cnpj || "").replace(/\D/g, "");
+}
+
+export function formatCNPJ(cnpj: string): string {
+  const c = cleanCNPJ(cnpj).slice(0, 14);
+  return c
+    .replace(/(\d{2})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1/$2")
+    .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+}
+
+export function isValidCNPJ(cnpj: string): boolean {
+  const c = cleanCNPJ(cnpj);
+  if (c.length !== 14 || /^(\d)\1+$/.test(c)) return false;
+  const calc = (slice: string, weights: number[]): number => {
+    let sum = 0;
+    for (let i = 0; i < weights.length; i++) sum += parseInt(slice[i]) * weights[i];
+    const mod = sum % 11;
+    return mod < 2 ? 0 : 11 - mod;
+  };
+  const w1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const w2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const d1 = calc(c.slice(0, 12), w1);
+  if (d1 !== parseInt(c[12])) return false;
+  const d2 = calc(c.slice(0, 13), w2);
+  return d2 === parseInt(c[13]);
+}
+
+export function maskCNPJ(cnpj: string): string {
+  const c = cleanCNPJ(cnpj);
+  if (c.length !== 14) return cnpj;
+  return `${c.slice(0, 2)}.***.***/****-${c.slice(12)}`;
+}
+
+/* ============= Documento (CPF ou CNPJ) ============= */
+
+export type TipoDocumento = "CPF" | "CNPJ";
+
+export function detectarTipoDocumento(doc: string): TipoDocumento | null {
+  const c = (doc || "").replace(/\D/g, "");
+  if (c.length === 11) return "CPF";
+  if (c.length === 14) return "CNPJ";
+  return null;
+}
+
 /* ============= Phone ============= */
 
 export function formatPhone(phone: string): string {

@@ -19,9 +19,10 @@ export function SiteFooter() {
           <div>
             <h4 className="text-[11px] sm:text-xs font-bold text-white mb-3 sm:mb-4 uppercase tracking-wider">Serviços</h4>
             <ul className="space-y-2 sm:space-y-2.5 text-sm text-sand-100 font-semibold">
-              <li><Link href="/consultar" className="hover:text-brand-300 transition">Consulta CPF</Link></li>
+              <li><Link href="/consultar/cpf" className="hover:text-brand-300 transition">Consulta CPF</Link></li>
+              <li><Link href="/consultar/cnpj" className="hover:text-brand-300 transition">Consulta CNPJ</Link></li>
               <li><Link href="/#servicos" className="hover:text-brand-300 transition">Limpeza de Nome</Link></li>
-              <li><Link href="/#blindagem" className="hover:text-brand-300 transition">Blindagem</Link></li>
+              <li><Link href="/#monitoramento" className="hover:text-brand-300 transition">Monitoramento</Link></li>
             </ul>
           </div>
 

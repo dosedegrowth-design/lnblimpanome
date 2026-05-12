@@ -2,13 +2,12 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
-import { LogOut, LayoutDashboard, FileText, ShieldCheck, Receipt } from "lucide-react";
+import { LogOut, LayoutDashboard, FileText, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/conta/dashboard",  label: "Início",      icon: LayoutDashboard },
   { href: "/conta/relatorio",  label: "Relatório",   icon: FileText },
-  { href: "/conta/blindagem",  label: "Blindagem",   icon: ShieldCheck },
   { href: "/conta/pagamentos", label: "Pagamentos",  icon: Receipt },
 ];
 

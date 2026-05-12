@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { cleanCPF } from "@/lib/utils";
-import type { APIFullResultado } from "@/lib/api-full";
-import { consultarCPF, parseConsulta } from "@/lib/api-full";
+import type { APIFullResultado, APIFullCNPJResultado } from "@/lib/api-full";
+import { consultarCPF, parseConsulta, consultarCNPJCompleto } from "@/lib/api-full";
 import {
   verifyAsaasWebhookToken,
   isPaymentConfirmedEvent,
   type AsaasWebhookPayload,
 } from "@/lib/asaas-webhook";
 import { getPayment } from "@/lib/asaas";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -72,41 +73,58 @@ export async function POST(req: Request) {
   // 5) Resolve dados do cliente
   const externalRef = payment.externalReference || "";
 
-  // O externalReference que criamos sempre segue padrão TIPO-CPF-TIMESTAMP
-  const refMatch = externalRef.match(/^([A-Z_]+)-(\d{11})-/);
+  // externalReference: TIPO-DOCUMENTO-TIMESTAMP onde DOCUMENTO é CPF (11) ou CNPJ (14)
+  const refMatch = externalRef.match(/^([A-Z_]+)-(\d{11}|\d{14})-/);
   if (!refMatch) {
     console.error("[asaas-webhook] externalReference em formato inesperado:", externalRef);
     return NextResponse.json({ ok: true, ignored: "bad_external_ref" });
   }
-  const tipoFromRef = refMatch[1].toLowerCase(); // consulta | limpeza | blindagem
-  const cpf = cleanCPF(refMatch[2]);
+  const tipoFromRef = refMatch[1].toLowerCase();
+  const documento = refMatch[2];
+  const isCNPJ = documento.length === 14;
+  const cpf = isCNPJ ? "" : cleanCPF(documento);
+  const cnpj = isCNPJ ? documento : "";
 
-  // Busca telefone, nome, email, origem na "LNB - CRM" pelo CPF
+  // Busca dados do CRM
   const supa = await createClient();
-  const { data: crmRow } = await supa
-    .from("LNB - CRM")
-    .select('telefone, nome, "e-mail", origem')
-    .eq("CPF", cpf)
-    .maybeSingle();
+  let crmRow: Record<string, unknown> | null = null;
+  if (isCNPJ) {
+    const { data } = await supa
+      .from("LNB - CRM")
+      .select('telefone, nome, "e-mail", origem, razao_social, cpf_responsavel, nome_responsavel, cnpj')
+      .eq("cnpj", cnpj)
+      .maybeSingle();
+    crmRow = data as Record<string, unknown> | null;
+  } else {
+    const { data } = await supa
+      .from("LNB - CRM")
+      .select('telefone, nome, "e-mail", origem')
+      .eq("CPF", cpf)
+      .maybeSingle();
+    crmRow = data as Record<string, unknown> | null;
+  }
 
   const telefone = String(crmRow?.telefone || "").replace(/\D/g, "");
   const nome = String(crmRow?.nome || "");
   const email = String(crmRow?.["e-mail"] || "");
   const origem = (crmRow?.origem === "whatsapp" ? "whatsapp" : "site") as "site" | "whatsapp";
+  const razaoSocial = String(crmRow?.razao_social || "");
+  const cpfResponsavel = String(crmRow?.cpf_responsavel || "");
+  const nomeResponsavel = String(crmRow?.nome_responsavel || "");
 
   if (!telefone) {
-    console.error("[asaas-webhook] CRM não tem telefone pra CPF:", cpf);
+    console.error("[asaas-webhook] CRM não tem telefone pra documento:", documento);
   }
 
-  // ─── CONSULTA ─────────────────────────────────────────
-  if (tipoFromRef === "consulta") {
+  // ─── CONSULTA CPF ─────────────────────────────────────
+  if (tipoFromRef === "consulta" && !isCNPJ) {
     let parsed: ReturnType<typeof parseConsulta> | null = null;
     let raw: APIFullResultado | null = null;
     try {
       raw = await consultarCPF(cpf);
       parsed = parseConsulta(raw);
     } catch (e) {
-      console.error("[asaas-webhook] erro consulta API Full (segue):", e);
+      console.error("[asaas-webhook] erro consulta CPF (segue):", e);
     }
 
     const { error: rpcErr } = await supa.rpc("webhook_registrar_consulta_paga", {
@@ -124,20 +142,28 @@ export async function POST(req: Request) {
     });
     if (rpcErr) console.error("[asaas-webhook] webhook_registrar_consulta_paga erro:", rpcErr);
 
-    // Geração de PDF + envio de notificação (background)
-    finalizarConsulta({
-      cpf,
-      nome,
-      email,
-      telefone,
-      parsed,
-      raw,
-      origem,
-    }).catch((e) => console.error("[asaas-webhook] erro finalizar consulta:", e));
+    finalizarConsulta({ cpf, nome, email, telefone, parsed, raw, origem }).catch((e) =>
+      console.error("[asaas-webhook] erro finalizar consulta:", e)
+    );
   }
 
-  // ─── LIMPEZA ─────────────────────────────────────────
-  if (tipoFromRef === "limpeza" || tipoFromRef === "limpeza_desconto") {
+  // ─── CONSULTA CNPJ ────────────────────────────────────
+  if (tipoFromRef === "consulta_cnpj" && isCNPJ) {
+    finalizarConsultaCNPJ({
+      cnpj,
+      razaoSocial,
+      cpfResponsavel,
+      nomeResponsavel,
+      email,
+      telefone,
+      externalRef: String(externalRef),
+      origem,
+      supa,
+    }).catch((e) => console.error("[asaas-webhook] erro finalizar consulta CNPJ:", e));
+  }
+
+  // ─── LIMPEZA CPF ──────────────────────────────────────
+  if ((tipoFromRef === "limpeza" || tipoFromRef === "limpeza_desconto") && !isCNPJ) {
     const { error: rpcErr } = await supa.rpc("webhook_registrar_limpeza_fechada", {
       p_cpf: cpf,
       p_telefone: telefone,
@@ -147,6 +173,23 @@ export async function POST(req: Request) {
     finalizarLimpezaPaga({ cpf, nome, telefone, email, origem }).catch((e) =>
       console.error("[asaas-webhook] erro finalizar limpeza:", e)
     );
+  }
+
+  // ─── LIMPEZA CNPJ ─────────────────────────────────────
+  if (tipoFromRef === "limpeza_cnpj" && isCNPJ) {
+    const { error: rpcErr } = await supa.rpc("webhook_registrar_limpeza_cnpj_fechada", {
+      p_cnpj: cnpj,
+      p_telefone: telefone,
+    });
+    if (rpcErr) console.error("[asaas-webhook] webhook_registrar_limpeza_cnpj_fechada erro:", rpcErr);
+
+    finalizarLimpezaCnpjPaga({
+      cnpj,
+      razaoSocial,
+      telefone,
+      email,
+      origem,
+    }).catch((e) => console.error("[asaas-webhook] erro finalizar limpeza CNPJ:", e));
   }
 
   return NextResponse.json({ ok: true });
@@ -425,6 +468,180 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
       } catch (e) {
         console.error("[asaas-webhook] email backup erro:", e);
       }
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────────
+// HANDLERS CNPJ
+// ────────────────────────────────────────────────────────
+
+interface FinalizarConsultaCnpjInput {
+  cnpj: string;
+  razaoSocial: string;
+  cpfResponsavel: string;
+  nomeResponsavel: string;
+  email: string;
+  telefone: string;
+  externalRef: string;
+  origem: "site" | "whatsapp";
+  supa: SupabaseClient;
+}
+
+/**
+ * Finaliza consulta CNPJ:
+ * 1. Chama API Full pra CNPJ Completo + CPF Cred Plus (responsável) em paralelo
+ * 2. Grava no LNB_Consultas via RPC SECURITY DEFINER
+ * 3. Gera PDF CNPJ
+ * 4. Envia email (site) ou WhatsApp (whatsapp)
+ */
+async function finalizarConsultaCNPJ(i: FinalizarConsultaCnpjInput) {
+  const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://limpanomebrazil.com.br";
+  console.log(`[asaas-webhook] finalizando consulta CNPJ ${i.cnpj} resp ${i.cpfResponsavel}`);
+
+  let parsedPJ: Awaited<ReturnType<typeof consultarCNPJCompleto>>["pj"] | null = null;
+  let pjRaw: APIFullCNPJResultado | null = null;
+  let parsedResp: ReturnType<typeof parseConsulta> | null = null;
+  let respRaw: APIFullResultado | null = null;
+
+  try {
+    const result = await consultarCNPJCompleto(i.cnpj, i.cpfResponsavel);
+    parsedPJ = result.pj;
+    pjRaw = result.pjRaw;
+    parsedResp = result.responsavel;
+    respRaw = result.responsavelRaw;
+  } catch (e) {
+    console.error("[asaas-webhook] erro consulta CNPJ Completo (segue):", e);
+  }
+
+  // Grava no LNB_Consultas
+  try {
+    await i.supa.rpc("webhook_registrar_consulta_cnpj_paga", {
+      p_cnpj: i.cnpj,
+      p_razao_social: parsedPJ?.razao_social || i.razaoSocial,
+      p_nome_responsavel: i.nomeResponsavel,
+      p_cpf_responsavel: i.cpfResponsavel,
+      p_email: i.email,
+      p_telefone: i.telefone,
+      p_provider: "apifull",
+      p_tem_pendencia: parsedResp?.tem_pendencia ?? null,
+      p_qtd_pendencias: parsedResp?.qtd_pendencias ?? null,
+      p_total_dividas: parsedResp?.total_dividas ?? null,
+      p_resumo: parsedResp?.resumo ?? null,
+      p_resultado_raw: (respRaw as unknown as object) ?? {},
+      p_resultado_pj_raw: (pjRaw as unknown as object) ?? {},
+      p_situacao_cadastral: parsedPJ?.situacao_cadastral ?? null,
+      p_capital_social: parsedPJ?.capital_social ?? null,
+      p_data_abertura: parsedPJ?.data_abertura || null,
+      p_cnae_principal: parsedPJ?.cnae_principal ?? null,
+      p_socios_jsonb: (parsedPJ?.socios as unknown as object) ?? [],
+      p_external_ref: i.externalRef,
+    });
+  } catch (e) {
+    console.error("[asaas-webhook] erro webhook_registrar_consulta_cnpj_paga:", e);
+  }
+
+  // Score do responsável + pendências
+  const rawObj = (respRaw as Record<string, unknown>) || {};
+  const score =
+    typeof rawObj.Score === "number" ? (rawObj.Score as number) :
+    typeof rawObj.score === "number" ? (rawObj.score as number) : undefined;
+
+  // Gera PDF CNPJ
+  let pdfUrl: string | null = null;
+  try {
+    const { gerarESalvarRelatorioCNPJ } = await import("@/lib/pdf/gerar-relatorio-cnpj");
+    const r = await gerarESalvarRelatorioCNPJ({
+      cnpj: i.cnpj,
+      razao_social: parsedPJ?.razao_social || i.razaoSocial,
+      nome_fantasia: parsedPJ?.nome_fantasia,
+      situacao_cadastral: parsedPJ?.situacao_cadastral,
+      data_abertura: parsedPJ?.data_abertura,
+      capital_social: parsedPJ?.capital_social,
+      cnae_principal: parsedPJ?.cnae_principal,
+      endereco: parsedPJ?.endereco,
+      socios: parsedPJ?.socios,
+      nome_responsavel: i.nomeResponsavel,
+      cpf_responsavel: i.cpfResponsavel,
+      email: i.email,
+      telefone: i.telefone,
+      score,
+      tem_pendencia: !!parsedResp?.tem_pendencia,
+      qtd_pendencias: parsedResp?.qtd_pendencias || 0,
+      total_dividas: parsedResp?.total_dividas || 0,
+      pendencias: parsedResp?.pendencias,
+    });
+    if (r.ok) pdfUrl = r.pdfUrl;
+    else console.error("[asaas-webhook] PDF CNPJ erro:", r.error);
+  } catch (e) {
+    console.error("[asaas-webhook] PDF CNPJ exception:", e);
+  }
+
+  const titulo = parsedResp?.tem_pendencia
+    ? "Seu relatório CNPJ está pronto"
+    : "Boa notícia: empresa e responsável sem pendências!";
+  const corpoEmail = parsedResp?.tem_pendencia
+    ? `Encontramos ${parsedResp.qtd_pendencias} pendência${parsedResp.qtd_pendencias === 1 ? "" : "s"} no CPF do responsável (sócio admin) da empresa ${parsedPJ?.razao_social || i.razaoSocial}, totalizando R$ ${parsedResp.total_dividas.toFixed(2)}.`
+    : `A empresa ${parsedPJ?.razao_social || i.razaoSocial} e o sócio responsável não possuem pendências financeiras. Manter assim é o ideal pra obter crédito.`;
+
+  // SITE: email
+  if (i.origem === "site" && i.email) {
+    try {
+      const { sendEmail, renderEmailHTML } = await import("@/lib/email");
+      const html = renderEmailHTML({
+        titulo: parsedResp?.tem_pendencia ? `🏢 ${titulo}` : `🎉 ${titulo}`,
+        corpo: corpoEmail,
+        mensagemExtra: pdfUrl
+          ? `📄 <a href="${pdfUrl}" style="color:#0298d9;">Baixar relatório CNPJ PDF</a>`
+          : undefined,
+        nomeCliente: i.nomeResponsavel.split(" ")[0],
+        ctaUrl: `${SITE}/conta/dashboard`,
+        ctaTexto: "Acessar minha área",
+      });
+      await sendEmail({
+        to: i.email,
+        subject: `[LNB] ${titulo}`,
+        html,
+        text: `${titulo}\n\n${corpoEmail}\n\n${pdfUrl ? "PDF: " + pdfUrl + "\n\n" : ""}Acesse: ${SITE}/conta/dashboard`,
+      });
+    } catch (e) {
+      console.error("[asaas-webhook] email CNPJ erro:", e);
+    }
+  }
+}
+
+interface FinalizarLimpezaCnpjInput {
+  cnpj: string;
+  razaoSocial: string;
+  telefone: string;
+  email: string;
+  origem: "site" | "whatsapp";
+}
+
+async function finalizarLimpezaCnpjPaga(i: FinalizarLimpezaCnpjInput) {
+  const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://limpanomebrazil.com.br";
+  console.log(`[asaas-webhook] limpeza CNPJ paga ${i.cnpj}`);
+
+  const titulo = "🎉 Limpeza CNPJ contratada — equipe inicia em até 4h úteis";
+  const corpo = `Recebemos seu pagamento de R$ 580,01 com sucesso! Em até 4 horas úteis nossa equipe especializada inicia o processo de limpeza do nome da empresa ${i.razaoSocial} e do sócio responsável.\n\n📋 Próximos passos:\n• Análise dos credores (em até 2 dias)\n• Atuação junto aos órgãos (Boa Vista/Serasa/SPC)\n• Acompanhamento online no painel\n• Conclusão em até 20 dias úteis\n• Monitoramento 12 meses incluído como bônus\n\nObrigado pela confiança 💙`;
+
+  if (i.email) {
+    try {
+      const { sendEmail, renderEmailHTML } = await import("@/lib/email");
+      await sendEmail({
+        to: i.email,
+        subject: `[LNB] ${titulo}`,
+        html: renderEmailHTML({
+          titulo,
+          corpo: corpo.replace(/\n/g, "<br>"),
+          nomeCliente: i.razaoSocial,
+          ctaUrl: `${SITE}/conta/dashboard`,
+          ctaTexto: "Acompanhar processo",
+        }),
+        text: `${titulo}\n\n${corpo}\n\nAcesse: ${SITE}/conta/dashboard`,
+      });
+    } catch (e) {
+      console.error("[asaas-webhook] limpeza CNPJ email erro:", e);
     }
   }
 }

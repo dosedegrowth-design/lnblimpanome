@@ -19,6 +19,38 @@ export interface APIFullResultado {
   [k: string]: unknown;
 }
 
+// ─── CNPJ (Receita Federal) ─────────────────────────────────
+
+export interface APIFullSocio {
+  nome?: string;
+  cpf?: string;
+  qualificacao?: string;
+  [k: string]: unknown;
+}
+
+export interface APIFullCNPJResultado {
+  cnpj?: string;
+  razao_social?: string;
+  nome_fantasia?: string;
+  situacao_cadastral?: string;
+  data_situacao_cadastral?: string;
+  data_abertura?: string;
+  capital_social?: number | string;
+  cnae_principal?: string;
+  cnae_descricao?: string;
+  natureza_juridica?: string;
+  porte?: string;
+  endereco?: string;
+  bairro?: string;
+  municipio?: string;
+  uf?: string;
+  cep?: string;
+  email?: string;
+  telefone?: string;
+  socios?: APIFullSocio[];
+  [k: string]: unknown;
+}
+
 export async function consultarCPF(cpf: string): Promise<APIFullResultado> {
   const cleanCpf = cpf.replace(/\D/g, "");
   const r = await fetch(`${API_FULL_BASE}/api/e-boavista`, {
@@ -151,5 +183,145 @@ export function parseConsulta(r: APIFullResultado): ParsedConsulta {
     total_dividas: total,
     pendencias,
     resumo,
+  };
+}
+
+// ─── CNPJ functions ────────────────────────────────────
+
+/**
+ * Consulta CNPJ Completo na API Full (Receita Federal).
+ * Endpoint: POST /api/cnpj-completo
+ * Custo: R$ 0,04 (Nível 2)
+ */
+export async function consultarCNPJ(cnpj: string): Promise<APIFullCNPJResultado> {
+  const cleanCnpj = cnpj.replace(/\D/g, "");
+  const r = await fetch(`${API_FULL_BASE}/api/cnpj-completo`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ document: cleanCnpj, link: "cnpj-completo" }),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`API Full CNPJ erro ${r.status}: ${t}`);
+  }
+  const json = (await r.json()) as { data?: APIFullCNPJResultado } | APIFullCNPJResultado;
+  return ("data" in json && json.data ? json.data : json) as APIFullCNPJResultado;
+}
+
+export interface ParsedConsultaCNPJ {
+  razao_social: string;
+  nome_fantasia: string;
+  cnpj: string;
+  situacao_cadastral: string;
+  data_abertura: string;
+  capital_social: number;
+  cnae_principal: string;
+  endereco: string;
+  socios: Array<{ nome: string; cpf: string; qualificacao: string }>;
+}
+
+/**
+ * Parser tolerante pra dados do CNPJ (Receita Federal).
+ */
+export function parseConsultaCNPJ(r: APIFullCNPJResultado): ParsedConsultaCNPJ {
+  const raw = r as Record<string, unknown>;
+  const inner = (raw.data || raw.resultado || raw.Resultado || raw) as Record<string, unknown>;
+
+  function pickStr(o: Record<string, unknown>, ...keys: string[]): string {
+    for (const k of keys) {
+      if (o[k] != null && o[k] !== "") return String(o[k]);
+    }
+    return "";
+  }
+  function pickNum(o: Record<string, unknown>, ...keys: string[]): number {
+    for (const k of keys) {
+      const v = o[k];
+      if (v != null) {
+        const n = parseFloat(String(v).replace(",", "."));
+        if (!isNaN(n)) return n;
+      }
+    }
+    return 0;
+  }
+
+  const razao = pickStr(inner, "razao_social", "RazaoSocial", "razaoSocial", "razao");
+  const fantasia = pickStr(inner, "nome_fantasia", "NomeFantasia", "nomeFantasia", "fantasia");
+  const cnpj = pickStr(inner, "cnpj", "CNPJ", "documento") || pickStr(raw, "cnpj", "CNPJ");
+  const situacao = pickStr(inner, "situacao_cadastral", "SituacaoCadastral", "situacao");
+  const dataAbertura = pickStr(inner, "data_abertura", "DataAbertura", "dataAbertura", "data_inicio_atividade");
+  const capital = pickNum(inner, "capital_social", "CapitalSocial", "capitalSocial");
+  const cnae = pickStr(inner, "cnae_principal", "CnaePrincipal", "atividade_principal", "AtividadePrincipal");
+
+  const enderecoStr =
+    pickStr(inner, "endereco_completo", "EnderecoCompleto") ||
+    [
+      pickStr(inner, "logradouro", "Logradouro"),
+      pickStr(inner, "numero", "Numero"),
+      pickStr(inner, "complemento", "Complemento"),
+      pickStr(inner, "bairro", "Bairro"),
+      pickStr(inner, "municipio", "Municipio", "cidade"),
+      pickStr(inner, "uf", "UF"),
+      pickStr(inner, "cep", "CEP"),
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+  const sociosRaw =
+    (inner.socios as unknown) ||
+    (inner.Socios as unknown) ||
+    (inner.QSA as unknown) ||
+    (inner.qsa as unknown) ||
+    [];
+  const socios: Array<{ nome: string; cpf: string; qualificacao: string }> = [];
+  if (Array.isArray(sociosRaw)) {
+    for (const s of sociosRaw) {
+      if (!s || typeof s !== "object") continue;
+      const sObj = s as Record<string, unknown>;
+      socios.push({
+        nome: pickStr(sObj, "nome", "Nome", "nome_socio", "NomeSocio"),
+        cpf: pickStr(sObj, "cpf", "CPF", "cpf_socio", "cnpj_cpf"),
+        qualificacao: pickStr(sObj, "qualificacao", "Qualificacao", "qualificacao_socio"),
+      });
+    }
+  }
+
+  return {
+    razao_social: razao,
+    nome_fantasia: fantasia,
+    cnpj,
+    situacao_cadastral: situacao,
+    data_abertura: dataAbertura,
+    capital_social: capital,
+    cnae_principal: cnae,
+    endereco: enderecoStr,
+    socios,
+  };
+}
+
+/**
+ * Helper end-to-end: consulta CNPJ (Receita) + CPF do responsável (score/pendências).
+ * Faz as 2 chamadas em paralelo.
+ */
+export async function consultarCNPJCompleto(
+  cnpj: string,
+  cpfResponsavel: string
+): Promise<{
+  pj: ParsedConsultaCNPJ;
+  pjRaw: APIFullCNPJResultado;
+  responsavel: ParsedConsulta;
+  responsavelRaw: APIFullResultado;
+}> {
+  const [pjRaw, respRaw] = await Promise.all([
+    consultarCNPJ(cnpj),
+    consultarCPF(cpfResponsavel),
+  ]);
+  return {
+    pj: parseConsultaCNPJ(pjRaw),
+    pjRaw,
+    responsavel: parseConsulta(respRaw),
+    responsavelRaw: respRaw,
   };
 }

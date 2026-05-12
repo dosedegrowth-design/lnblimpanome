@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: "%s · Limpa Nome Brazil",
   },
   description:
-    "Consulte seu CPF, limpe seu nome e ative blindagem de crédito 100% digital. Resultado em até 20 dias úteis, sem precisar quitar a dívida. Mais de 10 mil pessoas atendidas.",
+    "Consulte CPF ou CNPJ, limpe seu nome 100% digital. Resultado em até 20 dias úteis, sem precisar quitar a dívida. Monitoramento 12 meses bônus. Mais de 10 mil pessoas atendidas.",
   applicationName: "Limpa Nome Brazil",
   authors: [{ name: "Limpa Nome Brazil" }],
   generator: "Next.js",
@@ -38,7 +38,9 @@ export const metadata: Metadata = {
     "consulta CPF",
     "consultar CPF",
     "score de crédito",
-    "blindagem de CPF",
+    "consultar CNPJ",
+    "consulta CNPJ",
+    "limpar nome empresa",
     "Serasa",
     "SPC",
     "Boa Vista",
@@ -70,7 +72,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Limpa Nome Brazil — Limpe seu nome 100% digital",
     description:
-      "Consulta de CPF, limpeza de nome e blindagem de crédito. Resultado em minutos, sem sair de casa, sem quitar a dívida.",
+      "Consulta de CPF ou CNPJ, limpeza de nome 100% digital. Resultado em minutos, sem sair de casa, sem quitar a dívida.",
     url: SITE_URL,
     siteName: "Limpa Nome Brazil",
     locale: "pt_BR",
@@ -88,7 +90,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Limpa Nome Brazil — Limpe seu nome 100% digital",
     description:
-      "Consulta de CPF, limpeza de nome e blindagem de crédito 100% digital.",
+      "Consulta de CPF ou CNPJ, limpeza de nome 100% digital.",
     images: ["/opengraph-image"],
   },
   robots: {
@@ -151,7 +153,7 @@ export default function RootLayout({
         url: SITE_URL,
         name: "Limpa Nome Brazil",
         description:
-          "Consulta de CPF, limpeza de nome e blindagem de crédito 100% digital.",
+          "Consulta de CPF ou CNPJ, limpeza de nome 100% digital.",
         publisher: { "@id": `${SITE_URL}/#organization` },
         inLanguage: "pt-BR",
       },

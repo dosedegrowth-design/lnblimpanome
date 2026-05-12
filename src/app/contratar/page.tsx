@@ -12,7 +12,9 @@ import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand/logo";
 import {
-  formatCPF, cleanCPF, isValidCPF, formatPhone, formatBRL,
+  formatCPF, cleanCPF, isValidCPF,
+  formatCNPJ, cleanCNPJ, isValidCNPJ,
+  formatPhone, formatBRL,
 } from "@/lib/utils";
 import { PLANOS, isPlanoTipo, type PlanoTipo, getPlano } from "@/lib/planos";
 
@@ -40,6 +42,9 @@ function ContratarForm() {
   const planoTipo: PlanoTipo = isPlanoTipo(planoParam) ? planoParam : "limpeza_desconto";
   const plano = getPlano(planoTipo);
   const cpfFromUrl = params.get("cpf") || "";
+  const cnpjFromUrl = params.get("cnpj") || "";
+
+  const isCNPJ = plano.tipoDocumento === "CNPJ";
 
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<"cpf" | "form" | "bloqueado">(
@@ -49,7 +54,13 @@ function ContratarForm() {
   const [validandoCpf, setValidandoCpf] = useState(false);
 
   const [form, setForm] = useState({
+    // CPF (para fluxo PF) OU CPF do responsável (para fluxo PJ)
     cpf: cpfFromUrl ? formatCPF(cpfFromUrl) : "",
+    // Campos CNPJ (só usados quando isCNPJ)
+    cnpj: cnpjFromUrl ? formatCNPJ(cnpjFromUrl) : "",
+    razao_social: "",
+    nome_responsavel: "",
+    cpf_responsavel: "",
     nome: "",
     email: "",
     telefone: "",
@@ -57,12 +68,15 @@ function ContratarForm() {
     aceiteTermos: false,
   });
 
-  // Se chegou da consulta com CPF na URL, valida automaticamente
+  // Se chegou da consulta com CPF/CNPJ na URL, valida automaticamente
   useEffect(() => {
-    if (cpfFromUrl && plano.requerConsulta && step === "cpf") {
-      const cpfLimpo = cleanCPF(cpfFromUrl);
-      if (isValidCPF(cpfLimpo)) {
-        setTimeout(() => validarCpf(), 200);
+    if (plano.requerConsulta && step === "cpf") {
+      if (isCNPJ && cnpjFromUrl) {
+        const cnpjLimpo = cleanCNPJ(cnpjFromUrl);
+        if (isValidCNPJ(cnpjLimpo)) setTimeout(() => validarDocumento(), 200);
+      } else if (!isCNPJ && cpfFromUrl) {
+        const cpfLimpo = cleanCPF(cpfFromUrl);
+        if (isValidCPF(cpfLimpo)) setTimeout(() => validarDocumento(), 200);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -72,42 +86,65 @@ function ContratarForm() {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
-  async function validarCpf() {
-    const cpfLimpo = cleanCPF(form.cpf);
-    if (!isValidCPF(cpfLimpo)) {
-      toast.error("CPF inválido");
-      return;
-    }
+  async function validarDocumento() {
     setValidandoCpf(true);
     try {
-      const r = await fetch(`/api/site/elegibilidade-limpeza?cpf=${cpfLimpo}`);
+      let url = "";
+      if (isCNPJ) {
+        const cnpjLimpo = cleanCNPJ(form.cnpj);
+        if (!isValidCNPJ(cnpjLimpo)) {
+          toast.error("CNPJ inválido");
+          setValidandoCpf(false);
+          return;
+        }
+        url = `/api/site/elegibilidade-limpeza?cnpj=${cnpjLimpo}`;
+      } else {
+        const cpfLimpo = cleanCPF(form.cpf);
+        if (!isValidCPF(cpfLimpo)) {
+          toast.error("CPF inválido");
+          setValidandoCpf(false);
+          return;
+        }
+        url = `/api/site/elegibilidade-limpeza?cpf=${cpfLimpo}`;
+      }
+      const r = await fetch(url);
       const d: Elegibilidade & { ok: boolean } = await r.json();
       setEleg(d);
-      if (d.pode) {
-        setStep("form");
-      } else {
-        setStep("bloqueado");
-      }
+      if (d.pode) setStep("form");
+      else setStep("bloqueado");
     } catch {
-      toast.error("Erro ao validar CPF. Tente novamente.");
+      toast.error(`Erro ao validar ${isCNPJ ? "CNPJ" : "CPF"}. Tente novamente.`);
     } finally {
       setValidandoCpf(false);
     }
   }
 
+  // Alias mantido pra compat de chamadas internas
+  const validarCpf = validarDocumento;
+
   function validate(): string | null {
-    if (!isValidCPF(cleanCPF(form.cpf))) return "CPF inválido";
-    if (form.nome.length < 2)            return "Informe seu nome completo";
-    if (!form.email.includes("@"))       return "Email inválido";
+    if (isCNPJ) {
+      if (!isValidCNPJ(cleanCNPJ(form.cnpj))) return "CNPJ inválido";
+      if (form.razao_social.length < 2)       return "Informe a razão social";
+      if (form.nome_responsavel.length < 2)   return "Informe o nome do responsável";
+      if (!isValidCPF(cleanCPF(form.cpf_responsavel))) return "CPF do responsável inválido";
+    } else {
+      if (!isValidCPF(cleanCPF(form.cpf)))    return "CPF inválido";
+      if (form.nome.length < 2)               return "Informe seu nome completo";
+    }
+    if (!form.email.includes("@"))            return "Email inválido";
     if (form.telefone.replace(/\D/g, "").length < 10) return "Telefone inválido";
-    if (form.senha.length < 8)           return "Senha precisa ter ao menos 8 caracteres";
-    if (!form.aceiteTermos)              return "Você precisa aceitar os termos pra prosseguir";
+    if (form.senha.length < 8)                return "Senha precisa ter ao menos 8 caracteres";
+    if (!form.aceiteTermos)                   return "Você precisa aceitar os termos pra prosseguir";
     return null;
   }
 
-  // Mapeia planoTipo → tipo de termos (consulta ou limpeza)
-  const tipoTermos: "consulta" | "limpeza" =
-    planoTipo === "limpeza_desconto" ? "limpeza" : "consulta";
+  // Mapeia planoTipo → tipo de termos (consulta/limpeza CPF ou CNPJ)
+  const tipoTermos: "consulta" | "consulta-cnpj" | "limpeza" | "limpeza-cnpj" =
+    planoTipo === "limpeza_cnpj" ? "limpeza-cnpj" :
+    planoTipo === "consulta_cnpj" ? "consulta-cnpj" :
+    planoTipo === "limpeza_desconto" ? "limpeza" :
+    "consulta";
 
   async function processarPagamento() {
     const err = validate();
@@ -115,17 +152,17 @@ function ContratarForm() {
 
     setLoading(true);
     try {
-      // 1) Registra aceite dos termos antes do checkout (timestamp + IP via servidor)
+      // 1) Registra aceite dos termos antes do checkout
       try {
         await fetch("/api/site/aceite-termos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            cpf: cleanCPF(form.cpf),
+            cpf: cleanCPF(isCNPJ ? form.cpf_responsavel : form.cpf),
             tipo: tipoTermos,
             versao: "1.0",
             telefone: form.telefone.replace(/\D/g, ""),
-            nome: form.nome,
+            nome: isCNPJ ? form.nome_responsavel : form.nome,
           }),
         });
       } catch (e) {
@@ -133,17 +170,26 @@ function ContratarForm() {
       }
 
       // 2) Cria cobrança Asaas
+      const payload: Record<string, unknown> = {
+        tipo: planoTipo,
+        email: form.email,
+        telefone: form.telefone.replace(/\D/g, ""),
+        senha: form.senha,
+      };
+      if (isCNPJ) {
+        payload.cnpj = cleanCNPJ(form.cnpj);
+        payload.razao_social = form.razao_social;
+        payload.nome_responsavel = form.nome_responsavel;
+        payload.cpf_responsavel = cleanCPF(form.cpf_responsavel);
+        payload.nome = form.razao_social;
+      } else {
+        payload.cpf = cleanCPF(form.cpf);
+        payload.nome = form.nome;
+      }
       const r = await fetch("/api/site/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tipo: planoTipo,
-          cpf: cleanCPF(form.cpf),
-          nome: form.nome,
-          email: form.email,
-          telefone: form.telefone.replace(/\D/g, ""),
-          senha: form.senha,
-        }),
+        body: JSON.stringify(payload),
       });
       const d = await r.json();
       if (!r.ok || !d.ok || !d.init_point) {
@@ -235,7 +281,7 @@ function ContratarForm() {
           {/* Form / Validação */}
           <div className="lg:col-span-3">
             <AnimatePresence mode="wait">
-              {/* Step 1: Validar CPF (consulta prévia) */}
+              {/* Step 1: Validar CPF ou CNPJ (consulta prévia) */}
               {step === "cpf" && (
                 <motion.div
                   key="cpf"
@@ -250,25 +296,43 @@ function ContratarForm() {
                           Antes de contratar
                         </h2>
                         <p className="text-sm text-gray-700 font-medium mt-1">
-                          A limpeza só faz sentido se você tem nome sujo. Vamos verificar seu CPF.
+                          {isCNPJ
+                            ? "A limpeza só faz sentido se a empresa/sócio tem nome sujo. Vamos verificar o CNPJ."
+                            : "A limpeza só faz sentido se você tem nome sujo. Vamos verificar seu CPF."}
                         </p>
                       </div>
 
-                      <div>
-                        <Label htmlFor="cpf-check">Seu CPF</Label>
-                        <Input
-                          id="cpf-check"
-                          inputMode="numeric"
-                          value={form.cpf}
-                          onChange={(e) => set("cpf", formatCPF(e.target.value))}
-                          placeholder="000.000.000-00"
-                          autoComplete="off"
-                          autoFocus
-                        />
-                      </div>
+                      {isCNPJ ? (
+                        <div>
+                          <Label htmlFor="cnpj-check">CNPJ da empresa</Label>
+                          <Input
+                            id="cnpj-check"
+                            inputMode="numeric"
+                            value={form.cnpj}
+                            onChange={(e) => set("cnpj", formatCNPJ(e.target.value))}
+                            placeholder="00.000.000/0000-00"
+                            maxLength={18}
+                            autoComplete="off"
+                            autoFocus
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <Label htmlFor="cpf-check">Seu CPF</Label>
+                          <Input
+                            id="cpf-check"
+                            inputMode="numeric"
+                            value={form.cpf}
+                            onChange={(e) => set("cpf", formatCPF(e.target.value))}
+                            placeholder="000.000.000-00"
+                            autoComplete="off"
+                            autoFocus
+                          />
+                        </div>
+                      )}
 
                       <Button
-                        onClick={validarCpf}
+                        onClick={validarDocumento}
                         loading={validandoCpf}
                         width="full"
                         className="h-12"
@@ -278,7 +342,7 @@ function ContratarForm() {
 
                       <div className="rounded-xl bg-sand-50 border border-sand-200 p-4 text-xs sm:text-sm text-forest-800 font-medium leading-relaxed">
                         <strong className="font-bold">Por que verificar?</strong> Pra contratar a
-                        limpeza você precisa ter feito a consulta de CPF (R$ 19,99) e ter
+                        limpeza você precisa ter feito a consulta {isCNPJ ? "de CNPJ (R$ 24,99)" : "de CPF (R$ 19,99)"} e ter
                         pendências em aberto. Sem isso, não há nada pra limpar.
                       </div>
                     </CardContent>
@@ -385,35 +449,84 @@ function ContratarForm() {
                       {eleg?.qtd_pendencias && (
                         <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 sm:p-4 text-sm text-emerald-800 font-semibold">
                           ✓ Encontramos {eleg.qtd_pendencias} pendência
-                          {eleg.qtd_pendencias > 1 ? "s" : ""} no seu CPF
+                          {eleg.qtd_pendencias > 1 ? "s" : ""} no {isCNPJ ? "responsável da empresa" : "seu CPF"}
                           {eleg.total_dividas ? ` (R$ ${Number(eleg.total_dividas).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})` : ""}.
                           Vamos limpar tudo em até 20 dias úteis.
                         </div>
                       )}
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="sm:col-span-2">
-                          <Label htmlFor="cpf">CPF</Label>
-                          <Input
-                            id="cpf"
-                            inputMode="numeric"
-                            value={form.cpf}
-                            onChange={(e) => set("cpf", formatCPF(e.target.value))}
-                            placeholder="000.000.000-00"
-                            autoComplete="off"
-                            disabled={plano.requerConsulta}
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <Label htmlFor="nome">Nome completo</Label>
-                          <Input
-                            id="nome"
-                            value={form.nome}
-                            onChange={(e) => set("nome", e.target.value)}
-                            placeholder="Como está no seu RG"
-                            autoComplete="name"
-                          />
-                        </div>
+                        {isCNPJ ? (
+                          <>
+                            <div className="sm:col-span-2">
+                              <Label htmlFor="cnpj">CNPJ</Label>
+                              <Input
+                                id="cnpj"
+                                inputMode="numeric"
+                                value={form.cnpj}
+                                onChange={(e) => set("cnpj", formatCNPJ(e.target.value))}
+                                placeholder="00.000.000/0000-00"
+                                maxLength={18}
+                                autoComplete="off"
+                                disabled={plano.requerConsulta}
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <Label htmlFor="razao_social">Razão social</Label>
+                              <Input
+                                id="razao_social"
+                                value={form.razao_social}
+                                onChange={(e) => set("razao_social", e.target.value)}
+                                placeholder="Nome da empresa (Receita Federal)"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="nome_responsavel">Nome do responsável (sócio admin)</Label>
+                              <Input
+                                id="nome_responsavel"
+                                value={form.nome_responsavel}
+                                onChange={(e) => set("nome_responsavel", e.target.value)}
+                                placeholder="Sócio administrador"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="cpf_responsavel">CPF do responsável</Label>
+                              <Input
+                                id="cpf_responsavel"
+                                inputMode="numeric"
+                                value={form.cpf_responsavel}
+                                onChange={(e) => set("cpf_responsavel", formatCPF(e.target.value))}
+                                placeholder="000.000.000-00"
+                                autoComplete="off"
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="sm:col-span-2">
+                              <Label htmlFor="cpf">CPF</Label>
+                              <Input
+                                id="cpf"
+                                inputMode="numeric"
+                                value={form.cpf}
+                                onChange={(e) => set("cpf", formatCPF(e.target.value))}
+                                placeholder="000.000.000-00"
+                                autoComplete="off"
+                                disabled={plano.requerConsulta}
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <Label htmlFor="nome">Nome completo</Label>
+                              <Input
+                                id="nome"
+                                value={form.nome}
+                                onChange={(e) => set("nome", e.target.value)}
+                                placeholder="Como está no seu RG"
+                                autoComplete="name"
+                              />
+                            </div>
+                          </>
+                        )}
                         <div>
                           <Label htmlFor="email">E-mail</Label>
                           <Input
@@ -476,7 +589,11 @@ function ContratarForm() {
                           >
                             Termos e Condições do{" "}
                             {tipoTermos === "limpeza"
-                              ? "serviço de Limpeza + Blindagem"
+                              ? "serviço de Limpeza de Nome + Monitoramento 12m"
+                              : tipoTermos === "limpeza-cnpj"
+                              ? "serviço de Limpeza CNPJ + Sócio"
+                              : tipoTermos === "consulta-cnpj"
+                              ? "serviço de Consulta CNPJ"
                               : "serviço de Consulta CPF"}
                           </Link>
                           , com a{" "}

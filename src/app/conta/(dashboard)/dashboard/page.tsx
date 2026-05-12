@@ -169,26 +169,22 @@ export default async function ClienteDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md hover:-translate-y-0.5 transition-all">
-          <CardContent className="p-6">
-            <div className="size-12 rounded-xl bg-gradient-to-br from-forest-500 to-forest-700 grid place-items-center mb-4 shadow-md">
-              <ShieldCheck className="size-6 text-white" />
-            </div>
-            <h3 className="font-display text-lg text-forest-800 mb-1">Blindagem</h3>
-            {blindagem?.ativo ? (
-              <>
-                <p className="text-sm text-gray-500 mb-3">
-                  {blindagem.tem_pendencia_atual ? "Pendência detectada" : "Tudo OK"}
-                </p>
-                <Link href="/conta/blindagem" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 font-semibold">
-                  Detalhes <ArrowRight className="size-3.5" />
-                </Link>
-              </>
-            ) : (
-              <p className="text-sm text-gray-500">{blindagem ? "Pausada" : "Não contratada"}</p>
-            )}
-          </CardContent>
-        </Card>
+        {blindagem?.ativo && (
+          <Card className="hover:shadow-md hover:-translate-y-0.5 transition-all">
+            <CardContent className="p-6">
+              <div className="size-12 rounded-xl bg-gradient-to-br from-forest-500 to-forest-700 grid place-items-center mb-4 shadow-md">
+                <ShieldCheck className="size-6 text-white" />
+              </div>
+              <h3 className="font-display text-lg text-forest-800 mb-1">Monitoramento</h3>
+              <p className="text-sm text-gray-500 mb-3">
+                {blindagem.tem_pendencia_atual ? "⚠️ Pendência detectada" : "✓ Tudo OK"}
+              </p>
+              <p className="text-xs text-gray-400">
+                Cliente legado · monitoramento ativo
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="hover:shadow-md hover:-translate-y-0.5 transition-all">
           <CardContent className="p-6">

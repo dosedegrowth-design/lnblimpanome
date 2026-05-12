@@ -37,9 +37,9 @@ export async function POST(req: Request) {
   if (!cpf) {
     return NextResponse.json({ ok: false, error: "CPF obrigatório" }, { status: 400 });
   }
-  if (!["consulta", "limpeza", "blindagem"].includes(tipo)) {
+  if (!["consulta", "consulta-cnpj", "limpeza", "limpeza-cnpj", "blindagem"].includes(tipo)) {
     return NextResponse.json(
-      { ok: false, error: "Tipo inválido (use: consulta, limpeza, blindagem)" },
+      { ok: false, error: "Tipo inválido (use: consulta, consulta-cnpj, limpeza, limpeza-cnpj, blindagem)" },
       { status: 400 }
     );
   }

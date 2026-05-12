@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Users, FileSearch, ShieldCheck, Briefcase,
+  LayoutDashboard, Users, FileSearch, Briefcase,
   Wallet, Settings as SettingsIcon, LogOut, UserCog, FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,6 @@ const items = [
   { href: "/painel/processos",     label: "Processos",     icon: Briefcase },
   { href: "/painel/leads",         label: "Leads & CRM",   icon: Users },
   { href: "/painel/consultas",     label: "Consultas",     icon: FileSearch },
-  { href: "/painel/blindagem",     label: "Blindagem",     icon: ShieldCheck },
   { href: "/painel/financeiro",    label: "Financeiro",    icon: Wallet },
   { href: "/painel/equipe",        label: "Equipe",        icon: UserCog },
   { href: "/painel/teste-fluxo",   label: "Teste de fluxo", icon: FlaskConical },

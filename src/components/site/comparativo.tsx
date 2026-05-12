@@ -19,8 +19,8 @@ const LINHAS: Linha[] = [
   { feature: "Custo médio",                tradicional: "Valor da dívida + juros", lnb: "R$ 480,01", destaque: true },
   { feature: "Atendimento 100% digital",   tradicional: false,                  lnb: true },
   { feature: "Acompanhamento pelo painel", tradicional: false,                  lnb: true },
-  { feature: "Blindagem de CPF inclusa",   tradicional: false,                  lnb: true },
-  { feature: "Risco de re-negativação",    tradicional: "Alto",                 lnb: "Baixo (blindagem ativa)" },
+  { feature: "Monitoramento 12m bônus",    tradicional: false,                  lnb: true },
+  { feature: "Risco de re-negativação",    tradicional: "Alto",                 lnb: "Baixo (monitoramento ativo)" },
 ];
 
 function CellTradicional({ value }: { value: CellValue }) {
