@@ -19,15 +19,24 @@ export async function GET() {
     return NextResponse.json({ ok: true, logado: false });
   }
 
-  // Busca dados completos (email + telefone) na lnb_cliente_auth via RPC
+  // Busca dados completos via RPC SECURITY DEFINER (lnb_cliente_auth tem RLS)
   const supa = await createClient();
-  const { data, error } = await supa
-    .from("lnb_cliente_auth")
-    .select("cpf, nome, email, telefone")
-    .eq("cpf", session.cpf)
-    .maybeSingle();
+  const { data, error } = await supa.rpc("lnb_cliente_me", { p_cpf: session.cpf });
 
-  if (error || !data) {
+  if (error) {
+    console.error("[/api/cliente/me] rpc erro:", error);
+    return NextResponse.json({
+      ok: true,
+      logado: true,
+      cpf: session.cpf,
+      nome: session.nome,
+      email: "",
+      telefone: "",
+    });
+  }
+
+  const d = data as { ok: boolean; cpf?: string; nome?: string; email?: string; telefone?: string };
+  if (!d?.ok) {
     return NextResponse.json({
       ok: true,
       logado: true,
@@ -41,9 +50,9 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     logado: true,
-    cpf: data.cpf,
-    nome: data.nome,
-    email: data.email || "",
-    telefone: data.telefone || "",
+    cpf: d.cpf || session.cpf,
+    nome: d.nome || session.nome,
+    email: d.email || "",
+    telefone: d.telefone || "",
   });
 }
