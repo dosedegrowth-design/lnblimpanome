@@ -49,7 +49,6 @@ export async function POST(req: Request) {
   const isCNPJ = item.tipoDoc === "CNPJ";
 
   // ─── Validações comuns ───
-  if (!nome || nome.length < 2)          return bad("Nome inválido");
   if (!email || !email.includes("@"))    return bad("Email inválido");
   if (!telefone || telefone.length < 10) return bad("Telefone inválido");
   if (!senha || senha.length < 8)        return bad("Senha precisa ter ao menos 8 caracteres");
@@ -70,6 +69,7 @@ export async function POST(req: Request) {
   } else {
     cpf = cleanCPF(cpfRaw || "");
     if (!isValidCPF(cpf))                 return bad("CPF inválido");
+    if (!nome || nome.length < 2)         return bad("Nome inválido");
   }
 
   const supa = await createClient();
