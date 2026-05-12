@@ -146,20 +146,18 @@ export async function POST(req: Request) {
     console.error("[checkout] upsert CRM erro (segue):", e);
   }
 
-  // 2.5) Se CNPJ: grava dados PJ no CRM via update direto (RPC nova seria mais limpo, mas evita migration extra agora)
+  // 2.5) Se CNPJ: grava dados PJ no CRM via RPC SECURITY DEFINER
   if (isCNPJ) {
     try {
-      await supa
-        .from("LNB - CRM")
-        .update({
-          cnpj,
-          razao_social,
-          cpf_responsavel: cpfResponsavel,
-          nome_responsavel,
-        })
-        .eq("telefone", telefone);
+      await supa.rpc("lnb_crm_set_cnpj_data", {
+        p_telefone: telefone,
+        p_cnpj: cnpj,
+        p_razao_social: razao_social,
+        p_cpf_responsavel: cpfResponsavel,
+        p_nome_responsavel: nome_responsavel,
+      });
     } catch (e) {
-      console.error("[checkout] update CRM CNPJ erro (segue):", e);
+      console.error("[checkout] set_cnpj_data erro (segue):", e);
     }
   }
 
