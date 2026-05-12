@@ -35,7 +35,7 @@ export default async function RelatorioPage() {
               Por R$ 19,99 você descobre se seu nome tem pendências, qual o score, quanto deve e pra quem.
             </p>
             <Link
-              href="/consultar"
+              href="/consultar/cpf"
               className="inline-flex items-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-600 px-6 h-11 text-sm font-semibold text-white shadow-md shadow-brand-500/25 transition"
             >
               Fazer minha consulta agora

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { criarCobrancaLNB } from "@/lib/asaas";
 import { cleanCPF, isValidCPF, cleanCNPJ, isValidCNPJ } from "@/lib/utils";
+import { getClienteSession } from "@/lib/auth/cliente";
 
 /**
  * POST /api/site/checkout
@@ -51,7 +52,13 @@ export async function POST(req: Request) {
   // ─── Validações comuns ───
   if (!email || !email.includes("@"))    return bad("Email inválido");
   if (!telefone || telefone.length < 10) return bad("Telefone inválido");
-  if (!senha || senha.length < 8)        return bad("Senha precisa ter ao menos 8 caracteres");
+
+  // Se cliente já está logado (cookie LNB), pula validação de senha
+  const sessaoExistente = await getClienteSession();
+  const isLoggedIn = !!sessaoExistente;
+  if (!isLoggedIn) {
+    if (!senha || senha.length < 8)      return bad("Senha precisa ter ao menos 8 caracteres");
+  }
 
   // ─── Validações específicas por tipo ───
   let cpf = "";          // CPF do cliente (PF) OU do responsável (PJ)
@@ -119,17 +126,19 @@ export async function POST(req: Request) {
     }
   }
 
-  // ─── 1) Cadastra cliente em lnb_cliente_auth (CPF do responsável p/ CNPJ) ───
-  const reg = await supa.rpc("lnb_cliente_register", {
-    p_cpf: cpf, p_senha: senha,
-    p_nome: isCNPJ ? nome_responsavel : nome,
-    p_email: email, p_telefone: telefone,
-  });
-  if (reg.error) {
-    console.error("[checkout] register erro:", reg.error);
-  } else if (reg.data && (reg.data as { ok: boolean }).ok === false) {
-    const msg = (reg.data as { error?: string }).error || "";
-    if (!msg.includes("já cadastrado")) return bad(msg);
+  // ─── 1) Cadastra cliente em lnb_cliente_auth (pula se já logado) ───
+  if (!isLoggedIn) {
+    const reg = await supa.rpc("lnb_cliente_register", {
+      p_cpf: cpf, p_senha: senha,
+      p_nome: isCNPJ ? nome_responsavel : nome,
+      p_email: email, p_telefone: telefone,
+    });
+    if (reg.error) {
+      console.error("[checkout] register erro:", reg.error);
+    } else if (reg.data && (reg.data as { ok: boolean }).ok === false) {
+      const msg = (reg.data as { error?: string }).error || "";
+      if (!msg.includes("já cadastrado")) return bad(msg);
+    }
   }
 
   // ─── 2) Upsert CRM ───

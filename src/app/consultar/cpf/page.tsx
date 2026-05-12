@@ -38,6 +38,7 @@ function ConsultarWizard() {
   const [loading, setLoading] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(false);
   const [polling, setPolling] = useState(false);
+  const [clienteLogado, setClienteLogado] = useState(false);
   const [pollResult, setPollResult] = useState<{
     paga: boolean;
     realizada: boolean;
@@ -59,12 +60,39 @@ function ConsultarWizard() {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
+  // Detecta sessão de cliente: se logado, pré-preenche form e PULA Step 1 direto pro pagamento
+  useEffect(() => {
+    if (step === 3) return; // se já voltou do gateway, não interfere
+    (async () => {
+      try {
+        const r = await fetch("/api/cliente/me");
+        const d = await r.json();
+        if (d.ok && d.logado) {
+          setClienteLogado(true);
+          setForm((f) => ({
+            ...f,
+            cpf: formatCPF(d.cpf),
+            nome: d.nome || f.nome,
+            email: d.email || f.email,
+            telefone: d.telefone ? formatPhone(d.telefone) : f.telefone,
+            senha: "********", // placeholder válido — backend ignora se já cadastrado
+          }));
+          // Cliente já cadastrado: pula direto pro Step 2 (pagamento)
+          if (step === 1) setStep(2);
+        }
+      } catch {
+        // ignora — segue fluxo público normal
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function validateStep1(): string | null {
     if (!isValidCPF(cleanCPF(form.cpf))) return "CPF inválido";
     if (form.nome.length < 2)            return "Informe seu nome completo";
     if (!form.email.includes("@"))       return "Email inválido";
     if (form.telefone.replace(/\D/g, "").length < 10) return "Telefone inválido";
-    if (form.senha.length < 8)           return "Senha precisa ter ao menos 8 caracteres";
+    if (!clienteLogado && form.senha.length < 8) return "Senha precisa ter ao menos 8 caracteres";
     return null;
   }
 
@@ -272,6 +300,15 @@ function ConsultarWizard() {
             exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.4 }}>
             <Card className="shadow-xl shadow-forest-800/5">
               <CardContent className="p-8 lg:p-10">
+                {clienteLogado && (
+                  <div className="mb-6 -mt-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 flex items-center gap-2 text-sm text-emerald-800">
+                    <CheckCircle2 className="size-4 shrink-0" />
+                    <span>
+                      Você já está logado como <strong>{form.nome.split(" ")[0]}</strong>.
+                      Vamos direto pro pagamento.
+                    </span>
+                  </div>
+                )}
                 <h2 className="font-display text-3xl text-forest-800 mb-2">Pagamento</h2>
                 <p className="text-gray-500 mb-8">
                   Você vai pra uma tela segura e finaliza com Pix (instantâneo), cartão ou boleto.

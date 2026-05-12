@@ -41,6 +41,7 @@ function ConsultarCNPJWizard() {
   const [loading, setLoading] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(false);
   const [polling, setPolling] = useState(false);
+  const [clienteLogado, setClienteLogado] = useState(false);
   const [pollResult, setPollResult] = useState<{
     paga: boolean;
     realizada: boolean;
@@ -65,6 +66,29 @@ function ConsultarCNPJWizard() {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
+  // Pré-preenche dados do responsável se cliente já estiver logado (PF previamente cadastrado)
+  useEffect(() => {
+    if (step === 3) return;
+    (async () => {
+      try {
+        const r = await fetch("/api/cliente/me");
+        const d = await r.json();
+        if (d.ok && d.logado) {
+          setClienteLogado(true);
+          setForm((f) => ({
+            ...f,
+            nome_responsavel: d.nome || f.nome_responsavel,
+            cpf_responsavel: d.cpf ? formatCPF(d.cpf) : f.cpf_responsavel,
+            email: d.email || f.email,
+            telefone: d.telefone ? formatPhone(d.telefone) : f.telefone,
+            senha: "********",
+          }));
+        }
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function validateStep1(): string | null {
     if (!isValidCNPJ(cleanCNPJ(form.cnpj))) return "CNPJ inválido";
     if (form.razao_social.length < 2) return "Informe a razão social";
@@ -72,7 +96,7 @@ function ConsultarCNPJWizard() {
     if (!isValidCPF(cleanCPF(form.cpf_responsavel))) return "CPF do responsável inválido";
     if (!form.email.includes("@")) return "Email inválido";
     if (form.telefone.replace(/\D/g, "").length < 10) return "Telefone inválido";
-    if (form.senha.length < 8) return "Senha precisa ter ao menos 8 caracteres";
+    if (!clienteLogado && form.senha.length < 8) return "Senha precisa ter ao menos 8 caracteres";
     return null;
   }
 

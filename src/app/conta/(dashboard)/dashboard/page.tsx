@@ -160,7 +160,7 @@ export default async function ClienteDashboardPage() {
                 Ver relatório <ArrowRight className="size-3.5" />
               </Link>
             ) : !consulta ? (
-              <Link href="/consultar" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 font-semibold">
+              <Link href="/consultar/cpf" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 font-semibold">
                 Fazer agora <ArrowRight className="size-3.5" />
               </Link>
             ) : (
@@ -218,7 +218,7 @@ export default async function ClienteDashboardPage() {
                 <p className="text-sm text-gray-600">R$ 19,99 · Resultado em minutos</p>
               </div>
             </div>
-            <Link href="/consultar" className="inline-flex items-center gap-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white px-5 h-11 font-semibold shadow-md shadow-brand-500/25 transition">
+            <Link href="/consultar/cpf" className="inline-flex items-center gap-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white px-5 h-11 font-semibold shadow-md shadow-brand-500/25 transition">
               Consultar agora <ArrowRight className="size-4" />
             </Link>
           </CardContent>
