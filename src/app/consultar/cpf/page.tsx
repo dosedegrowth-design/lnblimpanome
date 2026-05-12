@@ -60,26 +60,37 @@ function ConsultarWizard() {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
-  // Detecta sessão de cliente: se logado, pré-preenche form e PULA Step 1 direto pro pagamento
+  // Detecta sessão de cliente.
+  // Regras:
+  //   - Se logado E já PAGOU consulta → REDIRECIONA pra /conta/relatorio
+  //     (não pode comprar a mesma coisa 2x)
+  //   - Se logado SEM consulta paga → pré-preenche Step 1 (mantém visível
+  //     pra cliente confirmar/corrigir dados) e dispensa senha
+  //   - Se NÃO logado → fluxo público normal
   useEffect(() => {
     if (step === 3) return; // se já voltou do gateway, não interfere
     (async () => {
       try {
         const r = await fetch("/api/cliente/me");
         const d = await r.json();
-        if (d.ok && d.logado) {
-          setClienteLogado(true);
-          setForm((f) => ({
-            ...f,
-            cpf: formatCPF(d.cpf),
-            nome: d.nome || f.nome,
-            email: d.email || f.email,
-            telefone: d.telefone ? formatPhone(d.telefone) : f.telefone,
-            senha: "********", // placeholder válido — backend ignora se já cadastrado
-          }));
-          // Cliente já cadastrado: pula direto pro Step 2 (pagamento)
-          if (step === 1) setStep(2);
+        if (!d.ok || !d.logado) return;
+
+        // 🛑 Já comprou consulta → vai direto pro relatório
+        if (d.consulta_paga) {
+          router.replace("/conta/relatorio");
+          return;
         }
+
+        // Logado sem consulta paga → pré-preenche e segue
+        setClienteLogado(true);
+        setForm((f) => ({
+          ...f,
+          cpf: formatCPF(d.cpf),
+          nome: d.nome || f.nome,
+          email: d.email || f.email,
+          telefone: d.telefone ? formatPhone(d.telefone) : f.telefone,
+          senha: "********", // placeholder — backend pula re-cadastro
+        }));
       } catch {
         // ignora — segue fluxo público normal
       }

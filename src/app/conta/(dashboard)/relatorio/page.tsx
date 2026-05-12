@@ -42,6 +42,34 @@ export default async function RelatorioPage() {
             </Link>
           </CardContent>
         </Card>
+      ) : !data.consulta_paga ? (
+        <Card>
+          <CardContent className="p-16 text-center">
+            <FileSearch className="size-16 mx-auto text-amber-300 mb-4" />
+            <p className="text-amber-700 font-bold mb-1">Aguardando confirmação do pagamento</p>
+            <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
+              Assim que confirmarmos seu pagamento, geramos seu relatório
+              automaticamente em até 5 minutos.
+            </p>
+            <p className="text-xs text-gray-400">
+              Pagou via Pix? Pode levar até 2 minutos. Boleto pode levar até 3 dias úteis.
+            </p>
+          </CardContent>
+        </Card>
+      ) : data.tem_pendencia === null ? (
+        <Card>
+          <CardContent className="p-16 text-center">
+            <FileSearch className="size-16 mx-auto text-brand-400 mb-4 animate-pulse" />
+            <p className="text-brand-700 font-bold mb-1">Pagamento confirmado · gerando relatório</p>
+            <p className="text-sm text-gray-500 mb-2 max-w-md mx-auto">
+              Estamos consultando seu CPF nos órgãos oficiais. Em até 5 minutos
+              o relatório PDF estará disponível aqui.
+            </p>
+            <p className="text-xs text-gray-400">
+              Atualize a página ou recarregue em alguns instantes.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         <>
           <Card className="overflow-hidden">

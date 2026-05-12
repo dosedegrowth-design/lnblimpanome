@@ -151,9 +151,13 @@ export default async function ClienteDashboardPage() {
             </div>
             <h3 className="font-display text-lg text-forest-800 mb-1">Relatório CPF</h3>
             <p className="text-sm text-gray-500 mb-3">
-              {consulta
+              {!consulta
+                ? "Ainda não realizado"
+                : consulta.pdf_url
                 ? consulta.tem_pendencia ? "Com pendências" : "Nome limpo"
-                : "Ainda não realizado"}
+                : consulta.consulta_paga
+                ? "Pagamento confirmado · gerando relatório..."
+                : "Aguardando confirmação do pagamento"}
             </p>
             {consulta?.pdf_url ? (
               <Link href="/conta/relatorio" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 font-semibold">
@@ -163,8 +167,12 @@ export default async function ClienteDashboardPage() {
               <Link href="/consultar/cpf" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700 font-semibold">
                 Fazer agora <ArrowRight className="size-3.5" />
               </Link>
+            ) : consulta.consulta_paga ? (
+              <Link href="/conta/relatorio" className="inline-flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 font-semibold">
+                Acompanhar status <ArrowRight className="size-3.5" />
+              </Link>
             ) : (
-              <p className="text-xs text-gray-400">Gerando...</p>
+              <p className="text-xs text-gray-400">Aguardando pagamento...</p>
             )}
           </CardContent>
         </Card>

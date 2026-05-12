@@ -95,7 +95,7 @@ export default async function PagamentosPage() {
                 Faça sua primeira consulta de CPF por R$ 19,99
               </p>
               <Link
-                href="/consultar"
+                href="/consultar/cpf"
                 className="inline-flex items-center gap-2 rounded-lg bg-brand-500 hover:bg-brand-600 px-5 h-10 text-sm font-semibold text-white"
               >
                 Consultar agora
