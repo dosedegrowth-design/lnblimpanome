@@ -132,7 +132,7 @@ function ContratarForm() {
         console.error("[contratar] aceite-termos erro (segue):", e);
       }
 
-      // 2) Cria preference Mercado Pago
+      // 2) Cria cobrança Asaas
       const r = await fetch("/api/site/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -226,7 +226,7 @@ function ContratarForm() {
                 </div>
 
                 <div className="mt-3 text-[11px] text-gray-500">
-                  Processado por Mercado Pago. Pix, cartão de crédito ou boleto.
+                  Pagamento seguro · Pix, cartão de crédito ou boleto.
                 </div>
               </CardContent>
             </Card>
@@ -378,7 +378,7 @@ function ContratarForm() {
                           Dados pra contratação
                         </h2>
                         <p className="text-sm text-gray-700 font-medium mt-1">
-                          Você vai criar sua conta na LNB e ser redirecionado pro Mercado Pago.
+                          Você vai criar sua conta na LNB e ir pra tela de pagamento seguro.
                         </p>
                       </div>
 
@@ -509,7 +509,7 @@ function ContratarForm() {
                       </Button>
 
                       <p className="text-center text-[11px] text-gray-700 font-medium">
-                        Você será redirecionado pro Mercado Pago.
+                        Você vai pra tela segura de pagamento (Pix · cartão · boleto).
                       </p>
                     </CardContent>
                   </Card>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createPreference } from "@/lib/mercadopago";
+import { criarCobrancaLNB } from "@/lib/asaas";
 import { cleanCPF, isValidCPF } from "@/lib/utils";
 
 /**
@@ -10,10 +10,10 @@ import { cleanCPF, isValidCPF } from "@/lib/utils";
  * 1) Valida + cadastra cliente em lnb_cliente_auth
  * 2) Se tipo for limpeza_desconto: valida pré-requisito (consulta paga + pendência)
  * 3) Upsert em "LNB - CRM" com origem='site'
- * 4) Cria preference Mercado Pago direto (server-side)
- * 5) Retorna init_point pra redirect
+ * 4) Cria cobrança Asaas (Pix + cartão + boleto na mesma tela)
+ * 5) Retorna init_point (invoiceUrl Asaas) pra redirect
  *
- * MP volta com webhook → /api/site/mp-webhook (processa pagamento + API Full).
+ * Asaas notifica via webhook → /api/site/asaas-webhook (processa pagamento + API Full + PDF).
  */
 const PRECOS = {
   consulta:         { valor: 19.99,  titulo: "LNB - Consulta CPF" },
@@ -100,59 +100,54 @@ export async function POST(req: Request) {
     console.error("[checkout] upsert CRM erro (segue):", e);
   }
 
-  // 3) Cria preference MP direto
+  // 3) Cria cobrança Asaas (substitui Mercado Pago)
   const base = siteUrl(req);
   const externalRef = `${tipo.toUpperCase()}-${cpf}-${Date.now()}`;
 
-  // URLs de retorno por tipo
+  // URL de retorno pós-pagamento (Asaas redireciona pra cá após cliente pagar)
   const isConsulta = tipo === "consulta";
   const successUrl = isConsulta
     ? `${base}/consultar?status=success&cpf=${cpf}`
     : `${base}/conta/dashboard?status=success`;
-  const failureUrl = isConsulta
-    ? `${base}/consultar?status=failure`
-    : `${base}/contratar?plano=${tipo}&status=failure`;
-  const pendingUrl = isConsulta
-    ? `${base}/consultar?status=pending&cpf=${cpf}`
-    : `${base}/conta/dashboard?status=pending`;
 
-  let preference;
+  let cobranca;
   try {
-    preference = await createPreference({
-      title: item.titulo,
-      unitPrice: item.valor,
+    cobranca = await criarCobrancaLNB({
+      cpf,
+      nome,
+      email,
+      telefone,
+      valor: item.valor,
+      descricao: item.titulo,
       externalReference: externalRef,
-      payer: { name: nome, email, cpf, phone: telefone },
-      metadata: { cpf, telefone, tipo, origem: "site" },
-      notificationUrl: `${base}/api/site/mp-webhook`,
       successUrl,
-      failureUrl,
-      pendingUrl,
     });
   } catch (e) {
-    console.error("[checkout] MP create erro:", e);
+    console.error("[checkout] Asaas create erro:", e);
     return NextResponse.json(
       { ok: false, error: "Não conseguimos gerar a cobrança. Tente novamente." },
       { status: 502 }
     );
   }
 
-  // 4) Salva preference_id no CRM (via RPC)
+  // 4) Salva no CRM (mesma RPC, agora com dados Asaas)
   try {
     await supa.rpc("checkout_save_preference", {
       p_telefone: telefone,
-      p_link_pagamento: preference.init_point,
+      p_link_pagamento: cobranca.invoiceUrl,
       p_external_ref: externalRef,
-      p_id_pagamento: preference.id,
+      p_id_pagamento: cobranca.paymentId,
     });
   } catch (e) {
-    console.error("[checkout] update CRM com preference erro (segue):", e);
+    console.error("[checkout] update CRM com cobrança erro (segue):", e);
   }
 
   return NextResponse.json({
     ok: true,
-    init_point: preference.init_point,
-    preference_id: preference.id,
+    init_point: cobranca.invoiceUrl, // mantém nome `init_point` pra compatibilidade com front
+    invoice_url: cobranca.invoiceUrl,
+    payment_id: cobranca.paymentId,
+    customer_id: cobranca.customerId,
     external_reference: externalRef,
     cpf,
   });

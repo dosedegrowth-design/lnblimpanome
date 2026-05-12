@@ -34,7 +34,7 @@ export default function TermosPage() {
         <section>
           <h2 className="font-display text-2xl text-forest-800 mt-10 mb-3">3. Pagamento e reembolso</h2>
           <ul className="list-disc pl-6 space-y-1.5">
-            <li>Pagamentos processados pelo Mercado Pago (Pix, cartão).</li>
+            <li>Pagamentos processados pelo Asaas (Pix, cartão de crédito, boleto).</li>
             <li><strong>Consulta CPF</strong>: serviço executado imediatamente após confirmação do pagamento. Não há reembolso após a consulta ser realizada.</li>
             <li><strong>Limpeza + Blindagem</strong>: você tem 7 dias corridos pra solicitar reembolso integral, desde que o processo de limpeza ainda não tenha sido iniciado.</li>
           </ul>

@@ -14,7 +14,7 @@ const ITENS = [
   },
   {
     icon: BadgeCheck,
-    titulo: "Mercado Pago",
+    titulo: "Pix · Cartão · Boleto",
     desc: "Pagamento processado com segurança bancária",
   },
   {

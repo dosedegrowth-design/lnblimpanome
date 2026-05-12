@@ -1,112 +1,118 @@
 import { NextResponse } from "next/server";
-import { getPayment } from "@/lib/mercadopago";
-import type { APIFullResultado } from "@/lib/api-full";
-import { consultarCPF, parseConsulta } from "@/lib/api-full";
 import { createClient } from "@/lib/supabase/server";
 import { cleanCPF } from "@/lib/utils";
-import { verifyMpWebhookSignature } from "@/lib/mp-webhook-signature";
+import type { APIFullResultado } from "@/lib/api-full";
+import { consultarCPF, parseConsulta } from "@/lib/api-full";
+import {
+  verifyAsaasWebhookToken,
+  isPaymentConfirmedEvent,
+  type AsaasWebhookPayload,
+} from "@/lib/asaas-webhook";
+import { getPayment } from "@/lib/asaas";
 
-// PDF + APIs externas precisam de Node runtime
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /**
- * POST /api/site/mp-webhook
+ * POST /api/site/asaas-webhook
  *
- * Recebe notificações do Mercado Pago.
- * 1) Busca o pagamento na API MP
- * 2) Se aprovado e tipo="consulta": chama API Full + grava via RPC SECURITY DEFINER
- * 3) Se aprovado e tipo="limpeza*": grava via RPC SECURITY DEFINER
- * 4) Dispara fluxo n8n PDF Generator
+ * Recebe eventos do Asaas. Fluxo:
+ *  1. Valida o header `asaas-access-token` contra ASAAS_WEBHOOK_TOKEN
+ *  2. Se evento for de pagamento confirmado/recebido, busca o payment completo
+ *  3. Identifica o tipo via externalReference (CONSULTA-... ou LIMPEZA-...)
+ *  4. Dispara o processamento adequado em background
+ *  5. Retorna 200 OK rapidamente (timeout Asaas é curto)
  *
- * Não usa service_role — todas escritas em LNB_Consultas e "LNB - CRM" passam
- * por RPCs (webhook_registrar_consulta_paga / webhook_registrar_limpeza_fechada)
- * que rodam com SECURITY DEFINER no Postgres (bypass RLS dentro do banco).
+ * Substitui drop-in o antigo /api/site/mp-webhook.
  */
 export async function POST(req: Request) {
-  const url = new URL(req.url);
-  const queryId = url.searchParams.get("id");
-  const queryTopic = url.searchParams.get("topic");
-  const body = await req.json().catch(() => ({} as Record<string, unknown>));
-
-  const paymentId =
-    queryTopic === "payment" && queryId
-      ? queryId
-      : (body as { data?: { id?: unknown } })?.data?.id
-      ? String((body as { data: { id: unknown } }).data.id)
-      : (body as { resource?: string })?.resource
-      ? String((body as { resource: string }).resource).split("/").pop()
-      : null;
-
-  if (!paymentId) {
-    console.error("[mp-webhook] sem paymentId. body:", body, "query:", url.search);
-    return NextResponse.json({ ok: true, ignored: "no_payment_id" });
-  }
-
-  // Validação HMAC com a assinatura secreta do MP
-  const sigCheck = verifyMpWebhookSignature({
-    xSignature: req.headers.get("x-signature"),
-    xRequestId: req.headers.get("x-request-id"),
-    dataId: paymentId,
-  });
+  // 1) Valida token
+  const sigCheck = verifyAsaasWebhookToken(req.headers.get("asaas-access-token"));
   if (!sigCheck.valid) {
-    console.error("[mp-webhook] assinatura inválida:", sigCheck.reason);
+    console.error("[asaas-webhook] token inválido:", sigCheck.reason);
     return NextResponse.json(
-      { ok: false, error: "invalid_signature", reason: sigCheck.reason },
+      { ok: false, error: "invalid_token", reason: sigCheck.reason },
       { status: 401 }
     );
   }
 
+  // 2) Parse payload
+  let payload: AsaasWebhookPayload;
+  try {
+    payload = (await req.json()) as AsaasWebhookPayload;
+  } catch (e) {
+    console.error("[asaas-webhook] payload inválido:", e);
+    return NextResponse.json({ ok: true, ignored: "bad_json" });
+  }
+
+  if (!payload?.event || !payload?.payment?.id) {
+    console.error("[asaas-webhook] sem event ou payment.id:", payload);
+    return NextResponse.json({ ok: true, ignored: "no_event" });
+  }
+
+  console.log(
+    `[asaas-webhook] event=${payload.event} payment=${payload.payment.id} status=${payload.payment.status}`
+  );
+
+  // 3) Só processamos pagamento confirmado/recebido
+  if (!isPaymentConfirmedEvent(payload.event)) {
+    return NextResponse.json({ ok: true, ignored: "not_confirmed_event", event: payload.event });
+  }
+
+  // 4) Busca dados completos do payment (defensa contra payloads parciais + pega customer)
   let payment;
   try {
-    payment = await getPayment(paymentId);
+    payment = await getPayment(payload.payment.id);
   } catch (e) {
-    console.error("[mp-webhook] erro ao buscar payment:", e);
-    return NextResponse.json({ ok: false, error: "fetch_failed" }, { status: 500 });
+    console.error("[asaas-webhook] erro getPayment:", e);
+    // Fallback: usa payload do webhook
+    payment = payload.payment;
   }
 
-  if (payment.status !== "approved") {
-    console.log(`[mp-webhook] payment ${paymentId} status=${payment.status}, ignorando`);
-    return NextResponse.json({ ok: true, status: payment.status });
+  // 5) Resolve dados do cliente
+  const externalRef = payment.externalReference || "";
+
+  // O externalReference que criamos sempre segue padrão TIPO-CPF-TIMESTAMP
+  const refMatch = externalRef.match(/^([A-Z_]+)-(\d{11})-/);
+  if (!refMatch) {
+    console.error("[asaas-webhook] externalReference em formato inesperado:", externalRef);
+    return NextResponse.json({ ok: true, ignored: "bad_external_ref" });
   }
+  const tipoFromRef = refMatch[1].toLowerCase(); // consulta | limpeza | blindagem
+  const cpf = cleanCPF(refMatch[2]);
 
-  const cpf = cleanCPF(
-    String(payment.metadata?.cpf || payment.payer?.identification?.number || "")
-  );
-  const telefone = String(payment.metadata?.telefone || "").replace(/\D/g, "");
-  const tipo = String(payment.metadata?.tipo || "").toLowerCase();
-  const externalRef = payment.external_reference;
-
-  // ORIGEM: define qual canal de notificação usar
-  // - "site": só email Resend (sem Chatwoot/WhatsApp)
-  // - "whatsapp": só Chatwoot/WhatsApp (n8n Maia continua a conversa)
-  // - default "site" se não setado
-  const origem = String(payment.metadata?.origem || "site").toLowerCase() as
-    | "site"
-    | "whatsapp";
-
-  if (!cpf || !telefone) {
-    console.error("[mp-webhook] cpf/telefone faltando:", { cpf, telefone, externalRef });
-    return NextResponse.json({ ok: false, error: "missing_metadata" }, { status: 400 });
-  }
-
+  // Busca telefone, nome, email, origem na "LNB - CRM" pelo CPF
   const supa = await createClient();
+  const { data: crmRow } = await supa
+    .from("LNB - CRM")
+    .select('telefone, nome, "e-mail", origem')
+    .eq("CPF", cpf)
+    .maybeSingle();
 
-  // -------- CONSULTA --------
-  if (tipo === "consulta" || externalRef.startsWith("CONSULTA")) {
+  const telefone = String(crmRow?.telefone || "").replace(/\D/g, "");
+  const nome = String(crmRow?.nome || "");
+  const email = String(crmRow?.["e-mail"] || "");
+  const origem = (crmRow?.origem === "whatsapp" ? "whatsapp" : "site") as "site" | "whatsapp";
+
+  if (!telefone) {
+    console.error("[asaas-webhook] CRM não tem telefone pra CPF:", cpf);
+  }
+
+  // ─── CONSULTA ─────────────────────────────────────────
+  if (tipoFromRef === "consulta") {
     let parsed: ReturnType<typeof parseConsulta> | null = null;
     let raw: APIFullResultado | null = null;
     try {
       raw = await consultarCPF(cpf);
       parsed = parseConsulta(raw);
     } catch (e) {
-      console.error("[mp-webhook] erro consulta API Full (segue marcando pago):", e);
+      console.error("[asaas-webhook] erro consulta API Full (segue):", e);
     }
 
     const { error: rpcErr } = await supa.rpc("webhook_registrar_consulta_paga", {
       p_cpf: cpf,
-      p_nome: payment.payer?.first_name || "",
-      p_email: payment.payer?.email || "",
+      p_nome: nome,
+      p_email: email,
       p_telefone: telefone,
       p_provider: "apifull",
       p_tem_pendencia: parsed?.tem_pendencia ?? null,
@@ -116,33 +122,30 @@ export async function POST(req: Request) {
       p_resultado_raw: (raw as unknown as object) ?? {},
       p_external_ref: String(externalRef),
     });
-    if (rpcErr) console.error("[mp-webhook] webhook_registrar_consulta_paga erro:", rpcErr);
+    if (rpcErr) console.error("[asaas-webhook] webhook_registrar_consulta_paga erro:", rpcErr);
 
-    // Geração de PDF + envio de notificação por origem (background)
+    // Geração de PDF + envio de notificação (background)
     finalizarConsulta({
       cpf,
-      nome: payment.payer?.first_name || "",
-      email: payment.payer?.email || "",
+      nome,
+      email,
       telefone,
       parsed,
       raw,
       origem,
-    }).catch((e) =>
-      console.error("[mp-webhook] erro finalizar consulta:", e)
-    );
+    }).catch((e) => console.error("[asaas-webhook] erro finalizar consulta:", e));
   }
 
-  // -------- LIMPEZA --------
-  if (tipo.startsWith("limpeza") || externalRef.startsWith("LIMPEZA")) {
+  // ─── LIMPEZA ─────────────────────────────────────────
+  if (tipoFromRef === "limpeza" || tipoFromRef === "limpeza_desconto") {
     const { error: rpcErr } = await supa.rpc("webhook_registrar_limpeza_fechada", {
       p_cpf: cpf,
       p_telefone: telefone,
     });
-    if (rpcErr) console.error("[mp-webhook] webhook_registrar_limpeza_fechada erro:", rpcErr);
+    if (rpcErr) console.error("[asaas-webhook] webhook_registrar_limpeza_fechada erro:", rpcErr);
 
-    // Aplica labels Chatwoot + handoff humano (background)
-    finalizarLimpezaPaga({ cpf, nome: payment.payer?.first_name || "", telefone, email: payment.payer?.email || "", origem }).catch((e) =>
-      console.error("[mp-webhook] erro finalizar limpeza:", e)
+    finalizarLimpezaPaga({ cpf, nome, telefone, email, origem }).catch((e) =>
+      console.error("[asaas-webhook] erro finalizar limpeza:", e)
     );
   }
 
@@ -150,16 +153,14 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
-  return NextResponse.json({ ok: true, message: "MP webhook ativo" });
+  return NextResponse.json({ ok: true, message: "Asaas webhook ativo" });
 }
 
-/**
- * Finaliza pagamento da Limpeza (R$ 480,01).
- * - Aplica label "pago-limpeza" no Chatwoot
- * - Manda mensagem de boas-vindas no WhatsApp avisando que equipe assume
- * - Email de confirmação se tiver email
- * - (futuro) cria registro em lnb_processos com etapa "iniciado"
- */
+// ────────────────────────────────────────────────────────
+// Handlers de pós-pagamento
+// (mesmos do mp-webhook antigo, só renomeei o entry point)
+// ────────────────────────────────────────────────────────
+
 interface FinalizarLimpezaInput {
   cpf: string;
   nome: string;
@@ -170,12 +171,11 @@ interface FinalizarLimpezaInput {
 
 async function finalizarLimpezaPaga(i: FinalizarLimpezaInput) {
   const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://limpanomebrazil.com.br";
-  console.log(`[mp-webhook] limpeza paga cpf=${i.cpf} origem=${i.origem}`);
+  console.log(`[asaas-webhook] limpeza paga cpf=${i.cpf} origem=${i.origem}`);
 
   const titulo = "🎉 Limpeza contratada — equipe inicia em até 4h úteis";
   const corpo = `Recebemos seu pagamento de R$ 480,01 com sucesso! Em até 4 horas úteis nossa equipe especializada inicia o processo de limpeza do seu nome. Você será atualizado a cada etapa por aqui e por email.\n\n📋 Próximos passos:\n• Análise dos credores (em até 2 dias)\n• Atuação junto aos órgãos (Boa Vista/Serasa/SPC)\n• Acompanhamento online no painel\n• Conclusão em até 20 dias úteis\n\nObrigado pela confiança 💙`;
 
-  // WhatsApp via Chatwoot (se origem=whatsapp)
   if (i.origem === "whatsapp" && i.telefone) {
     try {
       const { aplicarLabelsLnb } = await import("@/lib/chatwoot-labels");
@@ -185,21 +185,18 @@ async function finalizarLimpezaPaga(i: FinalizarLimpezaInput) {
 
       const convId = await buscarConversationIdPorTelefone(i.telefone);
       if (convId) {
-        // Labels + atribute + nota
         await aplicarLabelsLnb(convId, "pago_limpeza");
         await registrarLimpezaPagaNoCard(convId, {
           cpf: i.cpf,
           valor: "R$ 480,01",
         });
-        // Mensagem visível pro cliente
         await enviarTextoChatwoot(convId, `*${titulo}*\n\n${corpo}`);
       }
     } catch (e) {
-      console.error("[mp-webhook] limpeza chatwoot erro:", e);
+      console.error("[asaas-webhook] limpeza chatwoot erro:", e);
     }
   }
 
-  // Email (sempre que tiver email)
   if (i.email) {
     try {
       const { sendEmail, renderEmailHTML } = await import("@/lib/email");
@@ -216,25 +213,12 @@ async function finalizarLimpezaPaga(i: FinalizarLimpezaInput) {
         text: `${titulo}\n\n${corpo}\n\nAcesse: ${SITE}/conta/dashboard`,
       });
     } catch (e) {
-      console.error("[mp-webhook] limpeza email erro:", e);
+      console.error("[asaas-webhook] limpeza email erro:", e);
     }
   }
 }
 
-/**
- * Finaliza a consulta após pagamento confirmado.
- *
- * Sempre faz:
- * 1. Gera PDF interno (sem n8n)
- * 2. Salva pdf_url em LNB_Consultas (RPC SECURITY DEFINER)
- *
- * Por ORIGEM:
- * - site:     só envia email Resend (sem WhatsApp — cliente acompanha pelo painel)
- * - whatsapp: só envia mensagem Chatwoot (n8n Maia continua a conversa)
- *
- * Roda em background — não bloqueia resposta do webhook MP.
- */
-interface FinalizarInput {
+interface FinalizarConsultaInput {
   cpf: string;
   nome: string;
   email: string;
@@ -244,18 +228,16 @@ interface FinalizarInput {
   origem: "site" | "whatsapp";
 }
 
-async function finalizarConsulta(input: FinalizarInput) {
+async function finalizarConsulta(input: FinalizarConsultaInput) {
   const { cpf, nome, email, telefone, parsed, raw, origem } = input;
   const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://limpanomebrazil.com.br";
 
-  // Imports lazy pra não pesar o bundle do webhook
   const { gerarESalvarRelatorio } = await import("@/lib/pdf/gerar-relatorio");
   const { sendEmail, renderEmailHTML } = await import("@/lib/email");
   const { sendWhatsAppTemplate, sendWhatsApp } = await import("@/lib/chatwoot");
 
-  console.log(`[mp-webhook] finalizando consulta cpf=${cpf} origem=${origem}`);
+  console.log(`[asaas-webhook] finalizando consulta cpf=${cpf} origem=${origem}`);
 
-  // 1) Extrai score + pendências do raw
   const rawObj = (raw as Record<string, unknown>) || {};
   const score =
     typeof rawObj.Score === "number"
@@ -284,7 +266,6 @@ async function finalizarConsulta(input: FinalizarInput) {
     }
   }
 
-  // 2) Gera PDF + upload Storage
   let pdfUrl: string | null = null;
   try {
     const r = await gerarESalvarRelatorio({
@@ -300,14 +281,11 @@ async function finalizarConsulta(input: FinalizarInput) {
     });
     if (r.ok) {
       pdfUrl = r.pdfUrl;
-      const { createClient } = await import("@/lib/supabase/server");
       const supa = await createClient();
-      // Salva pdf_url + dados consulta na LNB_Consultas
       await supa.rpc("webhook_set_pdf_url" as never, {
         p_cpf: cpf,
         p_pdf_url: pdfUrl,
       } as never);
-      // Também grava no LNB - CRM (padrão SPV — Kanban completo)
       await supa.rpc("lnb_crm_set_consulta_resultado" as never, {
         p_telefone: telefone,
         p_score: score ?? null,
@@ -317,13 +295,12 @@ async function finalizarConsulta(input: FinalizarInput) {
         p_pdf_url: pdfUrl,
       } as never);
     } else {
-      console.error("[mp-webhook] PDF erro:", r.error);
+      console.error("[asaas-webhook] PDF erro:", r.error);
     }
   } catch (e) {
-    console.error("[mp-webhook] PDF exception:", e);
+    console.error("[asaas-webhook] PDF exception:", e);
   }
 
-  // 2.5) Aplica labels + custom attributes + private note no card Chatwoot
   if (origem === "whatsapp" && telefone) {
     try {
       const { aplicarLabelsLnb } = await import("@/lib/chatwoot-labels");
@@ -332,15 +309,12 @@ async function finalizarConsulta(input: FinalizarInput) {
 
       const convId = await buscarConversationIdPorTelefone(telefone);
       if (convId) {
-        // Labels: pago_consulta + resultado
         await aplicarLabelsLnb(convId, "pago_consulta");
         if (parsed?.tem_pendencia) {
           await aplicarLabelsLnb(convId, "consulta_resultado_com_pendencia", { score });
         } else {
           await aplicarLabelsLnb(convId, "consulta_resultado_sem_pendencia", { score });
         }
-
-        // Custom attributes + private note (PDF fica visível no painel lateral)
         await registrarConsultaNoCard(convId, {
           cpf,
           score,
@@ -351,7 +325,7 @@ async function finalizarConsulta(input: FinalizarInput) {
         });
       }
     } catch (e) {
-      console.error("[mp-webhook] chatwoot card erro (segue):", e);
+      console.error("[asaas-webhook] chatwoot card erro (segue):", e);
     }
   }
 
@@ -365,8 +339,6 @@ async function finalizarConsulta(input: FinalizarInput) {
     ? `Encontramos ${parsed.qtd_pendencias} pendência(s) no seu CPF (R$ ${parsed.total_dividas.toFixed(2)}). Veja o relatório completo na sua área.`
     : "Não encontramos pendências no seu CPF. Continue mantendo as contas em dia.";
 
-  // ─── FLUXO SITE: só email Resend ──────────────────────
-  // Cliente acompanha pelo painel /conta/dashboard. Sem WhatsApp.
   if (origem === "site" && email) {
     try {
       const html = renderEmailHTML({
@@ -386,25 +358,18 @@ async function finalizarConsulta(input: FinalizarInput) {
         text: `${titulo}\n\n${corpoEmail}\n\n${pdfUrl ? "PDF: " + pdfUrl + "\n\n" : ""}Acesse: ${SITE}/conta/dashboard`,
       });
     } catch (e) {
-      console.error("[mp-webhook] email erro:", e);
+      console.error("[asaas-webhook] email erro:", e);
     }
   }
 
-  // ─── FLUXO WHATSAPP: Chatwoot + PDF anexo + email backup ──
-  // 1) Manda PDF como anexo direto na conversa Chatwoot (UX rápida)
-  // 2) Manda email Resend como backup (se email existir)
-  // n8n Maia continua a conversa depois.
   if (origem === "whatsapp" && telefone) {
     try {
       const { buscarConversationIdPorTelefone } = await import("@/lib/chatwoot-kanban");
       const { enviarTextoChatwoot, enviarAnexoChatwoot } = await import("@/lib/chatwoot-attach");
       const convId = await buscarConversationIdPorTelefone(telefone);
       if (convId) {
-        // 1ª mensagem: texto resumo
         const textoResumo = `*${titulo}*\n\n${corpoWpp}\n\n${parsed?.tem_pendencia ? "Vou te explicar como funciona a limpeza." : "Recomendo a Blindagem mensal pra manter assim."}`;
         await enviarTextoChatwoot(convId, textoResumo);
-
-        // 2ª mensagem: PDF anexo (se gerou)
         if (pdfUrl) {
           await enviarAnexoChatwoot(
             convId,
@@ -414,7 +379,6 @@ async function finalizarConsulta(input: FinalizarInput) {
           );
         }
       } else {
-        // Fallback: usa template Meta (cliente não respondeu nas últimas 24h)
         const templateName = process.env.WPP_TEMPLATE_GENERICO;
         if (templateName) {
           await sendWhatsAppTemplate(
@@ -437,10 +401,9 @@ async function finalizarConsulta(input: FinalizarInput) {
         }
       }
     } catch (e) {
-      console.error("[mp-webhook] whatsapp/chatwoot erro:", e);
+      console.error("[asaas-webhook] whatsapp/chatwoot erro:", e);
     }
 
-    // Email backup (se cliente passou email)
     if (email) {
       try {
         const html = renderEmailHTML({
@@ -460,7 +423,7 @@ async function finalizarConsulta(input: FinalizarInput) {
           text: `${titulo}\n\n${corpoEmail}\n\n${pdfUrl ? "PDF: " + pdfUrl + "\n\n" : ""}Acesse: ${SITE}/conta/dashboard`,
         });
       } catch (e) {
-        console.error("[mp-webhook] email backup erro:", e);
+        console.error("[asaas-webhook] email backup erro:", e);
       }
     }
   }

@@ -100,7 +100,7 @@ function ConsultarWizard() {
         console.error("[consultar] aceite-termos erro (segue):", e);
       }
 
-      // 2) Cria preference Mercado Pago
+      // 2) Cria cobrança Asaas
       const r = await fetch("/api/site/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -120,10 +120,10 @@ function ConsultarWizard() {
         return;
       }
 
-      // Salva CPF em localStorage pra recuperar quando voltar do MP
+      // Salva CPF em localStorage pra recuperar quando voltar do gateway
       try { localStorage.setItem("lnb_last_cpf", d.cpf); } catch {}
 
-      // Redireciona pro Mercado Pago Checkout
+      // Redireciona pro checkout Asaas (Pix + cartão + boleto na mesma tela)
       window.location.assign(d.init_point);
     } catch (e) {
       console.error(e);
@@ -132,7 +132,7 @@ function ConsultarWizard() {
     }
   }
 
-  // Polling do resultado quando o cliente volta do Mercado Pago no step 3
+  // Polling do resultado quando o cliente volta do gateway no step 3
   useEffect(() => {
     if (step !== 3) return;
     const cpfPoll =
@@ -274,7 +274,7 @@ function ConsultarWizard() {
               <CardContent className="p-8 lg:p-10">
                 <h2 className="font-display text-3xl text-forest-800 mb-2">Pagamento</h2>
                 <p className="text-gray-500 mb-8">
-                  Você será redirecionado pro Mercado Pago pra finalizar com Pix ou cartão.
+                  Você vai pra uma tela segura e finaliza com Pix (instantâneo), cartão ou boleto.
                 </p>
 
                 <div className="rounded-xl bg-sand-50 border border-sand-300/40 p-5 mb-6">
@@ -295,7 +295,7 @@ function ConsultarWizard() {
                   <strong>Como funciona:</strong>
                   <ol className="list-decimal pl-5 mt-2 space-y-1 text-gray-700">
                     <li>Clique em &quot;Ir para pagamento&quot;</li>
-                    <li>No Mercado Pago: Pix (instantâneo) ou cartão</li>
+                    <li>Na próxima tela: Pix (instantâneo), cartão ou boleto</li>
                     <li>Volta pra cá automaticamente após confirmar</li>
                     <li>Seu resultado aparece em minutos</li>
                   </ol>
@@ -366,7 +366,7 @@ function ConsultarWizard() {
                     <ShieldCheck className="size-3.5 text-emerald-600" /> Dados protegidos
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Zap className="size-3.5 text-emerald-600" /> Mercado Pago
+                    <Zap className="size-3.5 text-emerald-600" /> Pix · Cartão · Boleto
                   </div>
                 </div>
               </CardContent>

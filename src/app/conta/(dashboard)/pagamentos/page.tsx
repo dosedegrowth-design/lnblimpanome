@@ -34,7 +34,7 @@ export default async function PagamentosPage() {
       valor: 19.99,
       status: "pago",
       data: consulta.created_at,
-      metodo: "Mercado Pago",
+      metodo: "Asaas",
     });
   }
 
@@ -45,7 +45,7 @@ export default async function PagamentosPage() {
       valor,
       status: "pago",
       data: crm?.created_at ?? null,
-      metodo: crm?.metodo_de_pagamento || "Mercado Pago",
+      metodo: crm?.metodo_de_pagamento || "Asaas",
       link: crm?.link_boleto,
     });
   }

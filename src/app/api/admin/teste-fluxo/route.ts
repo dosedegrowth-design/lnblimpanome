@@ -330,8 +330,9 @@ export async function POST(req: Request) {
     step: "envs_check",
     ok: true,
     envs: {
-      MP_ACCESS_TOKEN: !!process.env.MP_ACCESS_TOKEN,
-      MP_WEBHOOK_SECRET: !!process.env.MP_WEBHOOK_SECRET,
+      ASAAS_API_KEY: !!process.env.ASAAS_API_KEY,
+      ASAAS_WEBHOOK_TOKEN: !!process.env.ASAAS_WEBHOOK_TOKEN,
+      ASAAS_ENV: process.env.ASAAS_ENV || "sandbox",
       API_FULL_TOKEN: !!process.env.API_FULL_TOKEN,
       LNB_PDF_WEBHOOK: !!process.env.LNB_PDF_WEBHOOK,
       SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,

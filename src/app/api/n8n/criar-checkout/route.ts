@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createPreference } from "@/lib/mercadopago";
+import { criarCobrancaLNB } from "@/lib/asaas";
 import { checkN8nAuth } from "@/lib/n8n/auth";
 import { cleanCPF, isValidCPF } from "@/lib/utils";
 import { aplicarLabelsLnb, type LnbLabelContext } from "@/lib/chatwoot-labels";
@@ -102,40 +102,39 @@ export async function POST(req: Request) {
     console.error("[n8n/criar-checkout] upsert CRM erro (segue):", e);
   }
 
-  // Cria preference MP
+  // Cria cobrança Asaas
   const base = siteUrl(req);
   const externalRef = `${tipo.toUpperCase()}-${cpf}-${Date.now()}`;
-  let preference;
+  let cobranca;
   try {
-    preference = await createPreference({
-      title: item.titulo,
-      unitPrice: item.valor,
+    cobranca = await criarCobrancaLNB({
+      cpf,
+      nome,
+      email: email || `${telefone}@whatsapp.lnb`,
+      telefone,
+      valor: item.valor,
+      descricao: item.titulo,
       externalReference: externalRef,
-      payer: { name: nome, email: email || `${telefone}@whatsapp.lnb`, cpf, phone: telefone },
-      metadata: { cpf, telefone, tipo, origem: "whatsapp" },
-      notificationUrl: `${base}/api/site/mp-webhook`,
       successUrl: `${base}/conta/dashboard?status=success`,
-      failureUrl: `${base}/?status=failure`,
-      pendingUrl: `${base}/?status=pending`,
     });
   } catch (e) {
-    console.error("[n8n/criar-checkout] MP erro:", e);
+    console.error("[n8n/criar-checkout] Asaas erro:", e);
     return NextResponse.json(
       { ok: false, error: "Não conseguimos gerar a cobrança. Tente novamente." },
       { status: 502 }
     );
   }
 
-  // Salva preference no CRM
+  // Salva no CRM (RPC mantém os mesmos nomes de params)
   try {
     await supa.rpc("checkout_save_preference", {
       p_telefone: telefone,
-      p_link_pagamento: preference.init_point,
+      p_link_pagamento: cobranca.invoiceUrl,
       p_external_ref: externalRef,
-      p_id_pagamento: preference.id,
+      p_id_pagamento: cobranca.paymentId,
     });
   } catch (e) {
-    console.error("[n8n/criar-checkout] save preference erro (segue):", e);
+    console.error("[n8n/criar-checkout] save cobrança erro (segue):", e);
   }
 
   // Grava valor_servico + tipo_servico (padrão SPV pra Kanban)
@@ -166,8 +165,10 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    init_point: preference.init_point,
-    preference_id: preference.id,
+    init_point: cobranca.invoiceUrl, // mantém o nome pra compat n8n
+    invoice_url: cobranca.invoiceUrl,
+    payment_id: cobranca.paymentId,
+    customer_id: cobranca.customerId,
     external_reference: externalRef,
     cpf,
     telefone,

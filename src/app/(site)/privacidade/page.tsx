@@ -28,7 +28,7 @@ export default function PrivacidadePage() {
           <ul className="list-disc pl-6 space-y-1.5">
             <li>Identificação: nome completo, CPF, data de nascimento.</li>
             <li>Contato: email e número de telefone (WhatsApp).</li>
-            <li>Financeiro: dados de pagamento processados pelo Mercado Pago (não armazenamos cartão).</li>
+            <li>Financeiro: dados de pagamento processados pelo Asaas (gateway certificado PCI; não armazenamos cartão).</li>
             <li>Resultado de consulta: score, lista de pendências e credores (mantidos em Supabase, criptografado em trânsito e em repouso).</li>
             <li>Logs técnicos: data/hora de acesso, IP, navegador (uso operacional, retenção 90 dias).</li>
           </ul>
@@ -50,7 +50,7 @@ export default function PrivacidadePage() {
           <p>Compartilhamos dados estritamente necessários com:</p>
           <ul className="list-disc pl-6 space-y-1.5 mt-2">
             <li><strong>API Full</strong> — provedora de consulta de crédito (Boa Vista/Serasa).</li>
-            <li><strong>Mercado Pago</strong> — gateway de pagamento.</li>
+            <li><strong>Asaas</strong> — gateway de pagamento (Pix, cartão, boleto).</li>
             <li><strong>Chatwoot</strong> — plataforma de atendimento por WhatsApp.</li>
             <li><strong>Supabase</strong> — armazenamento e infraestrutura de banco de dados.</li>
             <li><strong>Vercel</strong> — hospedagem do site/painel.</li>

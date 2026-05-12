@@ -291,7 +291,7 @@ export default function HomePage() {
           </div>
 
           <p className="text-center text-xs sm:text-sm text-gray-700 font-medium mt-6 sm:mt-8">
-            Pagamento via Mercado Pago · Pix, cartão ou boleto · Garantia de devolução
+            Pagamento seguro · Pix, cartão ou boleto · Garantia de devolução
           </p>
         </div>
       </section>
