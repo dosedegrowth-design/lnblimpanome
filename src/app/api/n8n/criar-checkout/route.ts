@@ -39,7 +39,7 @@ const LABEL_POR_TIPO: Record<string, LnbLabelContext> = {
  *   { ok: true, init_point: "https://...", preference_id: "...", external_reference: "..." }
  */
 const PRECOS = {
-  consulta:         { valor: 19.99,  titulo: "LNB - Consulta CPF" },
+  consulta:         { valor: 29.99,  titulo: "LNB - Consulta CPF" },
   limpeza_desconto: { valor: 480.01, titulo: "LNB - Limpeza + Blindagem (com desconto)" },
   blindagem:        { valor: 29.90,  titulo: "LNB - Blindagem mensal de CPF" },
 } as const;

@@ -361,11 +361,11 @@ function ConsultarCNPJWizard() {
                       <p className="font-bold text-forest-800">Consulta CNPJ</p>
                       <p className="text-xs text-gray-500">Resultado em até 5 minutos no WhatsApp e na sua conta</p>
                     </div>
-                    <span className="font-display text-2xl text-forest-800">{formatBRL(24.99)}</span>
+                    <span className="font-display text-2xl text-forest-800">{formatBRL(39.99)}</span>
                   </div>
                   <div className="pt-4 border-t border-sand-300/40 flex items-center justify-between">
                     <span className="font-semibold text-forest-800">Total</span>
-                    <span className="font-display text-3xl text-brand-600">{formatBRL(24.99)}</span>
+                    <span className="font-display text-3xl text-brand-600">{formatBRL(39.99)}</span>
                   </div>
                 </div>
 
@@ -424,7 +424,7 @@ function ConsultarCNPJWizard() {
                     size="lg" width="full"
                     className="sm:w-auto gap-2"
                   >
-                    Ir para pagamento {formatBRL(24.99)}
+                    Ir para pagamento {formatBRL(39.99)}
                     <ArrowRight className="size-4" />
                   </Button>
                 </div>

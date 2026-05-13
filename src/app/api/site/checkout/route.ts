@@ -18,8 +18,8 @@ import { getClienteSession } from "@/lib/auth/cliente";
  * Asaas notifica via webhook → /api/site/asaas-webhook
  */
 const PRECOS = {
-  consulta:         { valor: 19.99,  titulo: "LNB - Consulta CPF",                          tipoDoc: "CPF"  as const },
-  consulta_cnpj:    { valor: 24.99,  titulo: "LNB - Consulta CNPJ",                         tipoDoc: "CNPJ" as const },
+  consulta:         { valor: 29.99,  titulo: "LNB - Consulta CPF",                          tipoDoc: "CPF"  as const },
+  consulta_cnpj:    { valor: 39.99,  titulo: "LNB - Consulta CNPJ",                         tipoDoc: "CNPJ" as const },
   limpeza_desconto: { valor: 480.01, titulo: "LNB - Limpeza de Nome + Monitoramento 12m",   tipoDoc: "CPF"  as const },
   limpeza:          { valor: 499.90, titulo: "LNB - Limpeza de Nome + Monitoramento 12m",   tipoDoc: "CPF"  as const },
   limpeza_cnpj:     { valor: 580.01, titulo: "LNB - Limpeza CNPJ + Sócio + Monitoramento",  tipoDoc: "CNPJ" as const },

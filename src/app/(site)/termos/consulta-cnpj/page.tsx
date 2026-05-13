@@ -13,7 +13,7 @@ export default function TermosConsultaCNPJPage() {
           Contrato · Consulta CNPJ
         </p>
         <h1 className="font-display text-4xl sm:text-5xl text-forest-800 mt-2">
-          Termos e Condições — Consulta CNPJ (R$ 24,99)
+          Termos e Condições — Consulta CNPJ (R$ 39,99)
         </h1>
         <p className="text-gray-500 text-sm mt-3">
           Versão 1.0 · Atualizado em {new Date().toLocaleDateString("pt-BR")}
@@ -24,7 +24,7 @@ export default function TermosConsultaCNPJPage() {
         <p className="text-sm text-forest-800 leading-relaxed">
           Este contrato regula a prestação do serviço de <strong>Consulta de CNPJ</strong>{" "}
           entre a <strong>Limpa Nome Brazil (LNB)</strong> e o USUÁRIO (representante legal
-          da empresa consultada). Ao efetuar o pagamento de <strong>R$ 24,99</strong>,
+          da empresa consultada). Ao efetuar o pagamento de <strong>R$ 39,99</strong>,
           você declara estar de acordo com as cláusulas abaixo e ter poderes pra autorizar
           a consulta em nome da empresa.
         </p>
@@ -53,7 +53,7 @@ export default function TermosConsultaCNPJPage() {
             duas análises, enviado por email do USUÁRIO e disponível na área online.
           </p>
           <p>
-            O pagamento de R$ 24,99 refere-se exclusivamente à <strong>execução das
+            O pagamento de R$ 39,99 refere-se exclusivamente à <strong>execução das
             consultas e emissão do relatório</strong>, e não implica em qualquer ação
             sobre eventuais pendências encontradas.
           </p>
@@ -203,7 +203,7 @@ export default function TermosConsultaCNPJPage() {
             7. DESCONTO PARA LIMPEZA CNPJ
           </h2>
           <p>
-            O valor de R$ 24,99 pago pela consulta gera{" "}
+            O valor de R$ 39,99 pago pela consulta gera{" "}
             <strong>desconto integral</strong> caso a empresa contrate o serviço de
             Limpeza CNPJ + Sócio + Monitoramento da LNB nos próximos 30 dias. Nesse
             caso, o valor da Limpeza passa de R$ 605,00 para <strong>R$ 580,01</strong>.

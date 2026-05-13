@@ -13,7 +13,7 @@ export default function TermosConsultaPage() {
           Contrato · Consulta CPF
         </p>
         <h1 className="font-display text-4xl sm:text-5xl text-forest-800 mt-2">
-          Termos e Condições — Consulta CPF (R$ 19,99)
+          Termos e Condições — Consulta CPF (R$ 29,99)
         </h1>
         <p className="text-gray-500 text-sm mt-3">
           Versão 1.0 · Atualizado em {new Date().toLocaleDateString("pt-BR")}
@@ -24,7 +24,7 @@ export default function TermosConsultaPage() {
         <p className="text-sm text-forest-800 leading-relaxed">
           Este contrato regula a prestação do serviço de <strong>Consulta de CPF</strong>{" "}
           entre a <strong>Limpa Nome Brazil (LNB)</strong> e o USUÁRIO. Ao efetuar o
-          pagamento de <strong>R$ 19,99</strong>, você declara estar de acordo com as
+          pagamento de <strong>R$ 29,99</strong>, você declara estar de acordo com as
           cláusulas abaixo.
         </p>
       </div>
@@ -49,7 +49,7 @@ export default function TermosConsultaPage() {
             data), protestos em cartório e status geral do CPF.
           </p>
           <p>
-            O pagamento de R$ 19,99 refere-se exclusivamente à <strong>execução da
+            O pagamento de R$ 29,99 refere-se exclusivamente à <strong>execução da
             consulta e emissão do relatório</strong>, e não implica em qualquer ação
             sobre as pendências encontradas.
           </p>
@@ -157,7 +157,7 @@ export default function TermosConsultaPage() {
             6. DESCONTO PARA LIMPEZA DE NOME
           </h2>
           <p>
-            O valor de R$ 19,99 pago pela consulta gera{" "}
+            O valor de R$ 29,99 pago pela consulta gera{" "}
             <strong>desconto integral</strong> caso o USUÁRIO contrate o serviço de
             Limpeza de Nome + Blindagem da LNB nos próximos 30 dias. Nesse caso, o
             valor da Limpeza passa de R$ 499,90 para <strong>R$ 480,01</strong>.

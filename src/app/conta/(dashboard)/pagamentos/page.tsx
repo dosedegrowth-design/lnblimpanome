@@ -31,7 +31,7 @@ export default async function PagamentosPage() {
   if (consulta?.consulta_paga) {
     items.push({
       label: "Consulta CPF",
-      valor: 19.99,
+      valor: 29.99,
       status: "pago",
       data: consulta.created_at,
       metodo: "Asaas",
@@ -92,7 +92,7 @@ export default async function PagamentosPage() {
               <Receipt className="size-12 mx-auto mb-3 opacity-30" />
               <p className="font-medium text-gray-500 mb-1">Nenhum pagamento ainda</p>
               <p className="text-sm text-gray-400 mb-5">
-                Faça sua primeira consulta de CPF por R$ 19,99
+                Faça sua primeira consulta de CPF por R$ 29,99
               </p>
               <Link
                 href="/consultar/cpf"

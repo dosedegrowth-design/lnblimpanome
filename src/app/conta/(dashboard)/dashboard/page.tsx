@@ -223,7 +223,7 @@ export default async function ClienteDashboardPage() {
               </div>
               <div>
                 <p className="font-bold text-forest-800">Faça sua primeira consulta</p>
-                <p className="text-sm text-gray-600">R$ 19,99 · Resultado em minutos</p>
+                <p className="text-sm text-gray-600">R$ 29,99 · Resultado em minutos</p>
               </div>
             </div>
             <Link href="/consultar/cpf" className="inline-flex items-center gap-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white px-5 h-11 font-semibold shadow-md shadow-brand-500/25 transition">

@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { cleanCPF } from "@/lib/utils";
-import type { APIFullResultado, APIFullCNPJResultado } from "@/lib/api-full";
-import { consultarCPF, parseConsulta, consultarCNPJCompleto } from "@/lib/api-full";
+import type { APIFullResultado, APIFullCNPJResultado, ConsultaCombinada } from "@/lib/api-full";
+import {
+  consultarCPF,
+  parseConsulta,
+  consultarCNPJCompleto,
+  consultarCPFCombinado,
+  consultarSerasaPremium,
+  parseSerasa,
+} from "@/lib/api-full";
 import {
   verifyAsaasWebhookToken,
   isPaymentConfirmedEvent,
@@ -110,22 +117,33 @@ export async function POST(req: Request) {
     console.error("[asaas-webhook] CRM não tem telefone pra documento:", documento);
   }
 
-  // ─── CONSULTA CPF ─────────────────────────────────────
+  // ─── CONSULTA CPF (combo Serasa Premium + Boa Vista Essencial) ──
   if (tipoFromRef === "consulta" && !isCNPJ) {
-    let parsed: ReturnType<typeof parseConsulta> | null = null;
-    let raw: APIFullResultado | null = null;
+    let combo: ConsultaCombinada | null = null;
     let providerError: string | null = null;
     let providerStatus: "ok" | "sem_saldo" | "erro_provedor" = "ok";
 
     try {
-      raw = await consultarCPF(cpf);
-      parsed = parseConsulta(raw);
+      combo = await consultarCPFCombinado(cpf);
+      // Se as DUAS fontes falharam, marca como erro de provedor
+      if (!combo.serasa && !combo.boaVista) {
+        const erros = [combo.serasaErro, combo.boaVistaErro].filter(Boolean).join(" | ");
+        throw new Error(erros || "Ambas as fontes falharam");
+      }
+      // Log de qual fonte respondeu pra debug
+      console.log(
+        `[asaas-webhook] combo cpf=${cpf} serasa=${combo.serasa ? "ok" : "falhou"} boavista=${combo.boaVista ? "ok" : "falhou"}`
+      );
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       providerError = msg;
       providerStatus = msg.toLowerCase().includes("sem saldo") ? "sem_saldo" : "erro_provedor";
       console.error(`[asaas-webhook] ❌ API Full FALHOU cpf=${cpf} status=${providerStatus}: ${msg}`);
     }
+
+    // Mantém variáveis compat com código abaixo
+    const parsed = combo?.boaVista ?? null;
+    const raw = combo?.boaVistaRaw ?? null;
 
     // Se API Full falhou, marca status e NÃO gera PDF fake — admin recebe email
     if (providerStatus !== "ok") {
@@ -183,7 +201,7 @@ export async function POST(req: Request) {
     // ⚠️ AWAIT obrigatório — em Vercel serverless o processo morre após
     // a response, então fire-and-forget aborta a Promise silenciosamente.
     try {
-      await finalizarConsulta({ cpf, nome, email, telefone, parsed, raw, origem });
+      await finalizarConsulta({ cpf, nome, email, telefone, parsed, raw, origem, combo });
     } catch (e) {
       console.error("[asaas-webhook] erro finalizar consulta:", e);
     }
@@ -315,10 +333,11 @@ interface FinalizarConsultaInput {
   parsed: ReturnType<typeof parseConsulta> | null;
   raw: unknown;
   origem: "site" | "whatsapp";
+  combo: ConsultaCombinada | null;
 }
 
 async function finalizarConsulta(input: FinalizarConsultaInput) {
-  const { cpf, nome, email, telefone, parsed, raw, origem } = input;
+  const { cpf, nome, email, telefone, parsed, raw, origem, combo } = input;
   const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://limpanomebrazil.com.br";
 
   const { gerarESalvarRelatorio } = await import("@/lib/pdf/gerar-relatorio");
@@ -345,22 +364,26 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
 
   const saida = findSaida(rawObj) || {};
 
-  // Score: tenta Scores[0].score, Score direto, ou score
-  let score: number | undefined;
+  // Score Boa Vista (extraído do raw)
+  let scoreBoaVista: number | undefined;
   const scoresArr = saida.Scores as Array<Record<string, unknown>> | undefined;
   if (Array.isArray(scoresArr) && scoresArr.length > 0) {
     const s0 = scoresArr[0];
     const sNum = parseFloat(String(s0?.score ?? s0?.valor ?? ""));
-    if (!isNaN(sNum)) score = sNum;
+    if (!isNaN(sNum)) scoreBoaVista = sNum;
   }
-  if (score === undefined) {
+  if (scoreBoaVista === undefined) {
     const direct = saida.Score ?? saida.score ?? rawObj.Score ?? rawObj.score;
-    if (typeof direct === "number") score = direct;
+    if (typeof direct === "number") scoreBoaVista = direct;
     else if (typeof direct === "string") {
       const n = parseFloat(direct);
-      if (!isNaN(n)) score = n;
+      if (!isNaN(n)) scoreBoaVista = n;
     }
   }
+
+  // Score Serasa (do combo) — score "principal" que aparece em destaque é o Serasa
+  const scoreSerasa = combo?.serasa?.score ?? undefined;
+  const score = scoreSerasa ?? scoreBoaVista; // fallback se Serasa falhou
 
   const pendencias: Array<{ credor: string; valor: number; data?: string }> = [];
 
@@ -392,6 +415,17 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
     }
   }
 
+  // Agrega pendências da Serasa também (com origem)
+  const pendenciasCombo: Array<{ credor: string; valor: number; data?: string; origem?: string }> = [];
+  for (const p of pendencias) {
+    pendenciasCombo.push({ ...p, origem: "Boa Vista" });
+  }
+  if (combo?.serasa?.pendencias) {
+    for (const p of combo.serasa.pendencias) {
+      pendenciasCombo.push({ ...p, origem: "Serasa" });
+    }
+  }
+
   let pdfUrl: string | null = null;
   try {
     const r = await gerarESalvarRelatorio({
@@ -399,28 +433,45 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
       nome,
       email,
       telefone,
+      data_nascimento: combo?.serasa?.data_nascimento ?? undefined,
+      situacao_receita: combo?.serasa?.situacao_receita ?? undefined,
+      score_serasa: scoreSerasa,
+      score_boa_vista: scoreBoaVista,
       score,
-      tem_pendencia: !!parsed?.tem_pendencia,
-      qtd_pendencias: parsed?.qtd_pendencias || 0,
-      total_dividas: parsed?.total_dividas || 0,
-      pendencias,
+      probabilidade_pagamento: combo?.serasa?.probabilidade_pagamento ?? undefined,
+      tem_pendencia: combo?.tem_pendencia ?? !!parsed?.tem_pendencia,
+      qtd_pendencias: combo?.qtd_pendencias ?? parsed?.qtd_pendencias ?? 0,
+      total_dividas: combo?.total_dividas ?? parsed?.total_dividas ?? 0,
+      qtd_protestos: combo?.serasa?.qtd_protestos ?? 0,
+      qtd_cheques_sem_fundo: combo?.serasa?.qtd_cheques_sem_fundo ?? 0,
+      pendencias: pendenciasCombo,
     });
     if (r.ok) {
       pdfUrl = r.pdfUrl;
       const supa2 = await createClient();
       // Atualiza TUDO em LNB_Consultas (pdf_url + tem_pendencia + qtd + total + resumo)
       // Antes só atualizava pdf_url e tem_pendencia/qtd ficava null → travava tela "gerando"
+      // Agrega pendências das duas fontes
+      const temPendCombo = combo?.tem_pendencia ?? !!parsed?.tem_pendencia;
+      const qtdCombo = combo?.qtd_pendencias ?? parsed?.qtd_pendencias ?? 0;
+      const totalCombo = combo?.total_dividas ?? parsed?.total_dividas ?? 0;
+      const resumoCombo = temPendCombo
+        ? `Foram encontradas ${qtdCombo} pendência(s) em seu nome, totalizando R$ ${totalCombo.toFixed(2)}. Fonte: Serasa Experian + Boa Vista SCPC.`
+        : "Não foram encontradas pendências em seu nome nas bases Serasa Experian e Boa Vista SCPC.";
+
       const rpc1 = await supa2.rpc("webhook_set_consulta_resultado", {
         p_cpf: cpf,
         p_pdf_url: pdfUrl,
-        p_tem_pendencia: !!parsed?.tem_pendencia,
-        p_qtd_pendencias: parsed?.qtd_pendencias || 0,
-        p_total_dividas: parsed?.total_dividas || 0,
-        p_resumo: parsed?.tem_pendencia
-          ? `Foram encontradas ${parsed.qtd_pendencias} pendência(s) em seu nome, totalizando R$ ${parsed.total_dividas.toFixed(2)}.`
-          : "Não foram encontradas pendências em seu nome. Continue mantendo as contas em dia.",
+        p_tem_pendencia: temPendCombo,
+        p_qtd_pendencias: qtdCombo,
+        p_total_dividas: totalCombo,
+        p_resumo: resumoCombo,
         p_resultado_raw: raw as unknown as object,
         p_score: score ?? null,
+        p_score_serasa: scoreSerasa ?? null,
+        p_score_boa_vista: scoreBoaVista ?? null,
+        p_resultado_serasa_raw: (combo?.serasaRaw as unknown as object) ?? null,
+        p_resultado_boa_vista_raw: (combo?.boaVistaRaw as unknown as object) ?? null,
       });
       if (rpc1.error) console.error("[asaas-webhook] webhook_set_consulta_resultado erro:", rpc1.error);
       const rpc2 = await supa2.rpc("lnb_crm_set_consulta_resultado", {

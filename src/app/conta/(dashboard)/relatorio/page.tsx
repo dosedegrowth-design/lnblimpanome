@@ -32,7 +32,7 @@ export default async function RelatorioPage() {
             <FileSearch className="size-16 mx-auto text-gray-300 mb-4" />
             <p className="text-gray-500 font-medium mb-1">Nenhuma consulta realizada ainda</p>
             <p className="text-sm text-gray-400 mb-6 max-w-md mx-auto">
-              Por R$ 19,99 você descobre se seu nome tem pendências, qual o score, quanto deve e pra quem.
+              Por R$ 29,99 você descobre se seu nome tem pendências, qual o score, quanto deve e pra quem.
             </p>
             <Link
               href="/consultar/cpf"

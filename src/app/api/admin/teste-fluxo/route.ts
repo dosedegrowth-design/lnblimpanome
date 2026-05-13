@@ -303,7 +303,7 @@ export async function POST(req: Request) {
         ok: null,
         skipped: true,
         encontrado: false,
-        motivo: `CPF ${cpf} sem registro em LNB_Consultas (esperado em dry-run). Pra ver registro real, complete uma compra de R$ 19,99 em /consultar.`,
+        motivo: `CPF ${cpf} sem registro em LNB_Consultas (esperado em dry-run). Pra ver registro real, complete uma compra de R$ 29,99 em /consultar.`,
       });
     } else {
       steps.push({

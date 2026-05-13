@@ -19,6 +19,248 @@ export interface APIFullResultado {
   [k: string]: unknown;
 }
 
+// ─── SERASA PREMIUM ────────────────────────────────────
+export interface APIFullSerasaResultado {
+  status?: string;
+  dados?: {
+    HEADER?: Record<string, unknown>;
+    CREDCADASTRAL?: {
+      SCORES?: {
+        OCORRENCIAS?: Array<{
+          SCORE?: string;
+          TEXTO?: string;
+          TIPO_SCORE?: string;
+          PROBABILIDADE_INADIMPLENCIA?: string;
+          CLASSIF_ABC?: string;
+        }>;
+        QUANTIDADE_OCORRENCIAS?: string;
+      };
+      PEND_FINANCEIRAS?: {
+        VALOR_TOTAL?: string;
+        VALOR_MAIOR?: string;
+        VALOR_PRIMEIRO?: string;
+        DATA_MAIOR?: string;
+        DATA_PRIMEIRO?: string;
+        TOTAL_CREDORES?: string;
+        QUANTIDADE_OCORRENCIA?: string;
+        OCORRENCIAS?: Array<Record<string, unknown>>;
+      };
+      PEND_REFIN?: { QUANTIDADE_OCORRENCIA?: string; VALOR_TOTAL?: string };
+      PEND_VENCIDAS?: { QUANTIDADE_OCORRENCIA?: string; VALOR_TOTAL?: string };
+      PROTESTO_SINTETICO?: {
+        QUANTIDADE_OCORRENCIA?: string;
+        VALOR_TOTAL?: string;
+        ULTIMO_PROTESTO?: string;
+      };
+      CH_SEM_FUNDOS_BACEN?: { QUANTIDADE_OCORRENCIA?: string };
+      DADOS_RECEITA_FEDERAL?: {
+        NOME?: string;
+        SITUACAO_RECEITA?: string;
+        DATA_NASCIMENTO_FUNDACAO?: string;
+        DATA_ATUALIZACAO?: string;
+      };
+      PARTICIPACAO_EM_EMPRESAS?: { QUANTIDADE_OCORRENCIAS?: string };
+    };
+  };
+  [k: string]: unknown;
+}
+
+/**
+ * Consulta Serasa Premium na API Full.
+ * Endpoint: POST /api/serasa-premium
+ * Custo: R$ 5,80 (Nível 2)
+ * Retorna: Score Serasa + Pendências financeiras + Protestos + Cheques BACEN + Dados RF
+ */
+export async function consultarSerasaPremium(cpf: string): Promise<APIFullSerasaResultado> {
+  const cleanCpf = cpf.replace(/\D/g, "");
+  const r = await fetch(`${API_FULL_BASE}/api/serasa-premium`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ document: cleanCpf, link: "serasa-premium" }),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`API Full Serasa erro ${r.status}: ${t}`);
+  }
+  return (await r.json()) as APIFullSerasaResultado;
+}
+
+export interface ParsedSerasa {
+  score: number | null;
+  tem_pendencia: boolean;
+  qtd_pendencias: number;
+  total_dividas: number;
+  qtd_protestos: number;
+  total_protestos: number;
+  qtd_cheques_sem_fundo: number;
+  probabilidade_pagamento: string | null; // ex: "59,25%"
+  texto_risco: string | null;
+  pendencias: Array<{ credor: string; valor: number; data: string }>;
+  protestos: Array<{ credor: string; valor: number; data: string; cartorio?: string }>;
+  nome_rf: string | null;
+  situacao_receita: string | null;
+  data_nascimento: string | null;
+  resumo: string;
+}
+
+function strNum(v: unknown): number {
+  if (v == null) return 0;
+  const s = String(v).replace(/\./g, "").replace(",", ".");
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
+function strInt(v: unknown): number {
+  if (v == null) return 0;
+  const n = parseInt(String(v), 10);
+  return isNaN(n) ? 0 : n;
+}
+
+export function parseSerasa(r: APIFullSerasaResultado): ParsedSerasa {
+  const cred = r.dados?.CREDCADASTRAL;
+  const sc0 = cred?.SCORES?.OCORRENCIAS?.[0];
+  const score = sc0?.SCORE ? strInt(sc0.SCORE) : null;
+  const probabilidade = sc0?.PROBABILIDADE_INADIMPLENCIA
+    ? `${(100 - strNum(sc0.PROBABILIDADE_INADIMPLENCIA)).toFixed(2)}%`
+    : null;
+
+  const pendFin = cred?.PEND_FINANCEIRAS;
+  const pendRefin = cred?.PEND_REFIN;
+  const pendVenc = cred?.PEND_VENCIDAS;
+  const qtdPendencias =
+    strInt(pendFin?.QUANTIDADE_OCORRENCIA) +
+    strInt(pendRefin?.QUANTIDADE_OCORRENCIA) +
+    strInt(pendVenc?.QUANTIDADE_OCORRENCIA);
+  const totalDividas =
+    strNum(pendFin?.VALOR_TOTAL) +
+    strNum(pendRefin?.VALOR_TOTAL) +
+    strNum(pendVenc?.VALOR_TOTAL);
+
+  const protSint = cred?.PROTESTO_SINTETICO;
+  const qtdProtestos = strInt(protSint?.QUANTIDADE_OCORRENCIA);
+  const totalProtestos = strNum(protSint?.VALOR_TOTAL);
+
+  const chBacen = cred?.CH_SEM_FUNDOS_BACEN;
+  const qtdCheques = strInt(chBacen?.QUANTIDADE_OCORRENCIA);
+
+  // Extrai pendências detalhadas (se a estrutura OCORRENCIAS estiver populada)
+  const pendencias: ParsedSerasa["pendencias"] = [];
+  if (Array.isArray(pendFin?.OCORRENCIAS)) {
+    for (const o of pendFin.OCORRENCIAS) {
+      const od = o as Record<string, unknown>;
+      pendencias.push({
+        credor: String(od.CREDOR ?? od.PROVEDOR ?? od.INFORMANTE ?? "Credor"),
+        valor: strNum(od.VALOR ?? od.VALOR_TOTAL ?? od.VALOR_ATUALIZADO),
+        data: String(od.DATA ?? od.DATA_INCLUSAO ?? od.DATA_OCORRENCIA ?? ""),
+      });
+    }
+  }
+
+  const temPendencia = qtdPendencias > 0 || qtdProtestos > 0 || qtdCheques > 0;
+  const rf = cred?.DADOS_RECEITA_FEDERAL;
+
+  const resumo = temPendencia
+    ? `${qtdPendencias} pendência(s) financeira(s), ${qtdProtestos} protesto(s), ${qtdCheques} cheque(s) sem fundo. Total dívidas: R$ ${totalDividas.toFixed(2)}.`
+    : "Nome limpo — sem pendências financeiras, protestos ou cheques sem fundo nas bases Serasa.";
+
+  return {
+    score,
+    tem_pendencia: temPendencia,
+    qtd_pendencias: qtdPendencias,
+    total_dividas: totalDividas,
+    qtd_protestos: qtdProtestos,
+    total_protestos: totalProtestos,
+    qtd_cheques_sem_fundo: qtdCheques,
+    probabilidade_pagamento: probabilidade,
+    texto_risco: sc0?.TEXTO ?? null,
+    pendencias,
+    protestos: [],
+    nome_rf: rf?.NOME ?? null,
+    situacao_receita: rf?.SITUACAO_RECEITA ?? null,
+    data_nascimento: rf?.DATA_NASCIMENTO_FUNDACAO ?? null,
+    resumo,
+  };
+}
+
+// ─── COMBO: Serasa Premium + Boa Vista Essencial em paralelo ─────
+export interface ConsultaCombinada {
+  serasa: ParsedSerasa | null;
+  serasaRaw: APIFullSerasaResultado | null;
+  serasaErro: string | null;
+  boaVista: ParsedConsulta | null;
+  boaVistaRaw: APIFullResultado | null;
+  boaVistaErro: string | null;
+  // Campos agregados (união das duas fontes)
+  tem_pendencia: boolean;
+  qtd_pendencias: number;
+  total_dividas: number;
+  qtd_protestos: number;
+}
+
+/**
+ * Consulta combinada: Serasa Premium + Boa Vista Essencial em paralelo.
+ * Custo total: R$ 8,49 (R$ 5,80 + R$ 2,69).
+ * Se uma fonte falhar, retorna apenas a outra com o erro.
+ */
+export async function consultarCPFCombinado(cpf: string): Promise<ConsultaCombinada> {
+  const [resSerasa, resBoaVista] = await Promise.allSettled([
+    consultarSerasaPremium(cpf),
+    consultarCPF(cpf),
+  ]);
+
+  let serasa: ParsedSerasa | null = null;
+  let serasaRaw: APIFullSerasaResultado | null = null;
+  let serasaErro: string | null = null;
+  if (resSerasa.status === "fulfilled") {
+    serasaRaw = resSerasa.value;
+    try {
+      serasa = parseSerasa(serasaRaw);
+    } catch (e) {
+      serasaErro = `parse Serasa: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  } else {
+    serasaErro = resSerasa.reason instanceof Error ? resSerasa.reason.message : String(resSerasa.reason);
+  }
+
+  let boaVista: ParsedConsulta | null = null;
+  let boaVistaRaw: APIFullResultado | null = null;
+  let boaVistaErro: string | null = null;
+  if (resBoaVista.status === "fulfilled") {
+    boaVistaRaw = resBoaVista.value;
+    try {
+      boaVista = parseConsulta(boaVistaRaw);
+    } catch (e) {
+      boaVistaErro = `parse Boa Vista: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  } else {
+    boaVistaErro = resBoaVista.reason instanceof Error ? resBoaVista.reason.message : String(resBoaVista.reason);
+  }
+
+  // Agrega: união (qualquer pendência conta)
+  const temPendenciaSerasa = serasa?.tem_pendencia ?? false;
+  const temPendenciaBoa = boaVista?.tem_pendencia ?? false;
+  const qtdSerasa = (serasa?.qtd_pendencias ?? 0) + (serasa?.qtd_protestos ?? 0) + (serasa?.qtd_cheques_sem_fundo ?? 0);
+  const qtdBoa = boaVista?.qtd_pendencias ?? 0;
+  const totalSerasa = (serasa?.total_dividas ?? 0) + (serasa?.total_protestos ?? 0);
+  const totalBoa = boaVista?.total_dividas ?? 0;
+
+  return {
+    serasa,
+    serasaRaw,
+    serasaErro,
+    boaVista,
+    boaVistaRaw,
+    boaVistaErro,
+    tem_pendencia: temPendenciaSerasa || temPendenciaBoa,
+    qtd_pendencias: Math.max(qtdSerasa, qtdBoa),
+    total_dividas: Math.max(totalSerasa, totalBoa),
+    qtd_protestos: serasa?.qtd_protestos ?? 0,
+  };
+}
+
 // ─── CNPJ (Receita Federal) ─────────────────────────────────
 
 export interface APIFullSocio {
@@ -340,8 +582,9 @@ export function parseConsultaCNPJ(r: APIFullCNPJResultado): ParsedConsultaCNPJ {
 }
 
 /**
- * Helper end-to-end: consulta CNPJ (Receita) + CPF do responsável (score/pendências).
- * Faz as 2 chamadas em paralelo.
+ * Helper end-to-end: consulta CNPJ (Receita) + Serasa Premium + Boa Vista do sócio responsável.
+ * 3 chamadas em paralelo.
+ * Custo total: R$ 0,04 + R$ 5,80 + R$ 2,69 = R$ 8,53
  */
 export async function consultarCNPJCompleto(
   cnpj: string,
@@ -351,15 +594,40 @@ export async function consultarCNPJCompleto(
   pjRaw: APIFullCNPJResultado;
   responsavel: ParsedConsulta;
   responsavelRaw: APIFullResultado;
+  responsavelSerasa: ParsedSerasa | null;
+  responsavelSerasaRaw: APIFullSerasaResultado | null;
 }> {
-  const [pjRaw, respRaw] = await Promise.all([
+  const [pjRes, respBVRes, respSerasaRes] = await Promise.allSettled([
     consultarCNPJ(cnpj),
     consultarCPF(cpfResponsavel),
+    consultarSerasaPremium(cpfResponsavel),
   ]);
+
+  if (pjRes.status === "rejected") throw pjRes.reason;
+  if (respBVRes.status === "rejected") throw respBVRes.reason;
+
+  const pjRaw = pjRes.value;
+  const respRaw = respBVRes.value;
+
+  let responsavelSerasa: ParsedSerasa | null = null;
+  let responsavelSerasaRaw: APIFullSerasaResultado | null = null;
+  if (respSerasaRes.status === "fulfilled") {
+    responsavelSerasaRaw = respSerasaRes.value;
+    try {
+      responsavelSerasa = parseSerasa(responsavelSerasaRaw);
+    } catch (e) {
+      console.error("[apifull] parse Serasa CNPJ responsavel falhou:", e);
+    }
+  } else {
+    console.error("[apifull] Serasa Premium responsavel falhou:", respSerasaRes.reason);
+  }
+
   return {
     pj: parseConsultaCNPJ(pjRaw),
     pjRaw,
     responsavel: parseConsulta(respRaw),
     responsavelRaw: respRaw,
+    responsavelSerasa,
+    responsavelSerasaRaw,
   };
 }

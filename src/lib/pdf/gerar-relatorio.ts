@@ -4,11 +4,6 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 const BUCKET = "lnb-relatorios";
 
-/**
- * Cliente Supabase pra Storage — usa anon key (sem service_role).
- * As policies do bucket lnb-relatorios autorizam INSERT/UPDATE/SELECT
- * pra anon, então funciona sem precisar de SUPABASE_SERVICE_ROLE_KEY.
- */
 function createStorageClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -17,20 +12,18 @@ function createStorageClient() {
   });
 }
 
-// ─── Paleta LNB ─────────────────────────────────────────
+// ─── Paleta sóbria executiva ─────────────────────────────
 const C = {
   forest900: "#0A1F1D",
   forest800: "#13312E",
   forest700: "#1F5D5D",
   brand500: "#0298D9",
-  brand400: "#33ABDF",
-  sand: "#DBD2C6",
-  sandLight: "#F5F0E7",
   red500: "#DC2626",
-  red100: "#FEE2E2",
+  red50: "#FEF2F2",
   amber500: "#D97706",
+  amber50: "#FFFBEB",
   emerald500: "#059669",
-  emerald100: "#D1FAE5",
+  emerald50: "#ECFDF5",
   gray50: "#F9FAFB",
   gray100: "#F3F4F6",
   gray200: "#E5E7EB",
@@ -48,11 +41,20 @@ export interface RelatorioInput {
   nome?: string;
   email?: string;
   telefone?: string;
-  score?: number;
+  data_nascimento?: string;
+  situacao_receita?: string;
+  // Scores das DUAS fontes
+  score_serasa?: number;
+  score_boa_vista?: number;
+  score?: number; // backward-compat (usa Serasa preferencialmente, senão BV)
+  probabilidade_pagamento?: string; // ex: "59,25%"
+  // Pendências agregadas
   tem_pendencia: boolean;
   qtd_pendencias: number;
   total_dividas: number;
-  pendencias?: Array<{ credor: string; valor: number; data?: string }>;
+  qtd_protestos?: number;
+  qtd_cheques_sem_fundo?: number;
+  pendencias?: Array<{ credor: string; valor: number; data?: string; origem?: string }>;
   data_consulta?: string;
 }
 
@@ -67,20 +69,12 @@ function formatBRL(v: number): string {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 700) return C.emerald500;
-  if (score >= 500) return C.amber500;
-  if (score >= 300) return C.amber500;
+  if (score >= 701) return C.emerald500;
+  if (score >= 501) return C.amber500;
+  if (score >= 301) return C.amber500;
   return C.red500;
 }
 
-/**
- * Faixas oficiais Boa Vista/Serasa (escala 0-1000):
- * - 0-300:    Muito baixo  (~50% chance pagar contas em dia)
- * - 301-500:  Baixo        (~60% chance)
- * - 501-700:  Regular      (~75% chance)
- * - 701-850:  Bom          (~90% chance)
- * - 851-1000: Ótimo        (~95% chance)
- */
 function scoreFaixa(score: number): string {
   if (score >= 851) return "ÓTIMO";
   if (score >= 701) return "BOM";
@@ -89,17 +83,24 @@ function scoreFaixa(score: number): string {
   return "MUITO BAIXO";
 }
 
-function scoreSubtexto(faixa: string, temPendencia: boolean): string {
+function scoreSubtexto(faixa: string, temPend: boolean): string {
   if (faixa === "ÓTIMO") return "perfil excelente";
   if (faixa === "BOM") return "perfil confiável";
   if (faixa === "REGULAR") return "atenção";
-  if (faixa === "BAIXO") return temPendencia ? "ação necessária" : "construindo histórico";
-  // MUITO BAIXO
-  return temPendencia ? "ação necessária" : "pouco histórico";
+  if (faixa === "BAIXO") return temPend ? "ação necessária" : "construindo histórico";
+  return temPend ? "ação necessária" : "pouco histórico";
 }
 
 /**
- * Gera PDF profissional, sóbrio, em UMA página A4. Layout tipo extrato bancário.
+ * Layout executivo denso em 1 página A4.
+ * Estrutura:
+ *  [HEADER 50] LNB | RELATÓRIO DE CONSULTA DE CPF | data
+ *  [DADOS 70] Nome / CPF / Data Nascimento / Situação RF / Email / Telefone
+ *  [SCORES 110] Serasa Score + Boa Vista Score lado a lado
+ *  [STATUS 50] Faixa "NOME LIMPO" / "POSSUI PENDÊNCIAS"
+ *  [RESUMO 70] 4 cards: pendências, protestos, cheques, total dívidas
+ *  [DETALHES] Tabela de pendências (se houver) OU bloco educativo "como construir score"
+ *  [FOOTER] Protocolo + Fontes + LGPD
  */
 async function montarPdf(data: RelatorioInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -109,8 +110,8 @@ async function montarPdf(data: RelatorioInput): Promise<Buffer> {
       info: {
         Title: `Relatório CPF ${formatCPF(data.cpf)} — LNB`,
         Author: "Limpa Nome Brazil",
-        Subject: "Relatório de Consulta de CPF",
-        Keywords: "CPF, score, Serasa, SPC, Boa Vista",
+        Subject: "Relatório de Consulta de CPF — Serasa Experian + Boa Vista SCPC",
+        Keywords: "CPF, Score, Serasa, Boa Vista, SPC, Pendências",
       },
     });
 
@@ -121,7 +122,7 @@ async function montarPdf(data: RelatorioInput): Promise<Buffer> {
 
     const PAGE_W = 595.28;
     const PAGE_H = 841.89;
-    const M = 40; // margin
+    const M = 36;
     const W = PAGE_W - M * 2;
 
     const dataStr =
@@ -136,360 +137,352 @@ async function montarPdf(data: RelatorioInput): Promise<Buffer> {
       minute: "2-digit",
     });
 
-    const sc = data.score ?? 0;
-    const corScore = scoreColor(sc);
-    const faixa = scoreFaixa(sc);
+    const scoreS = data.score_serasa ?? data.score ?? null;
+    const scoreBV = data.score_boa_vista ?? null;
     const protocolo = `LNB-${data.cpf.replace(/\D/g, "").slice(-6)}-${Date.now().toString().slice(-6)}`;
 
-    // ─── HEADER (faixa fina forest no topo) ────────────────
-    const HEADER_H = 56;
-    doc.rect(0, 0, PAGE_W, HEADER_H).fill(C.forest800);
+    let y = 0;
 
-    // Logo "LNB" pequeno à esquerda
-    doc.fillColor(C.white).fontSize(15).font("Helvetica-Bold");
-    doc.text("LNB", M, 16);
-    doc.fillColor(C.brand400).fontSize(7).font("Helvetica-Bold");
-    doc.text("LIMPA NOME BRAZIL", M, 36, { characterSpacing: 1.5 });
-
-    // Título do documento à direita
-    doc.fillColor(C.white).fontSize(10).font("Helvetica-Bold");
-    doc.text("RELATÓRIO DE CONSULTA DE CPF", PAGE_W - M - 280, 19, {
-      width: 280,
-      align: "right",
-      characterSpacing: 1,
-    });
-    doc.fillColor(C.sand).fontSize(8).font("Helvetica");
-    doc.text(`Emitido em ${dataStr} às ${horaStr}`, PAGE_W - M - 280, 36, {
-      width: 280,
-      align: "right",
-    });
-
-    // ─── BODY ──────────────────────────────────────────────
-    let y = HEADER_H + 24;
-
-    // Título principal
-    doc.fillColor(C.gray500).fontSize(8).font("Helvetica-Bold");
-    doc.text("DADOS DO CONSULTADO", M, y, { characterSpacing: 1.5 });
-    y += 12;
+    // ─── HEADER (faixa fina forest, 44px) ──────────────────
+    doc.rect(0, 0, PAGE_W, 44).fill(C.forest800);
+    doc.fillColor(C.white).fontSize(13).font("Helvetica-Bold").text("LNB", M, 14);
     doc
-      .moveTo(M, y)
-      .lineTo(M + W, y)
-      .lineWidth(0.5)
-      .strokeColor(C.gray200)
-      .stroke();
+      .fontSize(7)
+      .font("Helvetica")
+      .fillColor(C.brand500)
+      .text("LIMPA NOME BRAZIL", M, 28, { characterSpacing: 1.2 });
+
+    doc
+      .fillColor(C.white)
+      .fontSize(11)
+      .font("Helvetica-Bold")
+      .text("RELATÓRIO DE CONSULTA DE CPF", M, 14, { width: W, align: "right" });
+    doc
+      .fontSize(8)
+      .font("Helvetica")
+      .fillColor(C.gray300)
+      .text(`Emitido em ${dataStr} às ${horaStr}`, M, 28, { width: W, align: "right" });
+
+    y = 44 + 14;
+
+    // ─── DADOS DO CONSULTADO (3 colunas) ───────────────────
+    doc
+      .fillColor(C.gray500)
+      .fontSize(7)
+      .font("Helvetica-Bold")
+      .text("DADOS DO CONSULTADO", M, y, { characterSpacing: 0.8 });
+    y += 10;
+    doc.strokeColor(C.gray200).lineWidth(0.5).moveTo(M, y).lineTo(PAGE_W - M, y).stroke();
     y += 10;
 
-    // Identificação em 2 colunas (label/value)
-    const halfW = W / 2;
-    const identItems: Array<[string, string]> = [
-      ["NOME", data.nome || "—"],
-      ["CPF", formatCPF(data.cpf)],
-      ["E-MAIL", data.email || "—"],
-      ["TELEFONE", data.telefone || "—"],
-    ];
-    identItems.forEach((item, i) => {
-      const col = i % 2;
-      const row = Math.floor(i / 2);
-      const ix = M + col * halfW;
-      const iy = y + row * 26;
-      doc.fillColor(C.gray500).fontSize(7).font("Helvetica");
-      doc.text(item[0], ix, iy, { characterSpacing: 1 });
-      doc.fillColor(C.forest800).fontSize(10).font("Helvetica-Bold");
-      doc.text(item[1], ix, iy + 9, { width: halfW - 12 });
-    });
-    y += 26 * Math.ceil(identItems.length / 2) + 8;
+    const colW = W / 3;
+    const drawField = (col: number, row: number, label: string, value: string) => {
+      const x = M + col * colW;
+      const yy = y + row * 30;
+      doc.fillColor(C.gray400).fontSize(6.5).font("Helvetica").text(label.toUpperCase(), x, yy, {
+        characterSpacing: 0.5,
+      });
+      doc.fillColor(C.forest800).fontSize(9).font("Helvetica-Bold").text(value || "—", x, yy + 9, {
+        width: colW - 8,
+        ellipsis: true,
+      });
+    };
 
-    // ─── SCORE + STATUS (linha única) ──────────────────────
-    doc.fillColor(C.gray500).fontSize(8).font("Helvetica-Bold");
-    doc.text("ANÁLISE DE CRÉDITO", M, y, { characterSpacing: 1.5 });
-    y += 12;
+    drawField(0, 0, "Nome", data.nome || "—");
+    drawField(1, 0, "CPF", formatCPF(data.cpf));
+    drawField(2, 0, "Data nascimento", data.data_nascimento || "—");
+    drawField(0, 1, "Situação Receita Federal", data.situacao_receita || "—");
+    drawField(1, 1, "Email", data.email || "—");
+    drawField(2, 1, "Telefone", data.telefone || "—");
+
+    y += 60 + 6;
+
+    // ─── ANÁLISE DE CRÉDITO (Score Serasa + Boa Vista) ─────
     doc
-      .moveTo(M, y)
-      .lineTo(M + W, y)
-      .lineWidth(0.5)
-      .strokeColor(C.gray200)
-      .stroke();
-    y += 14;
+      .fillColor(C.gray500)
+      .fontSize(7)
+      .font("Helvetica-Bold")
+      .text("ANÁLISE DE CRÉDITO MULTI-BUREAU", M, y, { characterSpacing: 0.8 });
+    y += 10;
+    doc.strokeColor(C.gray200).lineWidth(0.5).moveTo(M, y).lineTo(PAGE_W - M, y).stroke();
+    y += 10;
 
-    // 4 boxes lado a lado (Score, Faixa, Pendências, Total)
-    const boxW = (W - 24) / 4;
-    const boxH = 64;
-    const boxes = [
-      {
-        label: "SCORE",
-        value: `${sc}`,
-        sub: "de 1000",
-        color: corScore,
-        big: true,
-      },
-      {
-        label: "FAIXA",
-        value: faixa,
-        sub: scoreSubtexto(faixa, data.tem_pendencia),
-        color: corScore,
-      },
+    const cardW = (W - 8) / 2;
+    const cardH = 88;
+
+    const drawScoreCard = (
+      x: number,
+      labelBureau: string,
+      score: number | null,
+      sublabel: string
+    ) => {
+      const sc = score ?? 0;
+      const cor = score !== null ? scoreColor(sc) : C.gray400;
+      const fx = score !== null ? scoreFaixa(sc) : "—";
+      const sub = score !== null ? scoreSubtexto(fx, data.tem_pendencia) : "indisponível";
+
+      // Card com borda
+      doc.roundedRect(x, y, cardW, cardH, 4).strokeColor(C.gray200).lineWidth(0.5).stroke();
+      // Label bureau (topo)
+      doc
+        .fillColor(C.gray500)
+        .fontSize(7)
+        .font("Helvetica-Bold")
+        .text(labelBureau.toUpperCase(), x + 12, y + 10, { characterSpacing: 0.6 });
+      // Sublabel
+      doc
+        .fillColor(C.gray400)
+        .fontSize(6.5)
+        .font("Helvetica")
+        .text(sublabel, x + 12, y + 20);
+
+      // Score grande
+      if (score !== null) {
+        doc.fillColor(cor).fontSize(32).font("Helvetica-Bold").text(`${score}`, x + 12, y + 32);
+        doc.fillColor(C.gray500).fontSize(9).font("Helvetica").text("/ 1000", x + 12 + 60, y + 50);
+        // Faixa
+        doc.fillColor(cor).fontSize(11).font("Helvetica-Bold").text(fx, x + cardW - 12, y + 36, {
+          width: 0,
+          align: "right",
+        });
+        doc.fillColor(C.gray500).fontSize(7).font("Helvetica").text(sub, x + cardW - 12, y + 50, {
+          width: 0,
+          align: "right",
+        });
+
+        // Barra de progresso
+        const barY = y + cardH - 18;
+        const barW = cardW - 24;
+        doc.rect(x + 12, barY, barW, 4).fill(C.gray100);
+        const pct = Math.min(1, sc / 1000);
+        doc.rect(x + 12, barY, barW * pct, 4).fill(cor);
+        // Escala
+        doc.fillColor(C.gray400).fontSize(5.5).font("Helvetica").text("0", x + 12, barY + 6);
+        doc.text("1000", x + 12 + barW, barY + 6, { width: 0, align: "right" });
+      } else {
+        doc
+          .fillColor(C.gray400)
+          .fontSize(14)
+          .font("Helvetica")
+          .text("Não disponível", x + 12, y + 40);
+      }
+    };
+
+    drawScoreCard(M, "Serasa Experian", scoreS, "Score Score 6 meses");
+    drawScoreCard(M + cardW + 8, "Boa Vista SCPC", scoreBV, "Score Positivo PF");
+
+    y += cardH + 12;
+
+    // ─── STATUS DO CPF ──────────────────────────────────────
+    const statusCorFundo = data.tem_pendencia ? C.red50 : C.emerald50;
+    const statusCorTexto = data.tem_pendencia ? C.red500 : C.emerald500;
+    const statusTitulo = data.tem_pendencia ? "POSSUI PENDÊNCIAS" : "NOME LIMPO";
+    const statusSub = data.tem_pendencia
+      ? `Foram encontradas ${data.qtd_pendencias} ocorrência(s) financeira(s) registrada(s) nas bases consultadas.`
+      : "Não foram encontradas pendências, protestos ou cheques sem fundo nas bases consultadas.";
+
+    const statusH = 42;
+    doc.roundedRect(M, y, W, statusH, 4).fill(statusCorFundo);
+    doc.fillColor(statusCorTexto).fontSize(12).font("Helvetica-Bold").text(statusTitulo, M + 14, y + 9);
+    doc.fillColor(C.gray700).fontSize(8).font("Helvetica").text(statusSub, M + 14, y + 24, {
+      width: W - 28,
+    });
+    y += statusH + 12;
+
+    // ─── RESUMO DE OCORRÊNCIAS (4 cards) ────────────────────
+    const resumoH = 44;
+    const colCount = 4;
+    const colWidth = (W - 6 * (colCount - 1)) / colCount;
+    const items: Array<{ label: string; value: string; cor: string }> = [
       {
         label: "PENDÊNCIAS",
         value: String(data.qtd_pendencias),
-        sub: data.qtd_pendencias === 1 ? "registro" : "registros",
-        color: data.tem_pendencia ? C.red500 : C.emerald500,
-        big: true,
+        cor: data.qtd_pendencias > 0 ? C.red500 : C.emerald500,
       },
       {
-        label: "TOTAL EM DÍVIDAS",
+        label: "PROTESTOS",
+        value: String(data.qtd_protestos ?? 0),
+        cor: (data.qtd_protestos ?? 0) > 0 ? C.red500 : C.emerald500,
+      },
+      {
+        label: "CHEQUES SEM FUNDO",
+        value: String(data.qtd_cheques_sem_fundo ?? 0),
+        cor: (data.qtd_cheques_sem_fundo ?? 0) > 0 ? C.red500 : C.emerald500,
+      },
+      {
+        label: "TOTAL DÍVIDAS",
         value: `R$ ${formatBRL(data.total_dividas)}`,
-        sub: data.tem_pendencia ? "consolidado" : "sem dívidas",
-        color: data.tem_pendencia ? C.red500 : C.emerald500,
+        cor: data.total_dividas > 0 ? C.red500 : C.emerald500,
       },
     ];
 
-    boxes.forEach((b, i) => {
-      const bx = M + i * (boxW + 8);
-      // Card cinza claro com border esquerda colorida
-      doc.rect(bx, y, boxW, boxH).fill(C.gray50);
-      doc.rect(bx, y, 3, boxH).fill(b.color);
-
-      doc.fillColor(C.gray500).fontSize(7).font("Helvetica-Bold");
-      doc.text(b.label, bx + 10, y + 9, { characterSpacing: 1, width: boxW - 14 });
-
-      // Valor (font size adapta se for grande/longo)
-      const fs = b.big ? 22 : b.value.length > 10 ? 13 : 16;
-      doc.fillColor(b.color).fontSize(fs).font("Helvetica-Bold");
-      doc.text(b.value, bx + 10, y + 22, { width: boxW - 14 });
-
-      doc.fillColor(C.gray500).fontSize(8).font("Helvetica");
-      doc.text(b.sub, bx + 10, y + boxH - 14, { width: boxW - 14 });
-    });
-
-    y += boxH + 20;
-
-    // ─── PENDÊNCIAS (tabela) ───────────────────────────────
-    doc.fillColor(C.gray500).fontSize(8).font("Helvetica-Bold");
-    doc.text(
-      data.tem_pendencia ? "PENDÊNCIAS REGISTRADAS" : "STATUS DO CPF",
-      M,
-      y,
-      { characterSpacing: 1.5 }
-    );
-    y += 12;
-    doc
-      .moveTo(M, y)
-      .lineTo(M + W, y)
-      .lineWidth(0.5)
-      .strokeColor(C.gray200)
-      .stroke();
-    y += 10;
-
-    if (data.tem_pendencia && data.pendencias && data.pendencias.length > 0) {
-      // Header da tabela
-      doc.rect(M, y, W, 22).fill(C.forest800);
-      doc.fillColor(C.white).fontSize(8).font("Helvetica-Bold");
-      doc.text("#", M + 10, y + 8, { width: 20, characterSpacing: 1 });
-      doc.text("CREDOR", M + 36, y + 8, { width: W * 0.5, characterSpacing: 1 });
-      doc.text("DATA", M + W * 0.62, y + 8, { width: W * 0.18, characterSpacing: 1 });
-      doc.text("VALOR", M + W * 0.8, y + 8, {
-        width: W * 0.18 - 10,
-        align: "right",
-        characterSpacing: 1,
+    items.forEach((it, i) => {
+      const x = M + i * (colWidth + 6);
+      doc.roundedRect(x, y, colWidth, resumoH, 3).strokeColor(C.gray200).lineWidth(0.5).stroke();
+      doc.fillColor(C.gray500).fontSize(6).font("Helvetica-Bold").text(it.label, x + 8, y + 8, {
+        width: colWidth - 16,
+        characterSpacing: 0.4,
       });
-      y += 22;
+      doc.fillColor(it.cor).fontSize(14).font("Helvetica-Bold").text(it.value, x + 8, y + 20, {
+        width: colWidth - 16,
+      });
+    });
+    y += resumoH + 12;
 
-      // Limita a 8 pendências pra caber em 1 página
-      const maxRows = 8;
-      const rowsToShow = data.pendencias.slice(0, maxRows);
-      rowsToShow.forEach((p, i) => {
-        const rowH = 22;
-        if (i % 2 === 0) doc.rect(M, y, W, rowH).fill(C.gray50);
-        doc.fillColor(C.gray500).fontSize(8).font("Helvetica");
-        doc.text(`${String(i + 1).padStart(2, "0")}`, M + 10, y + 7, { width: 20 });
-        doc.fillColor(C.forest800).fontSize(9).font("Helvetica-Bold");
-        doc.text(p.credor, M + 36, y + 7, {
-          width: W * 0.5 - 10,
-          ellipsis: true,
-        });
-        doc.fillColor(C.gray600).fontSize(8).font("Helvetica");
-        doc.text(p.data || "—", M + W * 0.62, y + 7, { width: W * 0.18 });
-        doc.fillColor(C.red500).fontSize(9).font("Helvetica-Bold");
-        doc.text(`R$ ${formatBRL(p.valor)}`, M + W * 0.8, y + 7, {
-          width: W * 0.18 - 10,
+    // ─── DETALHAMENTO ───────────────────────────────────────
+    if (data.tem_pendencia && data.pendencias && data.pendencias.length > 0) {
+      // Tabela de pendências
+      doc
+        .fillColor(C.gray500)
+        .fontSize(7)
+        .font("Helvetica-Bold")
+        .text("DETALHAMENTO DAS PENDÊNCIAS", M, y, { characterSpacing: 0.8 });
+      y += 10;
+      doc.strokeColor(C.gray200).lineWidth(0.5).moveTo(M, y).lineTo(PAGE_W - M, y).stroke();
+      y += 6;
+
+      // Header
+      doc.rect(M, y, W, 16).fill(C.gray50);
+      doc.fillColor(C.gray700).fontSize(7).font("Helvetica-Bold");
+      doc.text("CREDOR", M + 8, y + 5, { width: W * 0.45, characterSpacing: 0.4 });
+      doc.text("DATA", M + W * 0.5, y + 5, { width: W * 0.18, characterSpacing: 0.4 });
+      doc.text("ORIGEM", M + W * 0.68, y + 5, { width: W * 0.14, characterSpacing: 0.4 });
+      doc.text("VALOR", M + W * 0.82, y + 5, { width: W * 0.18 - 8, align: "right", characterSpacing: 0.4 });
+      y += 18;
+
+      // Rows (max 8 pra caber em 1 página)
+      const rows = data.pendencias.slice(0, 8);
+      rows.forEach((p, i) => {
+        const rowH = 16;
+        if (i % 2 === 1) doc.rect(M, y, W, rowH).fill(C.gray50);
+        doc.fillColor(C.gray800).fontSize(8).font("Helvetica");
+        doc.text(p.credor.slice(0, 38), M + 8, y + 4, { width: W * 0.45 });
+        doc.text(p.data || "—", M + W * 0.5, y + 4, { width: W * 0.18 });
+        doc.text(p.origem || "Serasa", M + W * 0.68, y + 4, { width: W * 0.14 });
+        doc.fillColor(C.red500).font("Helvetica-Bold");
+        doc.text(`R$ ${formatBRL(p.valor)}`, M + W * 0.82, y + 4, {
+          width: W * 0.18 - 8,
           align: "right",
         });
         y += rowH;
       });
 
-      // Indicador de "mais X pendências" se truncou
-      if (data.pendencias.length > maxRows) {
-        doc.rect(M, y, W, 18).fill(C.gray100);
-        doc.fillColor(C.gray600).fontSize(8).font("Helvetica-Oblique");
-        doc.text(
-          `+ ${data.pendencias.length - maxRows} pendência(s) adicional(is) — detalhamento completo na sua área online`,
-          M + 10,
-          y + 5,
-          { width: W - 20, align: "center" }
-        );
-        y += 18;
+      if (data.pendencias.length > 8) {
+        doc
+          .fillColor(C.gray500)
+          .fontSize(7)
+          .font("Helvetica-Oblique")
+          .text(`+ ${data.pendencias.length - 8} pendência(s) adicional(is) — solicite o detalhamento completo via WhatsApp.`, M, y + 4);
+        y += 14;
       }
-
-      // Total
-      doc.rect(M, y, W, 26).fill(C.forest800);
-      doc.fillColor(C.white).fontSize(9).font("Helvetica-Bold");
-      doc.text("TOTAL EM PENDÊNCIAS", M + 10, y + 8, { characterSpacing: 1 });
-      doc.fillColor(C.brand400).fontSize(13).font("Helvetica-Bold");
-      doc.text(`R$ ${formatBRL(data.total_dividas)}`, M, y + 6, {
-        width: W - 12,
-        align: "right",
-      });
-      y += 26;
     } else {
-      // Box "Nome limpo"
-      doc.rect(M, y, W, 50).fill(C.emerald100);
-      doc.rect(M, y, 3, 50).fill(C.emerald500);
-      doc.fillColor(C.emerald500).fontSize(11).font("Helvetica-Bold");
-      doc.text("✓ NOME LIMPO", M + 14, y + 12, { characterSpacing: 1 });
-      doc.fillColor(C.gray700).fontSize(9).font("Helvetica");
-      doc.text(
-        "Não foram encontradas pendências em seu nome. Continue mantendo as contas em dia.",
-        M + 14,
-        y + 28,
-        { width: W - 28 }
-      );
-      y += 50;
-    }
-
-    y += 16;
-
-    // ─── PRÓXIMOS PASSOS / CTA (só se tem pendência) ──────
-    if (data.tem_pendencia) {
-      doc.fillColor(C.gray500).fontSize(8).font("Helvetica-Bold");
-      doc.text("PRÓXIMOS PASSOS", M, y, { characterSpacing: 1.5 });
-      y += 12;
+      // Bloco educativo "Como construir seu score"
       doc
-        .moveTo(M, y)
-        .lineTo(M + W, y)
-        .lineWidth(0.5)
-        .strokeColor(C.gray200)
-        .stroke();
-      y += 14;
+        .fillColor(C.gray500)
+        .fontSize(7)
+        .font("Helvetica-Bold")
+        .text("RECOMENDAÇÕES PARA MANTER E MELHORAR SEU SCORE", M, y, { characterSpacing: 0.8 });
+      y += 10;
+      doc.strokeColor(C.gray200).lineWidth(0.5).moveTo(M, y).lineTo(PAGE_W - M, y).stroke();
+      y += 10;
 
-      // Box compacto com call to action
-      const ctaH = 88;
-      doc.rect(M, y, W, ctaH).fill(C.forest800);
+      const recs = [
+        { titulo: "Mantenha contas em dia", desc: "Pagamentos pontuais são o principal fator do score." },
+        { titulo: "Ative o Cadastro Positivo", desc: "Permite que pagamentos em dia construam seu histórico nas bases Serasa e Boa Vista." },
+        { titulo: "Use crédito com moderação", desc: "Evite usar mais de 30% do limite de cartões e cheque especial." },
+        { titulo: "Mantenha cadastro atualizado", desc: "Telefone, e-mail e endereço atualizados aumentam a confiabilidade do seu perfil." },
+      ];
 
-      doc.fillColor(C.brand400).fontSize(8).font("Helvetica-Bold");
-      doc.text("RECOMENDAÇÃO", M + 16, y + 14, { characterSpacing: 1.5 });
-
-      doc.fillColor(C.white).fontSize(13).font("Helvetica-Bold");
-      doc.text("Limpe seu nome em até 20 dias úteis", M + 16, y + 28);
-
-      doc.fillColor(C.sand).fontSize(8).font("Helvetica");
-      doc.text(
-        "Sem quitar dívida · Sem negociar com credor · Blindagem 12 meses inclusa",
-        M + 16,
-        y + 47,
-        { width: W - 200 }
-      );
-
-      doc.fillColor(C.brand400).fontSize(7).font("Helvetica-Bold");
-      doc.text("INVESTIMENTO", M + 16, y + 64, { characterSpacing: 1 });
-      doc.fillColor(C.white).fontSize(15).font("Helvetica-Bold");
-      doc.text("R$ 480,01", M + 84, y + 60);
-
-      // CTA box no canto direito
-      const ctaBoxW = 140;
-      const ctaBoxX = M + W - ctaBoxW - 16;
-      doc.rect(ctaBoxX, y + 22, ctaBoxW, 44).fill(C.brand500);
-      doc.fillColor(C.white).fontSize(8).font("Helvetica-Bold");
-      doc.text("ACESSE", ctaBoxX, y + 30, {
-        width: ctaBoxW,
-        align: "center",
-        characterSpacing: 1.5,
+      recs.forEach((r, i) => {
+        const x = M + (i % 2) * (W / 2 + 6);
+        const yy = y + Math.floor(i / 2) * 38;
+        // Ícone bullet
+        doc.circle(x + 4, yy + 5, 2).fill(C.brand500);
+        doc.fillColor(C.forest800).fontSize(9).font("Helvetica-Bold").text(r.titulo, x + 14, yy);
+        doc.fillColor(C.gray600).fontSize(7.5).font("Helvetica").text(r.desc, x + 14, yy + 11, {
+          width: W / 2 - 20,
+        });
       });
-      doc.fillColor(C.white).fontSize(10).font("Helvetica-Bold");
-      doc.text("limpanomebrazil.com.br", ctaBoxX, y + 45, {
-        width: ctaBoxW,
-        align: "center",
-      });
-
-      y += ctaH + 8;
+      y += 80;
     }
 
-    // ─── FOOTER (rodapé fixo) ──────────────────────────────
-    const FOOTER_Y = PAGE_H - 56;
-    doc
-      .moveTo(M, FOOTER_Y)
-      .lineTo(M + W, FOOTER_Y)
-      .lineWidth(0.5)
-      .strokeColor(C.gray300 || C.gray200)
-      .stroke();
+    // ─── PROBABILIDADE PAGAMENTO (banner) ───────────────────
+    if (data.probabilidade_pagamento) {
+      const probH = 24;
+      const probY = PAGE_H - 90 - probH;
+      doc.roundedRect(M, probY, W, probH, 3).fill(C.gray50);
+      doc.fillColor(C.gray600).fontSize(8).font("Helvetica").text(
+        `Probabilidade de pagamento em 6 meses (modelo Serasa): `,
+        M + 10,
+        probY + 8
+      );
+      doc.fillColor(C.forest800).font("Helvetica-Bold").text(data.probabilidade_pagamento, {
+        continued: false,
+      });
+    }
 
-    doc.fillColor(C.gray500).fontSize(7).font("Helvetica");
-    doc.text(`Protocolo: ${protocolo}`, M, FOOTER_Y + 10);
-    doc.text(
-      "Fonte de dados: Boa Vista SCPC, Serasa Experian, SPC Brasil",
+    // ─── FOOTER (selo de autenticação + fontes) ─────────────
+    const footY = PAGE_H - 60;
+    doc.rect(0, footY, PAGE_W, 60).fill(C.forest800);
+
+    doc.fillColor(C.brand500).fontSize(7).font("Helvetica-Bold").text(
+      `Protocolo: ${protocolo}`,
       M,
-      FOOTER_Y + 22
+      footY + 12,
+      { characterSpacing: 0.6 }
+    );
+    doc.fillColor(C.gray300).fontSize(6.5).font("Helvetica").text(
+      "Fontes oficiais: Serasa Experian · Boa Vista SCPC · Receita Federal",
+      M,
+      footY + 24
+    );
+    doc.fillColor(C.gray400).fontSize(6).font("Helvetica").text(
+      "Documento autenticado pela Limpa Nome Brazil · LGPD compatível (Lei 13.709/2018)",
+      M,
+      footY + 35
     );
     doc.text(
-      "Documento autenticado pela Limpa Nome Brazil · LGPD compatível",
+      "Os dados refletem as bases consultadas na data/hora de emissão e podem variar conforme atualização dos bureaus.",
       M,
-      FOOTER_Y + 34
+      footY + 44
     );
 
-    // Lado direito: contatos
-    doc.fillColor(C.forest800).fontSize(8).font("Helvetica-Bold");
-    doc.text("limpanomebrazil.com.br", PAGE_W - M - 200, FOOTER_Y + 10, {
-      width: 200,
-      align: "right",
-    });
-    doc.fillColor(C.gray600).fontSize(7).font("Helvetica");
-    doc.text("contato@limpanomebrazil.com.br", PAGE_W - M - 200, FOOTER_Y + 22, {
-      width: 200,
-      align: "right",
-    });
-    doc.text("WhatsApp (11) 99744-0101", PAGE_W - M - 200, FOOTER_Y + 34, {
-      width: 200,
-      align: "right",
-    });
+    // Contato à direita
+    doc.fillColor(C.white).fontSize(7).font("Helvetica-Bold").text(
+      "limpanomebrazil.com.br",
+      M,
+      footY + 12,
+      { width: W, align: "right" }
+    );
+    doc.fillColor(C.gray300).fontSize(6.5).font("Helvetica").text(
+      "contato@limpanomebrazil.com.br",
+      M,
+      footY + 24,
+      { width: W, align: "right" }
+    );
+    doc.text("WhatsApp (11) 99744-0101", M, footY + 35, { width: W, align: "right" });
 
     doc.end();
   });
 }
 
-/**
- * Gera o PDF do relatório de consulta, faz upload no Supabase Storage
- * (bucket público lnb-relatorios) e retorna a URL pública.
- */
 export async function gerarESalvarRelatorio(
-  data: RelatorioInput
+  input: RelatorioInput
 ): Promise<{ ok: true; pdfUrl: string; path: string } | { ok: false; error: string }> {
   try {
-    // 1) Gera PDF como Buffer (puro Node, sem Chrome, sem fontes externas)
-    const buffer = await montarPdf(data);
-
-    // 2) Upload pra Supabase Storage
-    const cpfClean = data.cpf.replace(/\D/g, "");
-    const ts = Date.now();
-    const path = `consultas/${cpfClean}/${ts}-relatorio.pdf`;
-
+    const buffer = await montarPdf(input);
     const supa = createStorageClient();
+    const path = `consultas/${input.cpf.replace(/\D/g, "")}/${Date.now()}-relatorio.pdf`;
     const { error: upErr } = await supa.storage.from(BUCKET).upload(path, buffer, {
       contentType: "application/pdf",
       upsert: true,
     });
-    if (upErr) {
-      return { ok: false, error: `Upload falhou: ${upErr.message}` };
-    }
-
-    // 3) URL pública (bucket lnb-relatorios é público)
+    if (upErr) return { ok: false, error: `Upload falhou: ${upErr.message}` };
     const { data: urlData } = supa.storage.from(BUCKET).getPublicUrl(path);
-
     return { ok: true, pdfUrl: urlData.publicUrl, path };
   } catch (e) {
-    const errMsg =
-      e instanceof Error
-        ? `${e.name}: ${e.message}${e.stack ? "\n" + e.stack.split("\n").slice(0, 5).join("\n") : ""}`
-        : String(e);
-    console.error("[pdf-gerar] erro:", errMsg);
-    return { ok: false, error: errMsg };
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[pdf-gerar] erro:", msg);
+    return { ok: false, error: msg };
   }
 }

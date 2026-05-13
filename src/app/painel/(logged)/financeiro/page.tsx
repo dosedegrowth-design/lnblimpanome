@@ -9,7 +9,7 @@ import type { APIControlRow } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
 
-const PRECO_CONSULTA  = 19.99;
+const PRECO_CONSULTA  = 29.99;
 const PRECO_LIMPEZA   = 480.01;
 const CUSTO_API_FULL  = 2.49;
 

@@ -155,7 +155,7 @@ export default function HomePage() {
 
           <Stagger className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
             {[
-              { n: "01", t: "Consulta de CPF",          d: "Por R$ 19,99 você descobre se seu nome tem pendências, qual o score, quanto deve e pra quem.", icon: FileSearch },
+              { n: "01", t: "Consulta de CPF",          d: "Por R$ 29,99 você descobre se seu nome tem pendências, qual o score, quanto deve e pra quem.", icon: FileSearch },
               { n: "02", t: "Plano de limpeza",         d: "Mostramos como vamos limpar seu nome — sem você precisar quitar dívida ou negociar com credor.", icon: Sparkles   },
               { n: "03", t: "Nome limpo + monitoramento", d: "Em até 20 dias úteis seu nome volta limpo. Monitoramento de 12 meses ativo como bônus.", icon: ShieldCheck },
             ].map((step) => (

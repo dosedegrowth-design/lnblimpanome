@@ -26,7 +26,7 @@ export default function TermosPage() {
         <section>
           <h2 className="font-display text-2xl text-forest-800 mt-10 mb-3">2. Serviços oferecidos</h2>
           <ul className="list-disc pl-6 space-y-1.5">
-            <li><strong>Consulta de CPF</strong> (R$ 19,99) — relatório de score, pendências e credores.</li>
+            <li><strong>Consulta de CPF</strong> (R$ 29,99) — relatório de score, pendências e credores.</li>
             <li><strong>Limpeza de Nome + Blindagem</strong> (R$ 480,01 com desconto / R$ 499,90) — limpeza do nome em até 20 dias úteis + monitoramento contínuo.</li>
           </ul>
         </section>

@@ -44,7 +44,7 @@ export default function ConsultarLanding() {
             </p>
 
             <div className="my-5">
-              <span className="font-display text-4xl text-forest-800">R$ 19,99</span>
+              <span className="font-display text-4xl text-forest-800">R$ 29,99</span>
               <span className="text-xs text-gray-500 ml-1.5">à vista</span>
             </div>
 
@@ -80,7 +80,7 @@ export default function ConsultarLanding() {
             </p>
 
             <div className="my-5">
-              <span className="font-display text-4xl text-forest-800">R$ 24,99</span>
+              <span className="font-display text-4xl text-forest-800">R$ 39,99</span>
               <span className="text-xs text-gray-500 ml-1.5">à vista</span>
             </div>
 
