@@ -10,6 +10,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { TermosModal } from "@/components/termos-modal";
 import { formatCPF, cleanCPF, isValidCPF, formatPhone, formatBRL } from "@/lib/utils";
 
 const STEPS = [
@@ -37,6 +38,7 @@ function ConsultarWizard() {
   const [step, setStep] = useState<1 | 2 | 3>(initialStep as 1 | 2 | 3);
   const [loading, setLoading] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [modalTermos, setModalTermos] = useState<null | "consulta_cpf" | "privacidade">(null);
   const [polling, setPolling] = useState(false);
   const [clienteLogado, setClienteLogado] = useState(false);
   const [pollResult, setPollResult] = useState<{
@@ -395,23 +397,27 @@ function ConsultarWizard() {
                   />
                   <span className="text-sm leading-relaxed text-forest-800">
                     Li e concordo com os{" "}
-                    <a
-                      href="/termos/consulta"
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setModalTermos("consulta_cpf");
+                      }}
                       className="font-bold text-brand-600 underline hover:text-brand-700"
                     >
                       Termos e Condições da Consulta CPF
-                    </a>
+                    </button>
                     , com a{" "}
-                    <a
-                      href="/privacidade"
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setModalTermos("privacidade");
+                      }}
                       className="font-bold text-brand-600 underline hover:text-brand-700"
                     >
                       Política de Privacidade (LGPD)
-                    </a>
+                    </button>
                     , e autorizo a Limpa Nome Brazil a consultar meu CPF nos órgãos
                     oficiais de proteção ao crédito (SPC, Serasa, IEPTB, Boa Vista).
                   </span>
@@ -598,6 +604,13 @@ function ConsultarWizard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <TermosModal
+        open={modalTermos !== null}
+        onClose={() => setModalTermos(null)}
+        onAceitar={() => setAceitouTermos(true)}
+        tipo={modalTermos ?? "consulta_cpf"}
+      />
     </div>
   );
 }
