@@ -150,6 +150,12 @@ function ConsultarCNPJWizard() {
       });
       const d = await r.json();
       if (!r.ok || !d.ok || !d.init_point) {
+        // CNPJ já consultado → manda pro relatório
+        if (d.motivo === "consulta_ja_paga" && d.redirect) {
+          toast.info("Esta empresa já tem consulta paga. Levando você ao relatório.");
+          setTimeout(() => router.push(d.redirect), 1200);
+          return;
+        }
         toast.error(d.error || "Não conseguimos gerar a cobrança. Tente novamente.");
         setLoading(false);
         return;

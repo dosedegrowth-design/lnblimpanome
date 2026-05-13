@@ -154,6 +154,12 @@ function ConsultarWizard() {
       });
       const d = await r.json();
       if (!r.ok || !d.ok || !d.init_point) {
+        // Caso especial: cliente já tem consulta paga → manda pro relatório
+        if (d.motivo === "consulta_ja_paga" && d.redirect) {
+          toast.info("Você já fez esta consulta. Levando você ao relatório.");
+          setTimeout(() => router.push(d.redirect), 1200);
+          return;
+        }
         toast.error(d.error || "Não conseguimos gerar a cobrança. Tente novamente.");
         setLoading(false);
         return;

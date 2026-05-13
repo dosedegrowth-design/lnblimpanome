@@ -81,6 +81,51 @@ export async function POST(req: Request) {
 
   const supa = await createClient();
 
+  // ─── Bloqueio anti-duplicação: cliente não paga 2x a mesma consulta ───
+  // CONSULTA CPF: se já existe consulta paga pra esse CPF, redireciona pro relatório
+  if (tipo === "consulta") {
+    const { data: jaPaga } = await supa
+      .from("LNB_Consultas")
+      .select("id, consulta_paga, pdf_url")
+      .eq("cpf", cpf)
+      .eq("tipo_documento", "CPF")
+      .eq("consulta_paga", true)
+      .maybeSingle();
+    if (jaPaga?.consulta_paga) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Você já pagou uma consulta deste CPF. Acesse seu relatório na área logada.",
+          motivo: "consulta_ja_paga",
+          redirect: "/conta/relatorio",
+        },
+        { status: 409 }
+      );
+    }
+  }
+
+  // CONSULTA CNPJ: idem por CNPJ
+  if (tipo === "consulta_cnpj") {
+    const { data: jaPaga } = await supa
+      .from("LNB_Consultas")
+      .select("id, consulta_paga")
+      .eq("cnpj", cnpj)
+      .eq("tipo_documento", "CNPJ")
+      .eq("consulta_paga", true)
+      .maybeSingle();
+    if (jaPaga?.consulta_paga) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Esta empresa já tem uma consulta CNPJ paga. Acesse o relatório na área logada.",
+          motivo: "consulta_ja_paga",
+          redirect: "/conta/relatorio",
+        },
+        { status: 409 }
+      );
+    }
+  }
+
   // ─── Pré-requisito limpeza (CPF ou CNPJ): exige consulta paga COM pendência ───
   if (tipo === "limpeza_desconto" || tipo === "limpeza") {
     const { data: eleg, error: elegErr } = await supa.rpc(
