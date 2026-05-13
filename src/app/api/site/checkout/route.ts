@@ -82,16 +82,10 @@ export async function POST(req: Request) {
   const supa = await createClient();
 
   // ─── Bloqueio anti-duplicação: cliente não paga 2x a mesma consulta ───
-  // CONSULTA CPF: se já existe consulta paga pra esse CPF, redireciona pro relatório
+  // Usamos RPCs SECURITY DEFINER pq LNB_Consultas tem RLS.
   if (tipo === "consulta") {
-    const { data: jaPaga } = await supa
-      .from("LNB_Consultas")
-      .select("id, consulta_paga, pdf_url")
-      .eq("cpf", cpf)
-      .eq("tipo_documento", "CPF")
-      .eq("consulta_paga", true)
-      .maybeSingle();
-    if (jaPaga?.consulta_paga) {
+    const { data: jaPaga } = await supa.rpc("lnb_consulta_cpf_ja_paga", { p_cpf: cpf });
+    if (jaPaga === true) {
       return NextResponse.json(
         {
           ok: false,
@@ -104,16 +98,9 @@ export async function POST(req: Request) {
     }
   }
 
-  // CONSULTA CNPJ: idem por CNPJ
   if (tipo === "consulta_cnpj") {
-    const { data: jaPaga } = await supa
-      .from("LNB_Consultas")
-      .select("id, consulta_paga")
-      .eq("cnpj", cnpj)
-      .eq("tipo_documento", "CNPJ")
-      .eq("consulta_paga", true)
-      .maybeSingle();
-    if (jaPaga?.consulta_paga) {
+    const { data: jaPaga } = await supa.rpc("lnb_consulta_cnpj_ja_paga", { p_cnpj: cnpj });
+    if (jaPaga === true) {
       return NextResponse.json(
         {
           ok: false,
