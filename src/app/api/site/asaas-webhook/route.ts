@@ -85,28 +85,22 @@ export async function POST(req: Request) {
   const cpf = isCNPJ ? "" : cleanCPF(documento);
   const cnpj = isCNPJ ? documento : "";
 
-  // Busca dados do CRM
+  // Busca dados do CRM via RPC SECURITY DEFINER (LNB - CRM tem RLS)
   const supa = await createClient();
   let crmRow: Record<string, unknown> | null = null;
   if (isCNPJ) {
-    const { data } = await supa
-      .from("LNB - CRM")
-      .select('telefone, nome, "e-mail", origem, razao_social, cpf_responsavel, nome_responsavel, cnpj')
-      .eq("cnpj", cnpj)
-      .maybeSingle();
-    crmRow = data as Record<string, unknown> | null;
+    const { data, error } = await supa.rpc("lnb_crm_get_by_cnpj", { p_cnpj: cnpj });
+    if (error) console.error("[asaas-webhook] lnb_crm_get_by_cnpj erro:", error);
+    crmRow = (data as Record<string, unknown> | null) ?? null;
   } else {
-    const { data } = await supa
-      .from("LNB - CRM")
-      .select('telefone, nome, "e-mail", origem')
-      .eq("CPF", cpf)
-      .maybeSingle();
-    crmRow = data as Record<string, unknown> | null;
+    const { data, error } = await supa.rpc("lnb_crm_get_by_cpf", { p_cpf: cpf });
+    if (error) console.error("[asaas-webhook] lnb_crm_get_by_cpf erro:", error);
+    crmRow = (data as Record<string, unknown> | null) ?? null;
   }
 
   const telefone = String(crmRow?.telefone || "").replace(/\D/g, "");
   const nome = String(crmRow?.nome || "");
-  const email = String(crmRow?.["e-mail"] || "");
+  const email = String(crmRow?.email || "");
   const origem = (crmRow?.origem === "whatsapp" ? "whatsapp" : "site") as "site" | "whatsapp";
   const razaoSocial = String(crmRow?.razao_social || "");
   const cpfResponsavel = String(crmRow?.cpf_responsavel || "");
