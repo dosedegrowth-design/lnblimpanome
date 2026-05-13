@@ -364,11 +364,20 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
     if (r.ok) {
       pdfUrl = r.pdfUrl;
       const supa2 = await createClient();
-      const rpc1 = await supa2.rpc("webhook_set_pdf_url", {
+      // Atualiza TUDO em LNB_Consultas (pdf_url + tem_pendencia + qtd + total + resumo)
+      // Antes só atualizava pdf_url e tem_pendencia/qtd ficava null → travava tela "gerando"
+      const rpc1 = await supa2.rpc("webhook_set_consulta_resultado", {
         p_cpf: cpf,
         p_pdf_url: pdfUrl,
+        p_tem_pendencia: !!parsed?.tem_pendencia,
+        p_qtd_pendencias: parsed?.qtd_pendencias || 0,
+        p_total_dividas: parsed?.total_dividas || 0,
+        p_resumo: parsed?.tem_pendencia
+          ? `Foram encontradas ${parsed.qtd_pendencias} pendência(s) em seu nome, totalizando R$ ${parsed.total_dividas.toFixed(2)}.`
+          : "Não foram encontradas pendências em seu nome. Continue mantendo as contas em dia.",
+        p_resultado_raw: null,
       });
-      if (rpc1.error) console.error("[asaas-webhook] webhook_set_pdf_url erro:", rpc1.error);
+      if (rpc1.error) console.error("[asaas-webhook] webhook_set_consulta_resultado erro:", rpc1.error);
       const rpc2 = await supa2.rpc("lnb_crm_set_consulta_resultado", {
         p_telefone: telefone,
         p_score: score ?? null,
@@ -378,7 +387,7 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
         p_pdf_url: pdfUrl,
       });
       if (rpc2.error) console.error("[asaas-webhook] lnb_crm_set_consulta_resultado erro:", rpc2.error);
-      console.log(`[asaas-webhook] ✓ PDF gravado: cpf=${cpf} url=${pdfUrl}`);
+      console.log(`[asaas-webhook] ✓ PDF gravado: cpf=${cpf} url=${pdfUrl} pendencia=${!!parsed?.tem_pendencia}`);
     } else {
       console.error("[asaas-webhook] PDF erro:", r.error);
     }
@@ -636,8 +645,25 @@ async function finalizarConsultaCNPJ(i: FinalizarConsultaCnpjInput) {
       total_dividas: parsedResp?.total_dividas || 0,
       pendencias: parsedResp?.pendencias,
     });
-    if (r.ok) pdfUrl = r.pdfUrl;
-    else console.error("[asaas-webhook] PDF CNPJ erro:", r.error);
+    if (r.ok) {
+      pdfUrl = r.pdfUrl;
+      // Atualiza pdf_url + tem_pendencia/qtd/total_dividas em LNB_Consultas
+      // (mesmo bug do CPF aplicado aqui)
+      const rpc = await i.supa.rpc("webhook_set_consulta_cnpj_resultado", {
+        p_cnpj: i.cnpj,
+        p_pdf_url: pdfUrl,
+        p_tem_pendencia: !!parsedResp?.tem_pendencia,
+        p_qtd_pendencias: parsedResp?.qtd_pendencias || 0,
+        p_total_dividas: parsedResp?.total_dividas || 0,
+        p_resumo: parsedResp?.tem_pendencia
+          ? `Foram encontradas ${parsedResp.qtd_pendencias} pendência(s) no CPF do responsável, totalizando R$ ${parsedResp.total_dividas.toFixed(2)}.`
+          : "Não foram encontradas pendências no CPF do responsável. Empresa apta a obter crédito.",
+      });
+      if (rpc.error) console.error("[asaas-webhook] webhook_set_consulta_cnpj_resultado erro:", rpc.error);
+      console.log(`[asaas-webhook] ✓ PDF CNPJ gravado: cnpj=${i.cnpj} url=${pdfUrl}`);
+    } else {
+      console.error("[asaas-webhook] PDF CNPJ erro:", r.error);
+    }
   } catch (e) {
     console.error("[asaas-webhook] PDF CNPJ exception:", e);
   }
