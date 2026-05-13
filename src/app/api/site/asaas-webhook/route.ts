@@ -361,19 +361,22 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
     });
     if (r.ok) {
       pdfUrl = r.pdfUrl;
-      const supa = await createClient();
-      await supa.rpc("webhook_set_pdf_url" as never, {
+      const supa2 = await createClient();
+      const rpc1 = await supa2.rpc("webhook_set_pdf_url", {
         p_cpf: cpf,
         p_pdf_url: pdfUrl,
-      } as never);
-      await supa.rpc("lnb_crm_set_consulta_resultado" as never, {
+      });
+      if (rpc1.error) console.error("[asaas-webhook] webhook_set_pdf_url erro:", rpc1.error);
+      const rpc2 = await supa2.rpc("lnb_crm_set_consulta_resultado", {
         p_telefone: telefone,
         p_score: score ?? null,
         p_tem_pendencia: !!parsed?.tem_pendencia,
         p_qtd_pendencias: parsed?.qtd_pendencias || 0,
         p_total_dividas: parsed?.total_dividas || 0,
         p_pdf_url: pdfUrl,
-      } as never);
+      });
+      if (rpc2.error) console.error("[asaas-webhook] lnb_crm_set_consulta_resultado erro:", rpc2.error);
+      console.log(`[asaas-webhook] ✓ PDF gravado: cpf=${cpf} url=${pdfUrl}`);
     } else {
       console.error("[asaas-webhook] PDF erro:", r.error);
     }
