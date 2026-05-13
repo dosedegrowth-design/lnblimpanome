@@ -56,6 +56,30 @@ export default async function RelatorioPage() {
             </p>
           </CardContent>
         </Card>
+      ) : data.provider_status && data.provider_status !== "ok" ? (
+        <Card>
+          <CardContent className="p-16 text-center">
+            <FileSearch className="size-16 mx-auto text-amber-400 mb-4" />
+            <p className="text-amber-700 font-bold mb-1">Estamos finalizando sua consulta</p>
+            <p className="text-sm text-gray-600 mb-4 max-w-md mx-auto">
+              Tivemos uma instabilidade temporária com nosso provedor de consulta.
+              Nossa equipe foi avisada e já está reprocessando seu pedido.
+            </p>
+            <p className="text-xs text-gray-500 mb-6">
+              Seu relatório estará disponível em até 24h úteis. Caso tenha alguma dúvida,
+              fala com a gente:
+            </p>
+            <a
+              href={WHATSAPP}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-2 rounded-xl bg-green-600 hover:bg-green-700 px-6 h-11 text-sm font-semibold text-white"
+            >
+              <MessageCircle className="size-4" />
+              Falar com suporte no WhatsApp
+            </a>
+          </CardContent>
+        </Card>
       ) : data.tem_pendencia === null ? (
         <Card>
           <CardContent className="p-16 text-center">

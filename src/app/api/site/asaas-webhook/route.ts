@@ -114,11 +114,55 @@ export async function POST(req: Request) {
   if (tipoFromRef === "consulta" && !isCNPJ) {
     let parsed: ReturnType<typeof parseConsulta> | null = null;
     let raw: APIFullResultado | null = null;
+    let providerError: string | null = null;
+    let providerStatus: "ok" | "sem_saldo" | "erro_provedor" = "ok";
+
     try {
       raw = await consultarCPF(cpf);
       parsed = parseConsulta(raw);
     } catch (e) {
-      console.error("[asaas-webhook] erro consulta CPF (segue):", e);
+      const msg = e instanceof Error ? e.message : String(e);
+      providerError = msg;
+      providerStatus = msg.toLowerCase().includes("sem saldo") ? "sem_saldo" : "erro_provedor";
+      console.error(`[asaas-webhook] ❌ API Full FALHOU cpf=${cpf} status=${providerStatus}: ${msg}`);
+    }
+
+    // Se API Full falhou, marca status e NÃO gera PDF fake — admin recebe email
+    if (providerStatus !== "ok") {
+      const { error: rpcErr } = await supa.rpc("webhook_registrar_consulta_falha_provider", {
+        p_cpf: cpf,
+        p_nome: nome,
+        p_email: email,
+        p_telefone: telefone,
+        p_provider: "apifull",
+        p_provider_status: providerStatus,
+        p_provider_error: providerError,
+        p_external_ref: String(externalRef),
+      });
+      if (rpcErr) console.error("[asaas-webhook] webhook_registrar_consulta_falha_provider erro:", rpcErr);
+
+      // Notifica admin via email pra reprocessar manualmente
+      try {
+        const { sendEmail } = await import("@/lib/email");
+        await sendEmail({
+          to: "lucas@dosedegrowth.com.br",
+          subject: `[LNB] ⚠️ Consulta paga sem processar — CPF ${cpf}`,
+          html: `<h2>API Full falhou ao processar consulta paga</h2>
+<p><b>CPF:</b> ${cpf}</p>
+<p><b>Cliente:</b> ${nome} · ${email} · ${telefone}</p>
+<p><b>Provider status:</b> ${providerStatus}</p>
+<p><b>Erro:</b> ${providerError}</p>
+<p><b>External ref:</b> ${externalRef}</p>
+<p>Ação necessária: reprocessar manualmente após restaurar saldo da API Full.</p>`,
+          text: `API Full falhou. CPF ${cpf}. Cliente ${nome}. Status: ${providerStatus}. Erro: ${providerError}`,
+        });
+      } catch (e) {
+        console.error("[asaas-webhook] email admin erro:", e);
+      }
+
+      // Não chama finalizarConsulta (não gera PDF fake)
+      console.warn(`[asaas-webhook] ⚠️ Consulta cpf=${cpf} NÃO processada. Admin notificado.`);
+      return NextResponse.json({ ok: true });
     }
 
     const { error: rpcErr } = await supa.rpc("webhook_registrar_consulta_paga", {

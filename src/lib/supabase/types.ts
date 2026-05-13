@@ -84,6 +84,8 @@ export interface ConsultaRow {
   mp_preference_consulta: string | null;
   mp_preference_limpeza: string | null;
   origem: "site" | "whatsapp" | "admin" | null;
+  provider_status: "ok" | "sem_saldo" | "erro_provedor" | "nao_processado" | null;
+  provider_error: string | null;
   created_at: string;
 }
 
