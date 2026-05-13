@@ -156,6 +156,12 @@ function ConsultarCNPJWizard() {
           setTimeout(() => router.push(d.redirect), 1200);
           return;
         }
+        // CPF do responsável já tem cadastro → manda pro login
+        if (d.motivo === "cpf_ja_cadastrado") {
+          toast.info("O CPF do responsável já tem cadastro. Faça login com sua senha pra continuar.");
+          setTimeout(() => router.push("/conta/login"), 1500);
+          return;
+        }
         toast.error(d.error || "Não conseguimos gerar a cobrança. Tente novamente.");
         setLoading(false);
         return;
@@ -475,7 +481,7 @@ function ConsultarCNPJWizard() {
                     done={!!pollResult?.realizada}
                     loading={!!pollResult?.paga && !pollResult?.realizada}
                     pending={!pollResult?.paga}
-                    label="Consulta realizada (Receita + SCPC/Serasa do sócio)"
+                    label="Consulta realizada nos órgãos oficiais"
                   />
                   <Step
                     done={!!pollResult?.pdf_pronto}

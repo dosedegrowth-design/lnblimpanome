@@ -39,6 +39,13 @@ export default function CadastroPage() {
       });
       const data = await r.json();
       if (!r.ok || !data.ok) {
+        const msg = (data.error || "").toLowerCase();
+        // CPF/email já cadastrado → manda pro login com aviso
+        if (msg.includes("já cadastrado") || msg.includes("ja cadastrado")) {
+          toast.info("Este CPF já tem cadastro. Faça login ou use 'esqueci senha'.");
+          setTimeout(() => router.push("/conta/login"), 1500);
+          return;
+        }
         toast.error(data.error || "Erro ao cadastrar");
         return;
       }

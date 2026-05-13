@@ -78,7 +78,13 @@ export default function ClienteLoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm">
+          <div className="mt-5 text-center text-sm">
+            <Link href="/conta/recuperar-senha" className="text-gray-500 hover:text-brand-600">
+              Esqueci minha senha
+            </Link>
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-gray-100 text-center text-sm">
             <Link href="/conta/cadastro" className="text-brand-600 hover:text-brand-700 font-semibold">
               Primeiro acesso? Cadastre-se →
             </Link>

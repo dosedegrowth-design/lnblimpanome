@@ -37,7 +37,7 @@ export default function PrivacidadePage() {
         <section>
           <h2 className="font-display text-2xl text-forest-800 mt-10 mb-3">3. Pra que usamos</h2>
           <ul className="list-disc pl-6 space-y-1.5">
-            <li>Realizar a consulta de CPF junto à API Full e gerar seu relatório.</li>
+            <li>Realizar a consulta de CPF/CNPJ nos órgãos oficiais de proteção ao crédito e gerar seu relatório.</li>
             <li>Executar o processo de limpeza de nome (envio aos órgãos competentes).</li>
             <li>Manter a blindagem ativa (verificação periódica do CPF).</li>
             <li>Enviar atualizações pelo WhatsApp (via Chatwoot) e por email.</li>

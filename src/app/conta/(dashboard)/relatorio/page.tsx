@@ -83,7 +83,7 @@ export default async function RelatorioPage() {
               <Stat label="CPF" value={maskCPF(data.cpf)} mono />
               <Stat label="Pendências" value={data.tem_pendencia ? `${data.qtd_pendencias ?? 0}` : "0"} />
               <Stat label="Total débito" value={data.tem_pendencia ? formatBRL(data.total_dividas) : "—"} />
-              <Stat label="Provedor" value={data.provider === "apifull" ? "API Full" : data.provider ?? "—"} />
+              <Stat label="Fonte" value="Órgãos oficiais" />
             </CardContent>
             {data.resumo && (
               <div className="px-6 pb-6">

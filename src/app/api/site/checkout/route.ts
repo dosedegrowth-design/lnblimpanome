@@ -169,7 +169,21 @@ export async function POST(req: Request) {
       console.error("[checkout] register erro:", reg.error);
     } else if (reg.data && (reg.data as { ok: boolean }).ok === false) {
       const msg = (reg.data as { error?: string }).error || "";
-      if (!msg.includes("já cadastrado")) return bad(msg);
+      // ⚠️ Se CPF já existe e cliente NÃO está logado, bloqueia checkout.
+      // Evita que outra pessoa pague em cima de CPF de terceiros, sem
+      // conseguir logar depois (a senha gravada é a do dono original).
+      if (msg.includes("já cadastrado")) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Este CPF já tem cadastro. Faça login com sua senha pra continuar.",
+            motivo: "cpf_ja_cadastrado",
+            redirect: "/conta/login",
+          },
+          { status: 409 }
+        );
+      }
+      return bad(msg);
     }
   }
 

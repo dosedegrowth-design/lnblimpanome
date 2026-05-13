@@ -160,6 +160,12 @@ function ConsultarWizard() {
           setTimeout(() => router.push(d.redirect), 1200);
           return;
         }
+        // CPF já tem cadastro com outra senha → manda pro login
+        if (d.motivo === "cpf_ja_cadastrado") {
+          toast.info("Este CPF já tem cadastro. Faça login com sua senha pra continuar.");
+          setTimeout(() => router.push("/conta/login"), 1500);
+          return;
+        }
         toast.error(d.error || "Não conseguimos gerar a cobrança. Tente novamente.");
         setLoading(false);
         return;
@@ -177,7 +183,9 @@ function ConsultarWizard() {
     }
   }
 
-  // Polling do resultado quando o cliente volta do gateway no step 3
+  // Step 3: polling rápido (max 30s) e depois redireciona automaticamente
+  // pra área logada — cliente NUNCA fica preso esperando.
+  // Em paralelo, garante que o cliente esteja logado (auto-login via /api/cliente/me).
   useEffect(() => {
     if (step !== 3) return;
     const cpfPoll =
@@ -187,6 +195,8 @@ function ConsultarWizard() {
 
     setPolling(true);
     let cancelled = false;
+    let elapsed = 0;
+    const MAX_WAIT_MS = 30000; // 30s — depois manda pro painel sem travar
 
     const poll = async () => {
       try {
@@ -202,19 +212,31 @@ function ConsultarWizard() {
             qtd_pendencias: d.qtd_pendencias ?? null,
             total_dividas: d.total_dividas ?? null,
           });
+          // PDF pronto = redirect imediato pro relatório
           if (d.realizada && d.pdf_pronto) {
             setPolling(false);
+            setTimeout(() => router.push("/conta/relatorio"), 800);
             return;
           }
         }
-        setTimeout(poll, 4000);
       } catch {
-        if (!cancelled) setTimeout(poll, 6000);
+        // ignora — segue tentando
       }
+
+      elapsed += 3000;
+      if (elapsed >= MAX_WAIT_MS) {
+        // Passou 30s e ainda não terminou: leva o cliente pra área logada
+        // (lá ele vê estado "Pagamento confirmado · gerando relatório" e
+        //  pode atualizar quando quiser, sem ficar travado nessa tela)
+        setPolling(false);
+        setTimeout(() => router.push("/conta/dashboard?aguardando=1"), 800);
+        return;
+      }
+      setTimeout(poll, 3000);
     };
     poll();
     return () => { cancelled = true; };
-  }, [step, initialCpf]);
+  }, [step, initialCpf, router]);
 
   return (
     <div>
@@ -466,7 +488,7 @@ function ConsultarWizard() {
                     done={!!pollResult?.realizada}
                     loading={!!pollResult?.paga && !pollResult?.realizada}
                     pending={!pollResult?.paga}
-                    label="Consulta realizada (API SCPC/Serasa)"
+                    label="Consulta realizada nos órgãos oficiais"
                   />
                   <Step
                     done={!!pollResult?.pdf_pronto}
@@ -550,14 +572,16 @@ function ConsultarWizard() {
                   </motion.div>
                 )}
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-gray-100">
+                <div className="flex flex-col gap-3 pt-2 border-t border-gray-100">
+                  {/* Botão principal sempre ativo — leva pro painel sem esperar */}
                   <Button
-                    onClick={() => router.push("/conta/login")}
+                    onClick={() => router.push("/conta/dashboard")}
                     size="lg"
                     width="full"
-                    disabled={!pollResult?.realizada}
                   >
-                    {pollResult?.realizada ? "Acessar minha área" : "Aguardando..."}
+                    {pollResult?.pdf_pronto
+                      ? "Ver meu relatório agora"
+                      : "Ir pra minha área (relatório fica disponível em até 5 min)"}
                     <ArrowRight className="size-4" />
                   </Button>
                   <Button
