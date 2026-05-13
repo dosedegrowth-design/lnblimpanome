@@ -650,6 +650,8 @@ async function finalizarConsultaCNPJ(i: FinalizarConsultaCnpjInput) {
   let pjRaw: APIFullCNPJResultado | null = null;
   let parsedResp: ReturnType<typeof parseConsulta> | null = null;
   let respRaw: APIFullResultado | null = null;
+  let parsedRespSerasa: Awaited<ReturnType<typeof consultarCNPJCompleto>>["responsavelSerasa"] = null;
+  let respSerasaRaw: Awaited<ReturnType<typeof consultarCNPJCompleto>>["responsavelSerasaRaw"] = null;
 
   try {
     const result = await consultarCNPJCompleto(i.cnpj, i.cpfResponsavel);
@@ -657,9 +659,28 @@ async function finalizarConsultaCNPJ(i: FinalizarConsultaCnpjInput) {
     pjRaw = result.pjRaw;
     parsedResp = result.responsavel;
     respRaw = result.responsavelRaw;
+    parsedRespSerasa = result.responsavelSerasa;
+    respSerasaRaw = result.responsavelSerasaRaw;
+    console.log(
+      `[asaas-webhook] CNPJ ${i.cnpj}: PJ=${parsedPJ ? "ok" : "falhou"} serasa=${parsedRespSerasa ? "ok" : "falhou"} boavista=${parsedResp ? "ok" : "falhou"}`
+    );
   } catch (e) {
     console.error("[asaas-webhook] erro consulta CNPJ Completo (segue):", e);
   }
+
+  // Agrega tem_pendencia + qtd da união Serasa + Boa Vista
+  const temPendCNPJ =
+    (parsedRespSerasa?.tem_pendencia ?? false) || (parsedResp?.tem_pendencia ?? false);
+  const qtdPendCNPJ = Math.max(
+    (parsedRespSerasa?.qtd_pendencias ?? 0) +
+      (parsedRespSerasa?.qtd_protestos ?? 0) +
+      (parsedRespSerasa?.qtd_cheques_sem_fundo ?? 0),
+    parsedResp?.qtd_pendencias ?? 0
+  );
+  const totalDivCNPJ = Math.max(
+    (parsedRespSerasa?.total_dividas ?? 0) + (parsedRespSerasa?.total_protestos ?? 0),
+    parsedResp?.total_dividas ?? 0
+  );
 
   // Grava no LNB_Consultas
   try {
@@ -688,9 +709,9 @@ async function finalizarConsultaCNPJ(i: FinalizarConsultaCnpjInput) {
     console.error("[asaas-webhook] erro webhook_registrar_consulta_cnpj_paga:", e);
   }
 
-  // Score do responsável (API Full estrutura aninhada dados.data.saida.Scores[0])
+  // Score Boa Vista (extraído do raw)
   const rawObj = (respRaw as Record<string, unknown>) || {};
-  let score: number | undefined;
+  let scoreBoaVistaCNPJ: number | undefined;
   function findSaidaPJ(o: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
     if (!o || typeof o !== "object") return undefined;
     const dados = o.dados as Record<string, unknown> | undefined;
@@ -706,16 +727,20 @@ async function finalizarConsultaCNPJ(i: FinalizarConsultaCnpjInput) {
   const scoresArr = saida.Scores as Array<Record<string, unknown>> | undefined;
   if (Array.isArray(scoresArr) && scoresArr.length > 0) {
     const sNum = parseFloat(String(scoresArr[0]?.score ?? scoresArr[0]?.valor ?? ""));
-    if (!isNaN(sNum)) score = sNum;
+    if (!isNaN(sNum)) scoreBoaVistaCNPJ = sNum;
   }
-  if (score === undefined) {
+  if (scoreBoaVistaCNPJ === undefined) {
     const direct = saida.Score ?? saida.score ?? rawObj.Score ?? rawObj.score;
-    if (typeof direct === "number") score = direct;
+    if (typeof direct === "number") scoreBoaVistaCNPJ = direct;
     else if (typeof direct === "string") {
       const n = parseFloat(direct);
-      if (!isNaN(n)) score = n;
+      if (!isNaN(n)) scoreBoaVistaCNPJ = n;
     }
   }
+
+  // Score Serasa do sócio (preferido pro PDF — é o que cliente conhece)
+  const scoreSerasaCNPJ = parsedRespSerasa?.score ?? undefined;
+  const score = scoreSerasaCNPJ ?? scoreBoaVistaCNPJ;
 
   // Gera PDF CNPJ
   let pdfUrl: string | null = null;
@@ -736,9 +761,16 @@ async function finalizarConsultaCNPJ(i: FinalizarConsultaCnpjInput) {
       email: i.email,
       telefone: i.telefone,
       score,
-      tem_pendencia: !!parsedResp?.tem_pendencia,
-      qtd_pendencias: parsedResp?.qtd_pendencias || 0,
-      total_dividas: parsedResp?.total_dividas || 0,
+      score_serasa: scoreSerasaCNPJ,
+      score_boa_vista: scoreBoaVistaCNPJ,
+      probabilidade_pagamento: parsedRespSerasa?.probabilidade_pagamento ?? undefined,
+      data_nascimento_responsavel: parsedRespSerasa?.data_nascimento ?? undefined,
+      situacao_receita_responsavel: parsedRespSerasa?.situacao_receita ?? undefined,
+      tem_pendencia: temPendCNPJ,
+      qtd_pendencias: qtdPendCNPJ,
+      total_dividas: totalDivCNPJ,
+      qtd_protestos: parsedRespSerasa?.qtd_protestos ?? 0,
+      qtd_cheques_sem_fundo: parsedRespSerasa?.qtd_cheques_sem_fundo ?? 0,
       pendencias: parsedResp?.pendencias,
     });
     if (r.ok) {

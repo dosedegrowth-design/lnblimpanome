@@ -48,6 +48,15 @@ export interface RelatorioCNPJInput {
   email?: string;
   telefone?: string;
   score?: number;
+  // Multi-bureau (novo)
+  score_serasa?: number;
+  score_boa_vista?: number;
+  probabilidade_pagamento?: string;
+  data_nascimento_responsavel?: string;
+  situacao_receita_responsavel?: string;
+  qtd_protestos?: number;
+  qtd_cheques_sem_fundo?: number;
+  // Resumo agregado
   tem_pendencia: boolean;
   qtd_pendencias: number;
   total_dividas: number;

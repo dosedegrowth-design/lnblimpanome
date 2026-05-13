@@ -342,7 +342,7 @@ function ContratarForm() {
 
                       <div className="rounded-xl bg-sand-50 border border-sand-200 p-4 text-xs sm:text-sm text-forest-800 font-medium leading-relaxed">
                         <strong className="font-bold">Por que verificar?</strong> Pra contratar a
-                        limpeza você precisa ter feito a consulta {isCNPJ ? "de CNPJ (R$ 24,99)" : "de CPF (R$ 19,99)"} e ter
+                        limpeza você precisa ter feito a consulta {isCNPJ ? "de CNPJ (R$ 39,99)" : "de CPF (R$ 29,99)"} e ter
                         pendências em aberto. Sem isso, não há nada pra limpar.
                       </div>
                     </CardContent>
@@ -378,7 +378,7 @@ function ContratarForm() {
                         <>
                           <div className="rounded-xl bg-brand-50 border border-brand-200 p-4 sm:p-5">
                             <p className="font-bold text-forest-800 text-sm sm:text-base">
-                              Faça a consulta primeiro · R$ 19,99
+                              Faça a consulta primeiro · R$ 29,99
                             </p>
                             <p className="text-xs sm:text-sm text-gray-700 font-medium mt-1">
                               Em minutos você descobre se tem pendências, score, dívidas e

@@ -12,8 +12,8 @@ import type { LucideIcon } from "lucide-react";
 import { FileSearch, Sparkles, Building2, Briefcase } from "lucide-react";
 
 export type PlanoTipo =
-  | "consulta"            // CPF R$ 19,99
-  | "consulta_cnpj"       // CNPJ R$ 24,99
+  | "consulta"            // CPF R$ 29,99 (Serasa Premium + Boa Vista)
+  | "consulta_cnpj"       // CNPJ R$ 39,99 (Receita + Serasa + Boa Vista do sócio)
   | "limpeza_desconto"    // CPF R$ 480,01
   | "limpeza_cnpj";       // CNPJ R$ 580,01
 

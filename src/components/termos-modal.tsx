@@ -108,8 +108,8 @@ function ConteudoConsultaCPF() {
         <p>
           A <strong>Limpa Nome Brazil (LNB)</strong> oferece serviço digital de
           consulta de CPF nos principais órgãos oficiais de proteção ao crédito:
-          SPC Brasil, Serasa Experian, IEPTB e Boa Vista SCPC. O valor da consulta é
-          de <strong>R$ 19,99</strong>, pago via Pix, cartão ou boleto.
+          Serasa Experian, Boa Vista SCPC e Receita Federal, com score multi-bureau.
+          O valor da consulta é de <strong>R$ 29,99</strong>, pago via Pix, cartão ou boleto.
         </p>
       </Section>
       <Section titulo="2. Proteção de Dados (LGPD)">
@@ -154,8 +154,8 @@ function ConteudoConsultaCNPJ() {
       <Section titulo="1. Do Objeto">
         <p>
           Consulta digital de CNPJ na Receita Federal (dados cadastrais) + CPF
-          do sócio responsável nos órgãos de proteção ao crédito (Score, Boa
-          Vista, Serasa). Valor: <strong>R$ 24,99</strong>.
+          do sócio responsável com Score Serasa Experian e Boa Vista SCPC.
+          Valor: <strong>R$ 39,99</strong>.
         </p>
       </Section>
       <Section titulo="2. Dados do Responsável">
