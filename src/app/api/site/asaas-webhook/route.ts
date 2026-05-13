@@ -419,7 +419,8 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
         p_resumo: parsed?.tem_pendencia
           ? `Foram encontradas ${parsed.qtd_pendencias} pendência(s) em seu nome, totalizando R$ ${parsed.total_dividas.toFixed(2)}.`
           : "Não foram encontradas pendências em seu nome. Continue mantendo as contas em dia.",
-        p_resultado_raw: null,
+        p_resultado_raw: raw as unknown as object,
+        p_score: score ?? null,
       });
       if (rpc1.error) console.error("[asaas-webhook] webhook_set_consulta_resultado erro:", rpc1.error);
       const rpc2 = await supa2.rpc("lnb_crm_set_consulta_resultado", {
