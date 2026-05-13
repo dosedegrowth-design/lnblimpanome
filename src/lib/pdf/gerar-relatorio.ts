@@ -73,11 +73,29 @@ function scoreColor(score: number): string {
   return C.red500;
 }
 
+/**
+ * Faixas oficiais Boa Vista/Serasa (escala 0-1000):
+ * - 0-300:    Muito baixo  (~50% chance pagar contas em dia)
+ * - 301-500:  Baixo        (~60% chance)
+ * - 501-700:  Regular      (~75% chance)
+ * - 701-850:  Bom          (~90% chance)
+ * - 851-1000: Ótimo        (~95% chance)
+ */
 function scoreFaixa(score: number): string {
-  if (score >= 700) return "BOM";
-  if (score >= 500) return "REGULAR";
-  if (score >= 300) return "BAIXO";
+  if (score >= 851) return "ÓTIMO";
+  if (score >= 701) return "BOM";
+  if (score >= 501) return "REGULAR";
+  if (score >= 301) return "BAIXO";
   return "MUITO BAIXO";
+}
+
+function scoreSubtexto(faixa: string, temPendencia: boolean): string {
+  if (faixa === "ÓTIMO") return "perfil excelente";
+  if (faixa === "BOM") return "perfil confiável";
+  if (faixa === "REGULAR") return "atenção";
+  if (faixa === "BAIXO") return temPendencia ? "ação necessária" : "construindo histórico";
+  // MUITO BAIXO
+  return temPendencia ? "ação necessária" : "pouco histórico";
 }
 
 /**
@@ -207,7 +225,7 @@ async function montarPdf(data: RelatorioInput): Promise<Buffer> {
       {
         label: "FAIXA",
         value: faixa,
-        sub: faixa === "BOM" ? "ótimo" : faixa === "REGULAR" ? "atenção" : "ação necessária",
+        sub: scoreSubtexto(faixa, data.tem_pendencia),
         color: corScore,
       },
       {
