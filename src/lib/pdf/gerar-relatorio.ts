@@ -207,8 +207,9 @@ async function montarPdf(data: RelatorioInput): Promise<Buffer> {
     doc.strokeColor(C.gray200).lineWidth(0.5).moveTo(M, y).lineTo(PAGE_W - M, y).stroke();
     y += 10;
 
-    const cardW = (W - 8) / 2;
-    const cardH = 88;
+    const cardW = (W - 10) / 2;
+    const cardH = 100;
+    const PAD = 14;
 
     const drawScoreCard = (
       x: number,
@@ -223,55 +224,71 @@ async function montarPdf(data: RelatorioInput): Promise<Buffer> {
 
       // Card com borda
       doc.roundedRect(x, y, cardW, cardH, 4).strokeColor(C.gray200).lineWidth(0.5).stroke();
-      // Label bureau (topo)
+
+      // Label bureau (canto sup esquerdo)
       doc
-        .fillColor(C.gray500)
-        .fontSize(7)
+        .fillColor(C.gray600)
+        .fontSize(8)
         .font("Helvetica-Bold")
-        .text(labelBureau.toUpperCase(), x + 12, y + 10, { characterSpacing: 0.6 });
-      // Sublabel
+        .text(labelBureau.toUpperCase(), x + PAD, y + 10, {
+          characterSpacing: 0.7,
+          width: cardW - PAD * 2,
+        });
+      // Sublabel (logo abaixo)
       doc
         .fillColor(C.gray400)
-        .fontSize(6.5)
+        .fontSize(7)
         .font("Helvetica")
-        .text(sublabel, x + 12, y + 20);
+        .text(sublabel, x + PAD, y + 21, { width: cardW - PAD * 2 });
 
-      // Score grande
+      // Score grande à esquerda
       if (score !== null) {
-        doc.fillColor(cor).fontSize(32).font("Helvetica-Bold").text(`${score}`, x + 12, y + 32);
-        doc.fillColor(C.gray500).fontSize(9).font("Helvetica").text("/ 1000", x + 12 + 60, y + 50);
-        // Faixa
-        doc.fillColor(cor).fontSize(11).font("Helvetica-Bold").text(fx, x + cardW - 12, y + 36, {
-          width: 0,
-          align: "right",
+        doc.fillColor(cor).fontSize(34).font("Helvetica-Bold").text(`${score}`, x + PAD, y + 36, {
+          width: 90,
+          lineBreak: false,
         });
-        doc.fillColor(C.gray500).fontSize(7).font("Helvetica").text(sub, x + cardW - 12, y + 50, {
-          width: 0,
-          align: "right",
-        });
+        doc
+          .fillColor(C.gray500)
+          .fontSize(8)
+          .font("Helvetica")
+          .text("/ 1000", x + PAD + 68, y + 56, { lineBreak: false });
 
-        // Barra de progresso
-        const barY = y + cardH - 18;
-        const barW = cardW - 24;
-        doc.rect(x + 12, barY, barW, 4).fill(C.gray100);
+        // Bloco faixa+sub à DIREITA do score (dentro do card)
+        const rightX = x + PAD + 100;
+        const rightW = cardW - PAD * 2 - 100;
+        doc
+          .fillColor(cor)
+          .fontSize(11)
+          .font("Helvetica-Bold")
+          .text(fx, rightX, y + 40, { width: rightW, align: "right", lineBreak: false });
+        doc
+          .fillColor(C.gray500)
+          .fontSize(7)
+          .font("Helvetica")
+          .text(sub, rightX, y + 55, { width: rightW, align: "right", lineBreak: false });
+
+        // Barra de progresso (parte inferior do card)
+        const barY = y + cardH - 22;
+        const barW = cardW - PAD * 2;
+        doc.rect(x + PAD, barY, barW, 5).fill(C.gray100);
         const pct = Math.min(1, sc / 1000);
-        doc.rect(x + 12, barY, barW * pct, 4).fill(cor);
-        // Escala
-        doc.fillColor(C.gray400).fontSize(5.5).font("Helvetica").text("0", x + 12, barY + 6);
-        doc.text("1000", x + 12 + barW, barY + 6, { width: 0, align: "right" });
+        doc.rect(x + PAD, barY, barW * pct, 5).fill(cor);
+        // Escala 0 / 1000
+        doc.fillColor(C.gray400).fontSize(6).font("Helvetica").text("0", x + PAD, barY + 8, { lineBreak: false });
+        doc.text("1000", x + PAD, barY + 8, { width: barW, align: "right", lineBreak: false });
       } else {
         doc
           .fillColor(C.gray400)
-          .fontSize(14)
+          .fontSize(13)
           .font("Helvetica")
-          .text("Não disponível", x + 12, y + 40);
+          .text("Não disponível", x + PAD, y + 46, { width: cardW - PAD * 2 });
       }
     };
 
-    drawScoreCard(M, "Serasa Experian", scoreS, "Score Score 6 meses");
-    drawScoreCard(M + cardW + 8, "Boa Vista SCPC", scoreBV, "Score Positivo PF");
+    drawScoreCard(M, "Serasa Experian", scoreS, "Score Serasa - 6 meses");
+    drawScoreCard(M + cardW + 10, "Boa Vista SCPC", scoreBV, "Score Positivo PF");
 
-    y += cardH + 12;
+    y += cardH + 10;
 
     // ─── STATUS DO CPF ──────────────────────────────────────
     const statusCorFundo = data.tem_pendencia ? C.red50 : C.emerald50;
@@ -376,49 +393,122 @@ async function montarPdf(data: RelatorioInput): Promise<Buffer> {
         y += 14;
       }
     } else {
-      // Bloco educativo "Como construir seu score"
+      // Bloco "Análise de Perfil" — denso, profissional
       doc
         .fillColor(C.gray500)
         .fontSize(7)
         .font("Helvetica-Bold")
-        .text("RECOMENDAÇÕES PARA MANTER E MELHORAR SEU SCORE", M, y, { characterSpacing: 0.8 });
+        .text("ANÁLISE DE PERFIL DE CRÉDITO", M, y, { characterSpacing: 0.8 });
       y += 10;
       doc.strokeColor(C.gray200).lineWidth(0.5).moveTo(M, y).lineTo(PAGE_W - M, y).stroke();
       y += 10;
 
+      // Texto de análise contextual
+      const scS = scoreS ?? 0;
+      const faixaS = scoreFaixa(scS);
+      let analise = "";
+      if (faixaS === "MUITO BAIXO") {
+        analise =
+          "Seu perfil indica pouco histórico de crédito ativo. Isso é comum em pessoas jovens ou que não utilizam crédito com frequência. Não é uma penalização — é apenas a ausência de informação para o modelo estatístico avaliar seu comportamento financeiro.";
+      } else if (faixaS === "BAIXO") {
+        analise =
+          "Seu score está em construção. Pequenas ações como pagar contas em dia, manter cadastro atualizado e ativar o Cadastro Positivo podem elevar seu score significativamente nos próximos 6 meses.";
+      } else if (faixaS === "REGULAR") {
+        analise =
+          "Você tem um perfil de crédito intermediário. Bancos e financeiras já consideram seu perfil para concessão de crédito, mas com taxas e limites moderados. Continue mantendo as contas em dia para subir de faixa.";
+      } else if (faixaS === "BOM") {
+        analise =
+          "Excelente! Você tem um perfil de crédito confiável. Bancos e financeiras costumam oferecer melhores condições de juros e limites para perfis como o seu.";
+      } else {
+        analise =
+          "Perfil de crédito excepcional. Você está entre os melhores pagadores do Brasil — aproveite para negociar as melhores condições de crédito.";
+      }
+      doc.fillColor(C.gray700).fontSize(8.5).font("Helvetica").text(analise, M, y, {
+        width: W,
+        align: "justify",
+        lineGap: 2,
+      });
+      y += 38;
+
+      // Recomendações em 2 colunas
+      doc
+        .fillColor(C.gray500)
+        .fontSize(7)
+        .font("Helvetica-Bold")
+        .text("RECOMENDAÇÕES PERSONALIZADAS", M, y, { characterSpacing: 0.8 });
+      y += 10;
+      doc.strokeColor(C.gray200).lineWidth(0.5).moveTo(M, y).lineTo(PAGE_W - M, y).stroke();
+      y += 8;
+
       const recs = [
-        { titulo: "Mantenha contas em dia", desc: "Pagamentos pontuais são o principal fator do score." },
-        { titulo: "Ative o Cadastro Positivo", desc: "Permite que pagamentos em dia construam seu histórico nas bases Serasa e Boa Vista." },
-        { titulo: "Use crédito com moderação", desc: "Evite usar mais de 30% do limite de cartões e cheque especial." },
-        { titulo: "Mantenha cadastro atualizado", desc: "Telefone, e-mail e endereço atualizados aumentam a confiabilidade do seu perfil." },
+        {
+          titulo: "Mantenha as contas em dia",
+          desc: "Pagamentos pontuais são o principal fator do score Serasa e Boa Vista.",
+        },
+        {
+          titulo: "Ative o Cadastro Positivo",
+          desc: "Pagamentos em dia constroem histórico e elevam o score nas duas bases.",
+        },
+        {
+          titulo: "Use crédito com moderação",
+          desc: "Evite usar mais de 30% do limite de cartões e cheque especial.",
+        },
+        {
+          titulo: "Mantenha cadastro atualizado",
+          desc: "Telefone, e-mail e endereço atualizados aumentam a confiabilidade do perfil.",
+        },
+        {
+          titulo: "Consulte seu CPF regularmente",
+          desc: "Acompanhe o score e proteja-se contra fraudes e uso indevido do seu CPF.",
+        },
+        {
+          titulo: "Negocie dívidas antes que virem restrição",
+          desc: "Acordos prévios evitam negativação e preservam seu score.",
+        },
       ];
 
       recs.forEach((r, i) => {
         const x = M + (i % 2) * (W / 2 + 6);
-        const yy = y + Math.floor(i / 2) * 38;
+        const yy = y + Math.floor(i / 2) * 32;
         // Ícone bullet
         doc.circle(x + 4, yy + 5, 2).fill(C.brand500);
-        doc.fillColor(C.forest800).fontSize(9).font("Helvetica-Bold").text(r.titulo, x + 14, yy);
-        doc.fillColor(C.gray600).fontSize(7.5).font("Helvetica").text(r.desc, x + 14, yy + 11, {
+        doc.fillColor(C.forest800).fontSize(8.5).font("Helvetica-Bold").text(r.titulo, x + 14, yy, {
+          width: W / 2 - 20,
+        });
+        doc.fillColor(C.gray600).fontSize(7).font("Helvetica").text(r.desc, x + 14, yy + 10, {
           width: W / 2 - 20,
         });
       });
-      y += 80;
+      y += 100;
     }
 
     // ─── PROBABILIDADE PAGAMENTO (banner) ───────────────────
     if (data.probabilidade_pagamento) {
-      const probH = 24;
-      const probY = PAGE_H - 90 - probH;
-      doc.roundedRect(M, probY, W, probH, 3).fill(C.gray50);
-      doc.fillColor(C.gray600).fontSize(8).font("Helvetica").text(
-        `Probabilidade de pagamento em 6 meses (modelo Serasa): `,
-        M + 10,
-        probY + 8
-      );
-      doc.fillColor(C.forest800).font("Helvetica-Bold").text(data.probabilidade_pagamento, {
-        continued: false,
-      });
+      const probH = 26;
+      doc.roundedRect(M, y, W, probH, 3).fill(C.gray50);
+      doc
+        .fillColor(C.gray600)
+        .fontSize(8)
+        .font("Helvetica")
+        .text("PROBABILIDADE DE PAGAMENTO EM 6 MESES", M + 12, y + 7, {
+          characterSpacing: 0.5,
+          lineBreak: false,
+        });
+      doc
+        .fillColor(C.gray500)
+        .fontSize(7)
+        .font("Helvetica")
+        .text("(modelo Serasa Experian)", M + 12, y + 16, { lineBreak: false });
+      doc
+        .fillColor(C.forest800)
+        .fontSize(14)
+        .font("Helvetica-Bold")
+        .text(data.probabilidade_pagamento, M, y + 7, {
+          width: W - 12,
+          align: "right",
+          lineBreak: false,
+        });
+      y += probH + 8;
     }
 
     // ─── FOOTER (selo de autenticação + fontes) ─────────────
