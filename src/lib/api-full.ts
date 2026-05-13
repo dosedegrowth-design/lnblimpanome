@@ -127,16 +127,29 @@ export function parseConsulta(r: APIFullResultado): ParsedConsulta {
         "Empresa",
         "empresa",
         "Origem",
-        "origem"
+        "origem",
+        "informante",
+        "Informante"
       );
-      const valor = pickNum(d, "Valor", "valor", "ValorAtualizado", "valor_atualizado");
+      const valor = pickNum(
+        d,
+        "Valor",
+        "valor",
+        "ValorAtualizado",
+        "valor_atualizado",
+        "valorAtualizado",
+        "valorOriginal",
+        "ValorOriginal"
+      );
       const data = pickStr(
         d,
         "Data",
         "data",
         "DataInclusao",
         "data_inclusao",
-        "DataOcorrencia"
+        "dataInclusao",
+        "DataOcorrencia",
+        "dataOcorrencia"
       );
       if (valor > 0 || credor) {
         pendencias.push({
@@ -149,27 +162,52 @@ export function parseConsulta(r: APIFullResultado): ParsedConsulta {
     }
   }
 
-  // Tenta TODAS as variações comuns
-  const raw = r as Record<string, unknown>;
-  processArray(raw.RegistroDeDebitos, "Credor");
-  processArray(raw.Pendencias, "Pendência");
-  processArray(raw.pendencias, "Pendência");
-  processArray(raw.Protestos, "Protesto");
-  processArray(raw.RestricoesFinanceiras, "Restrição");
-  processArray(raw.restricoes_financeiras, "Restrição");
-  processArray(raw.Apontamentos, "Apontamento");
-  processArray(raw.apontamentos, "Apontamento");
+  // Processa um node tentando todos os campos possíveis (pendências/protestos)
+  function processNode(node: Record<string, unknown> | undefined) {
+    if (!node || typeof node !== "object") return;
 
-  // Caso a API retorne dentro de "data" ou "resultado"
-  const inner = (raw.data || raw.resultado || raw.Resultado) as
-    | Record<string, unknown>
-    | undefined;
-  if (inner && typeof inner === "object") {
-    processArray(inner.RegistroDeDebitos, "Credor");
-    processArray(inner.Pendencias, "Pendência");
-    processArray(inner.pendencias, "Pendência");
-    processArray(inner.Protestos, "Protesto");
-    processArray(inner.RestricoesFinanceiras, "Restrição");
+    // 1) Arrays diretos (formato plano antigo e-boavista)
+    processArray(node.RegistroDeDebitos, "Credor");
+    processArray(node.Pendencias, "Pendência");
+    processArray(node.pendencias, "Pendência");
+    processArray(node.Protestos, "Protesto");
+    processArray(node.RestricoesFinanceiras, "Restrição");
+    processArray(node.restricoes_financeiras, "Restrição");
+    processArray(node.Apontamentos, "Apontamento");
+    processArray(node.apontamentos, "Apontamento");
+
+    // 2) Objeto envelopado: { listaDebitos: [...] } (formato API Full real)
+    const regDebitos = node.RegistroDeDebitos as Record<string, unknown> | undefined;
+    if (regDebitos && typeof regDebitos === "object" && !Array.isArray(regDebitos)) {
+      processArray(regDebitos.listaDebitos, "Credor");
+    }
+    const protestos = node.Protestos as Record<string, unknown> | undefined;
+    if (protestos && typeof protestos === "object" && !Array.isArray(protestos)) {
+      processArray(protestos.listaProtestos, "Protesto");
+    }
+    const acoes = node.AcoesCiveis as Record<string, unknown> | undefined;
+    if (acoes && typeof acoes === "object" && !Array.isArray(acoes)) {
+      processArray(acoes.listaAcoes, "Ação Cível");
+    }
+  }
+
+  // Tenta TODAS as variações comuns + estrutura aninhada da API Full real
+  const raw = r as Record<string, unknown>;
+  processNode(raw);
+
+  // Caso a API retorne dentro de "data" / "resultado" / "dados.data.saida"
+  const inner1 = (raw.data || raw.resultado || raw.Resultado) as Record<string, unknown> | undefined;
+  processNode(inner1);
+
+  // Estrutura API Full real: { dados: { data: { saida: {...} } } }
+  const dados = raw.dados as Record<string, unknown> | undefined;
+  if (dados && typeof dados === "object") {
+    const dadosData = dados.data as Record<string, unknown> | undefined;
+    if (dadosData && typeof dadosData === "object") {
+      processNode(dadosData);
+      const saida = dadosData.saida as Record<string, unknown> | undefined;
+      processNode(saida);
+    }
   }
 
   const tem_pendencia = pendencias.length > 0;

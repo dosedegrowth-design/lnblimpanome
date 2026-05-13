@@ -281,31 +281,68 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
 
   console.log(`[asaas-webhook] finalizando consulta cpf=${cpf} origem=${origem}`);
 
+  // Extrai score + pendências da estrutura aninhada da API Full real
+  // ({ dados: { data: { saida: {...} } } }) ou fallback de chaves diretas
   const rawObj = (raw as Record<string, unknown>) || {};
-  const score =
-    typeof rawObj.Score === "number"
-      ? (rawObj.Score as number)
-      : typeof rawObj.score === "number"
-      ? (rawObj.score as number)
-      : undefined;
 
-  const pendencias: Array<{ credor: string; valor: number; data?: string }> = [];
-  if (Array.isArray(rawObj.RegistroDeDebitos)) {
-    for (const d of rawObj.RegistroDeDebitos as Array<Record<string, unknown>>) {
-      pendencias.push({
-        credor: String(d.Credor || "Credor"),
-        valor: parseFloat(String(d.Valor ?? 0)) || 0,
-        data: d.Data ? String(d.Data) : undefined,
-      });
+  function findSaida(o: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+    if (!o || typeof o !== "object") return undefined;
+    const dados = o.dados as Record<string, unknown> | undefined;
+    if (dados?.data && typeof dados.data === "object") {
+      const dd = dados.data as Record<string, unknown>;
+      if (dd.saida && typeof dd.saida === "object") return dd.saida as Record<string, unknown>;
+      return dd;
+    }
+    if (o.data && typeof o.data === "object") return o.data as Record<string, unknown>;
+    return o;
+  }
+
+  const saida = findSaida(rawObj) || {};
+
+  // Score: tenta Scores[0].score, Score direto, ou score
+  let score: number | undefined;
+  const scoresArr = saida.Scores as Array<Record<string, unknown>> | undefined;
+  if (Array.isArray(scoresArr) && scoresArr.length > 0) {
+    const s0 = scoresArr[0];
+    const sNum = parseFloat(String(s0?.score ?? s0?.valor ?? ""));
+    if (!isNaN(sNum)) score = sNum;
+  }
+  if (score === undefined) {
+    const direct = saida.Score ?? saida.score ?? rawObj.Score ?? rawObj.score;
+    if (typeof direct === "number") score = direct;
+    else if (typeof direct === "string") {
+      const n = parseFloat(direct);
+      if (!isNaN(n)) score = n;
     }
   }
-  if (Array.isArray(rawObj.Protestos)) {
-    for (const p of rawObj.Protestos as Array<Record<string, unknown>>) {
-      pendencias.push({
-        credor: String(p.Credor || "Protesto"),
-        valor: parseFloat(String(p.Valor ?? 0)) || 0,
-        data: p.Data ? String(p.Data) : undefined,
-      });
+
+  const pendencias: Array<{ credor: string; valor: number; data?: string }> = [];
+
+  // 1) RegistroDeDebitos: pode ser { listaDebitos: [...] } ou array direto
+  const regDeb = saida.RegistroDeDebitos as Record<string, unknown> | Array<Record<string, unknown>> | undefined;
+  const listaDeb = Array.isArray(regDeb)
+    ? regDeb
+    : (regDeb && typeof regDeb === "object" ? (regDeb.listaDebitos as Array<Record<string, unknown>> | undefined) : undefined);
+  if (Array.isArray(listaDeb)) {
+    for (const d of listaDeb) {
+      const credor = String(d.credor ?? d.Credor ?? d.informante ?? d.Informante ?? "Credor");
+      const valor = parseFloat(String(d.valorAtualizado ?? d.valorOriginal ?? d.Valor ?? d.valor ?? 0)) || 0;
+      const data = String(d.dataInclusao ?? d.dataOcorrencia ?? d.DataInclusao ?? d.Data ?? d.data ?? "");
+      pendencias.push({ credor, valor, data: data || undefined });
+    }
+  }
+
+  // 2) Protestos
+  const prot = saida.Protestos as Record<string, unknown> | Array<Record<string, unknown>> | undefined;
+  const listaProt = Array.isArray(prot)
+    ? prot
+    : (prot && typeof prot === "object" ? (prot.listaProtestos as Array<Record<string, unknown>> | undefined) : undefined);
+  if (Array.isArray(listaProt)) {
+    for (const p of listaProt) {
+      const credor = String(p.credor ?? p.Credor ?? "Protesto");
+      const valor = parseFloat(String(p.valorAtualizado ?? p.valorOriginal ?? p.Valor ?? p.valor ?? 0)) || 0;
+      const data = String(p.dataInclusao ?? p.dataOcorrencia ?? p.Data ?? p.data ?? "");
+      pendencias.push({ credor, valor, data: data || undefined });
     }
   }
 
@@ -541,11 +578,34 @@ async function finalizarConsultaCNPJ(i: FinalizarConsultaCnpjInput) {
     console.error("[asaas-webhook] erro webhook_registrar_consulta_cnpj_paga:", e);
   }
 
-  // Score do responsável + pendências
+  // Score do responsável (API Full estrutura aninhada dados.data.saida.Scores[0])
   const rawObj = (respRaw as Record<string, unknown>) || {};
-  const score =
-    typeof rawObj.Score === "number" ? (rawObj.Score as number) :
-    typeof rawObj.score === "number" ? (rawObj.score as number) : undefined;
+  let score: number | undefined;
+  function findSaidaPJ(o: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+    if (!o || typeof o !== "object") return undefined;
+    const dados = o.dados as Record<string, unknown> | undefined;
+    if (dados?.data && typeof dados.data === "object") {
+      const dd = dados.data as Record<string, unknown>;
+      if (dd.saida && typeof dd.saida === "object") return dd.saida as Record<string, unknown>;
+      return dd;
+    }
+    if (o.data && typeof o.data === "object") return o.data as Record<string, unknown>;
+    return o;
+  }
+  const saida = findSaidaPJ(rawObj) || {};
+  const scoresArr = saida.Scores as Array<Record<string, unknown>> | undefined;
+  if (Array.isArray(scoresArr) && scoresArr.length > 0) {
+    const sNum = parseFloat(String(scoresArr[0]?.score ?? scoresArr[0]?.valor ?? ""));
+    if (!isNaN(sNum)) score = sNum;
+  }
+  if (score === undefined) {
+    const direct = saida.Score ?? saida.score ?? rawObj.Score ?? rawObj.score;
+    if (typeof direct === "number") score = direct;
+    else if (typeof direct === "string") {
+      const n = parseFloat(direct);
+      if (!isNaN(n)) score = n;
+    }
+  }
 
   // Gera PDF CNPJ
   let pdfUrl: string | null = null;
