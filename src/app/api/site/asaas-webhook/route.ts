@@ -142,24 +142,32 @@ export async function POST(req: Request) {
     });
     if (rpcErr) console.error("[asaas-webhook] webhook_registrar_consulta_paga erro:", rpcErr);
 
-    finalizarConsulta({ cpf, nome, email, telefone, parsed, raw, origem }).catch((e) =>
-      console.error("[asaas-webhook] erro finalizar consulta:", e)
-    );
+    // ⚠️ AWAIT obrigatório — em Vercel serverless o processo morre após
+    // a response, então fire-and-forget aborta a Promise silenciosamente.
+    try {
+      await finalizarConsulta({ cpf, nome, email, telefone, parsed, raw, origem });
+    } catch (e) {
+      console.error("[asaas-webhook] erro finalizar consulta:", e);
+    }
   }
 
   // ─── CONSULTA CNPJ ────────────────────────────────────
   if (tipoFromRef === "consulta_cnpj" && isCNPJ) {
-    finalizarConsultaCNPJ({
-      cnpj,
-      razaoSocial,
-      cpfResponsavel,
-      nomeResponsavel,
-      email,
-      telefone,
-      externalRef: String(externalRef),
-      origem,
-      supa,
-    }).catch((e) => console.error("[asaas-webhook] erro finalizar consulta CNPJ:", e));
+    try {
+      await finalizarConsultaCNPJ({
+        cnpj,
+        razaoSocial,
+        cpfResponsavel,
+        nomeResponsavel,
+        email,
+        telefone,
+        externalRef: String(externalRef),
+        origem,
+        supa,
+      });
+    } catch (e) {
+      console.error("[asaas-webhook] erro finalizar consulta CNPJ:", e);
+    }
   }
 
   // ─── LIMPEZA CPF ──────────────────────────────────────
@@ -170,9 +178,11 @@ export async function POST(req: Request) {
     });
     if (rpcErr) console.error("[asaas-webhook] webhook_registrar_limpeza_fechada erro:", rpcErr);
 
-    finalizarLimpezaPaga({ cpf, nome, telefone, email, origem }).catch((e) =>
-      console.error("[asaas-webhook] erro finalizar limpeza:", e)
-    );
+    try {
+      await finalizarLimpezaPaga({ cpf, nome, telefone, email, origem });
+    } catch (e) {
+      console.error("[asaas-webhook] erro finalizar limpeza:", e);
+    }
   }
 
   // ─── LIMPEZA CNPJ ─────────────────────────────────────
@@ -183,13 +193,11 @@ export async function POST(req: Request) {
     });
     if (rpcErr) console.error("[asaas-webhook] webhook_registrar_limpeza_cnpj_fechada erro:", rpcErr);
 
-    finalizarLimpezaCnpjPaga({
-      cnpj,
-      razaoSocial,
-      telefone,
-      email,
-      origem,
-    }).catch((e) => console.error("[asaas-webhook] erro finalizar limpeza CNPJ:", e));
+    try {
+      await finalizarLimpezaCnpjPaga({ cnpj, razaoSocial, telefone, email, origem });
+    } catch (e) {
+      console.error("[asaas-webhook] erro finalizar limpeza CNPJ:", e);
+    }
   }
 
   return NextResponse.json({ ok: true });
