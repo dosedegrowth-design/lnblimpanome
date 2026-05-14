@@ -7,7 +7,7 @@ import { formatBRL } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 const PRECO_CONSULTA = 29.99;
-const PRECO_LIMPEZA = 480.01;
+const PRECO_LIMPEZA = 500.00;
 
 async function getMetrics() {
   const supa = await createClient();
@@ -101,7 +101,7 @@ export default async function DashboardPage() {
                 <p className="font-display text-2xl text-forest-700 mt-1">{formatBRL(m.receitaConsultas)}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider">Limpezas (R$ 480,01)</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wider">Limpezas (R$ 500,00)</p>
                 <p className="font-display text-2xl text-forest-700 mt-1">{formatBRL(m.receitaLimpezas)}</p>
               </div>
             </div>

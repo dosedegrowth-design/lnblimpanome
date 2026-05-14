@@ -39,7 +39,7 @@ export default async function PagamentosPage() {
   }
 
   if (consulta?.fechou_limpeza || crm?.Fechado) {
-    const valor = parseFloat(crm?.value || "480.01") || 480.01;
+    const valor = parseFloat(crm?.value || "500.00") || 500.00;
     items.push({
       label: "Limpeza de Nome + Blindagem",
       valor,

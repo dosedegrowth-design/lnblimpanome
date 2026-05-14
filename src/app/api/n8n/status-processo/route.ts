@@ -75,7 +75,7 @@ export async function POST(req: Request) {
   const partes: string[] = [];
   if (crm) {
     if (crm.Fechado === true) {
-      partes.push("✅ Cliente já FECHOU venda (paga limpeza R$ 480,01)");
+      partes.push("✅ Cliente já FECHOU venda (paga limpeza R$ 500,00)");
     } else if (crm.Qualificado === true) {
       partes.push("⏳ Cliente qualificado, link de pagamento enviado");
     } else if (crm.Interessado === true) {

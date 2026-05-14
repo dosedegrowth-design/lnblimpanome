@@ -545,7 +545,7 @@ function ConsultarWizard() {
                       </div>
                     </div>
                     <div className="mt-5 flex items-baseline gap-2">
-                      <span className="font-display text-3xl sm:text-4xl">R$ 480,01</span>
+                      <span className="font-display text-3xl sm:text-4xl">R$ 500,00</span>
                       <span className="text-xs text-sand-200 font-semibold">à vista · 12x no cartão</span>
                     </div>
                     <Button

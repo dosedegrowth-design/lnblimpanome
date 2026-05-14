@@ -14,7 +14,7 @@ import { FileSearch, Sparkles, Building2, Briefcase } from "lucide-react";
 export type PlanoTipo =
   | "consulta"            // CPF R$ 29,99 (Serasa Premium + Boa Vista)
   | "consulta_cnpj"       // CNPJ R$ 39,99 (Receita + Serasa + Boa Vista do sócio)
-  | "limpeza_desconto"    // CPF R$ 480,01
+  | "limpeza_desconto"    // CPF R$ 500,00
   | "limpeza_cnpj";       // CNPJ R$ 580,01
 
 export interface Plano {
@@ -79,8 +79,8 @@ export const PLANOS: Record<PlanoTipo, Plano> = {
   limpeza_desconto: {
     tipo: "limpeza_desconto",
     nome: "Limpeza de Nome (CPF)",
-    preco: 480.01,
-    precoLabel: "R$ 480,01",
+    preco: 500.00,
+    precoLabel: "R$ 500,00",
     badge: "Solução completa",
     destaque: true,
     resumo: "Limpa seu nome em até 20 dias úteis · sem quitar dívida",

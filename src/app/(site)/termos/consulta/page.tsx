@@ -160,7 +160,7 @@ export default function TermosConsultaPage() {
             O valor de R$ 29,99 pago pela consulta gera{" "}
             <strong>desconto integral</strong> caso o USUÁRIO contrate o serviço de
             Limpeza de Nome + Blindagem da LNB nos próximos 30 dias. Nesse caso, o
-            valor da Limpeza passa de R$ 499,90 para <strong>R$ 480,01</strong>.
+            valor da Limpeza passa de R$ 499,90 para <strong>R$ 500,00</strong>.
           </p>
         </section>
 

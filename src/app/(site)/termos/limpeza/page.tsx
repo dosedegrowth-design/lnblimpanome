@@ -13,7 +13,7 @@ export default function TermosLimpezaPage() {
           Contrato · Limpeza de Nome + Blindagem
         </p>
         <h1 className="font-display text-4xl sm:text-5xl text-forest-800 mt-2">
-          Termos e Condições — Limpeza + Blindagem (R$ 480,01)
+          Termos e Condições — Limpeza + Blindagem (R$ 500,00)
         </h1>
         <p className="text-gray-500 text-sm mt-3">
           Versão 1.0 · Atualizado em {new Date().toLocaleDateString("pt-BR")}
@@ -25,7 +25,7 @@ export default function TermosLimpezaPage() {
           Este contrato regula a prestação do serviço de{" "}
           <strong>Auxílio na Regularização de Crédito</strong> entre a{" "}
           <strong>Limpa Nome Brazil (LNB)</strong> e o USUÁRIO. Ao efetuar o pagamento
-          da taxa de <strong>R$ 480,01</strong>, você declara estar de acordo com as
+          da taxa de <strong>R$ 500,00</strong>, você declara estar de acordo com as
           cláusulas abaixo.
         </p>
       </div>
@@ -40,7 +40,7 @@ export default function TermosLimpezaPage() {
             ao crédito (SPC, Serasa, IEPTB, Boa Vista SCPC).
           </p>
           <p>
-            O pagamento de R$ 480,01 refere-se à <strong>taxa de serviço de
+            O pagamento de R$ 500,00 refere-se à <strong>taxa de serviço de
             assessoria</strong> e <strong>NÃO quita o valor principal das dívidas
             junto aos credores</strong>. O serviço atua exclusivamente sobre o
             registro/apontamento da dívida nos órgãos de proteção, não sobre a

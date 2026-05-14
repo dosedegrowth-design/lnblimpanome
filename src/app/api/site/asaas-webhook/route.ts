@@ -280,8 +280,22 @@ async function finalizarLimpezaPaga(i: FinalizarLimpezaInput) {
   const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://limpanomebrazil.com.br";
   console.log(`[asaas-webhook] limpeza paga cpf=${i.cpf} origem=${i.origem}`);
 
-  const titulo = "🎉 Limpeza contratada — equipe inicia em até 4h úteis";
-  const corpo = `Recebemos seu pagamento de R$ 480,01 com sucesso! Em até 4 horas úteis nossa equipe especializada inicia o processo de limpeza do seu nome. Você será atualizado a cada etapa por aqui e por email.\n\n📋 Próximos passos:\n• Análise dos credores (em até 2 dias)\n• Atuação junto aos órgãos (Boa Vista/Serasa/SPC)\n• Acompanhamento online no painel\n• Conclusão em até 20 dias úteis\n\nObrigado pela confiança 💙`;
+  const primeiroNome = i.nome.split(" ")[0] || "amigo(a)";
+  const titulo = `🎉 Pagamento da Limpeza confirmado, ${primeiroNome}!`;
+  const corpo =
+    `Recebemos seu pagamento. Bora limpar seu nome! 💪\n\n` +
+    `📋 *Próximos passos:*\n\n` +
+    `1️⃣ Em até 4h úteis nossa equipe inicia o processo\n` +
+    `2️⃣ Análise dos credores (até 2 dias úteis)\n` +
+    `3️⃣ Atuação junto aos órgãos oficiais\n` +
+    `    (Serasa, Boa Vista, SPC, IEPTB)\n` +
+    `4️⃣ Você acompanha tudo no painel\n` +
+    `5️⃣ Conclusão em até 20 dias úteis\n` +
+    `6️⃣ Bônus: 12 meses de Blindagem ativada\n\n` +
+    `Vou te atualizando aqui no WhatsApp a cada etapa.\n` +
+    `Qualquer dúvida é só me chamar! 💙\n\n` +
+    `📊 Acompanhe no seu painel:\n` +
+    `👉 ${SITE}/conta/dashboard`;
 
   if (i.origem === "whatsapp" && i.telefone) {
     try {
@@ -295,7 +309,7 @@ async function finalizarLimpezaPaga(i: FinalizarLimpezaInput) {
         await aplicarLabelsLnb(convId, "pago_limpeza");
         await registrarLimpezaPagaNoCard(convId, {
           cpf: i.cpf,
-          valor: "R$ 480,01",
+          valor: "R$ 500,00",
         });
         await enviarTextoChatwoot(convId, `*${titulo}*\n\n${corpo}`);
       }
@@ -555,40 +569,77 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
   if (origem === "whatsapp" && telefone) {
     try {
       const { buscarConversationIdPorTelefone } = await import("@/lib/chatwoot-kanban");
-      const { enviarTextoChatwoot, enviarAnexoChatwoot } = await import("@/lib/chatwoot-attach");
+      const { enviarTextoChatwoot } = await import("@/lib/chatwoot-attach");
       const convId = await buscarConversationIdPorTelefone(telefone);
-      if (convId) {
-        const textoResumo = `*${titulo}*\n\n${corpoWpp}\n\n${parsed?.tem_pendencia ? "Vou te explicar como funciona a limpeza." : "Recomendo a Blindagem mensal pra manter assim."}`;
-        await enviarTextoChatwoot(convId, textoResumo);
-        if (pdfUrl) {
-          await enviarAnexoChatwoot(
-            convId,
-            pdfUrl,
-            "📄 Aqui está seu relatório completo. Pode salvar pra consultar depois.",
-            `relatorio-cpf-${cpf}.pdf`
-          );
-        }
+
+      // 1) Gera senha temporária pro cliente acessar painel
+      let senhaTemp: string | null = null;
+      try {
+        const supaSenha = await createClient();
+        const { data: senhaResp } = await supaSenha.rpc("lnb_gerar_senha_temporaria", {
+          p_cpf: cpf,
+          p_nome: nome,
+          p_email: email,
+          p_telefone: telefone,
+        });
+        const r = senhaResp as { senha_temporaria?: string };
+        senhaTemp = r?.senha_temporaria ?? null;
+      } catch (e) {
+        console.error("[asaas-webhook] gerar senha tempo erro:", e);
+      }
+
+      const cpfFmt = `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9)}`;
+      const primeiroNome = nome.split(" ")[0] || "amigo(a)";
+
+      // 2) Monta resumo texto detalhado
+      let resumoTexto: string;
+      if (parsed?.tem_pendencia) {
+        const credores = (parsed.pendencias || [])
+          .slice(0, 5)
+          .map(
+            (p, i) =>
+              `${i + 1}. ${p.credor} — R$ ${p.valor
+                .toFixed(2)
+                .replace(".", ",")}${p.data ? ` (${p.data})` : ""}`
+          )
+          .join("\n");
+        resumoTexto =
+          `✅ *Pagamento confirmado, ${primeiroNome}!*\n` +
+          `Sua consulta foi processada.\n\n` +
+          `⚠️ *Encontrei ${parsed.qtd_pendencias} pendência(s) no seu CPF*, ` +
+          `totalizando R$ ${parsed.total_dividas.toFixed(2).replace(".", ",")}\n\n` +
+          `📊 *Análise de crédito:*\n` +
+          `• Score Serasa: ${score ?? "—"}\n` +
+          `• Status: POSSUI PENDÊNCIAS\n\n` +
+          `💰 *Credores encontrados:*\n${credores}\n\n` +
+          `Quer limpar essas pendências? Me responde aqui que eu te explico! 💙`;
       } else {
-        const templateName = process.env.WPP_TEMPLATE_GENERICO;
-        if (templateName) {
-          await sendWhatsAppTemplate(
-            telefone,
-            {
-              name: templateName,
-              language: process.env.WPP_TEMPLATE_LANG || "pt_BR",
-              parameters: [
-                nome.split(" ")[0],
-                titulo,
-                corpoWpp,
-                `${SITE}/conta/dashboard`,
-              ],
-            },
-            nome
-          );
-        } else {
-          const texto = `*${titulo}*\n\n${corpoWpp}${pdfUrl ? "\n\nPDF: " + pdfUrl : ""}\n\nAcesse: ${SITE}/conta/dashboard`;
-          await sendWhatsApp(telefone, texto, nome);
-        }
+        resumoTexto =
+          `✅ *Pagamento confirmado, ${primeiroNome}!*\n` +
+          `Sua consulta foi processada.\n\n` +
+          `🎉 *Boa notícia: seu nome está LIMPO!*\n` +
+          `Não encontrei pendências, protestos ou cheques sem fundo nas bases consultadas.\n\n` +
+          `📊 *Score atual:*\n` +
+          `• Serasa: ${score ?? "—"}\n\n` +
+          `Continue mantendo as contas em dia pra preservar seu score! 💙`;
+      }
+
+      // 3) Bloco de acesso ao painel (com senha temporária)
+      const blocoAcesso = senhaTemp
+        ? `\n\n📄 *Pra baixar o PDF completo + acompanhar o processo:*\n` +
+          `👉 ${SITE}/conta/login\n\n` +
+          `*Seu acesso:*\n` +
+          `CPF: ${cpfFmt}\n` +
+          `Senha: \`${senhaTemp}\`\n\n` +
+          `_(Recomendo trocar a senha depois do primeiro acesso)_`
+        : `\n\n📄 *Acesse o painel pra baixar o PDF:*\n👉 ${SITE}/conta/login`;
+
+      const textoCompleto = resumoTexto + blocoAcesso;
+
+      if (convId) {
+        await enviarTextoChatwoot(convId, textoCompleto);
+      } else {
+        await sendWhatsApp(telefone, textoCompleto, nome);
       }
     } catch (e) {
       console.error("[asaas-webhook] whatsapp/chatwoot erro:", e);

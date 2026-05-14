@@ -189,7 +189,7 @@ function ConteudoLimpezaCPF() {
         <p>
           Serviço de limpeza de nome via negociação digital junto aos órgãos
           oficiais (SPC, Serasa, IEPTB, Boa Vista) e credores. Valor:{" "}
-          <strong>R$ 480,01</strong>, inclui <strong>12 meses de monitoramento</strong>{" "}
+          <strong>R$ 500,00</strong>, inclui <strong>12 meses de monitoramento</strong>{" "}
           (Blindagem) gratuito.
         </p>
       </Section>

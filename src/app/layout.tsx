@@ -167,7 +167,7 @@ export default function RootLayout({
         areaServed: "BR",
         offers: {
           "@type": "Offer",
-          price: "480.01",
+          price: "500.00",
           priceCurrency: "BRL",
           availability: "https://schema.org/InStock",
         },

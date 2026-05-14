@@ -20,7 +20,7 @@ import { getClienteSession } from "@/lib/auth/cliente";
 const PRECOS = {
   consulta:         { valor: 29.99,  titulo: "LNB - Consulta CPF",                          tipoDoc: "CPF"  as const },
   consulta_cnpj:    { valor: 39.99,  titulo: "LNB - Consulta CNPJ",                         tipoDoc: "CNPJ" as const },
-  limpeza_desconto: { valor: 480.01, titulo: "LNB - Limpeza de Nome + Monitoramento 12m",   tipoDoc: "CPF"  as const },
+  limpeza_desconto: { valor: 500.00, titulo: "LNB - Limpeza de Nome + Monitoramento 12m",   tipoDoc: "CPF"  as const },
   limpeza:          { valor: 499.90, titulo: "LNB - Limpeza de Nome + Monitoramento 12m",   tipoDoc: "CPF"  as const },
   limpeza_cnpj:     { valor: 580.01, titulo: "LNB - Limpeza CNPJ + Sócio + Monitoramento",  tipoDoc: "CNPJ" as const },
 } as const;
@@ -46,7 +46,9 @@ export async function POST(req: Request) {
   const telefone = (telRaw || "").replace(/\D/g, "");
 
   if (!(tipo in PRECOS)) return bad("Tipo de cobrança inválido");
-  const item = PRECOS[tipo as TipoCobranca];
+  const item: { valor: number; titulo: string; tipoDoc: "CPF" | "CNPJ" } = {
+    ...PRECOS[tipo as TipoCobranca],
+  };
   const isCNPJ = item.tipoDoc === "CNPJ";
 
   // ─── Validações comuns ───
@@ -114,6 +116,7 @@ export async function POST(req: Request) {
   }
 
   // ─── Pré-requisito limpeza (CPF ou CNPJ): exige consulta paga COM pendência ───
+  let descontoLimpezaAplicado = false;
   if (tipo === "limpeza_desconto" || tipo === "limpeza") {
     const { data: eleg, error: elegErr } = await supa.rpc(
       "cliente_pode_contratar_limpeza",
@@ -134,6 +137,20 @@ export async function POST(req: Request) {
         },
         { status: 409 }
       );
+    }
+
+    // Aplica desconto da consulta (15 dias)
+    try {
+      const { data: vlr } = await supa.rpc("lnb_calcular_valor_limpeza", { p_cpf: cpf });
+      const v = vlr as { tem_desconto: boolean; valor_com_desconto: number; valor_cheio: number };
+      if (v?.tem_desconto) {
+        item.valor = v.valor_com_desconto;
+        descontoLimpezaAplicado = true;
+      } else {
+        item.valor = v?.valor_cheio ?? 500.0;
+      }
+    } catch (e) {
+      console.error("[checkout] calcular desconto limpeza erro (segue):", e);
     }
   } else if (tipo === "limpeza_cnpj") {
     const { data: eleg, error: elegErr } = await supa.rpc(
@@ -270,6 +287,8 @@ export async function POST(req: Request) {
     payment_id: cobranca.paymentId,
     customer_id: cobranca.customerId,
     external_reference: externalRef,
+    valor: item.valor,
+    desconto_aplicado: descontoLimpezaAplicado,
     tipo,
     cpf: isCNPJ ? undefined : cpf,
     cnpj: isCNPJ ? cnpj : undefined,

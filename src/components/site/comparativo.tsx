@@ -16,7 +16,7 @@ const LINHAS: Linha[] = [
   { feature: "Tempo até nome limpo",      tradicional: "5 anos (decadência)", lnb: "20 dias úteis", destaque: true },
   { feature: "Precisa quitar a dívida?",   tradicional: "Sim",                  lnb: false },
   { feature: "Negociar com cada credor?",  tradicional: "Sim",                  lnb: false },
-  { feature: "Custo médio",                tradicional: "Valor da dívida + juros", lnb: "R$ 480,01", destaque: true },
+  { feature: "Custo médio",                tradicional: "Valor da dívida + juros", lnb: "R$ 500,00", destaque: true },
   { feature: "Atendimento 100% digital",   tradicional: false,                  lnb: true },
   { feature: "Acompanhamento pelo painel", tradicional: false,                  lnb: true },
   { feature: "Monitoramento 12m bônus",    tradicional: false,                  lnb: true },

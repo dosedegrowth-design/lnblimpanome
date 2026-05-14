@@ -40,7 +40,7 @@ const LABEL_POR_TIPO: Record<string, LnbLabelContext> = {
  */
 const PRECOS = {
   consulta:         { valor: 29.99,  titulo: "LNB - Consulta CPF" },
-  limpeza_desconto: { valor: 480.01, titulo: "LNB - Limpeza + Blindagem (com desconto)" },
+  limpeza_desconto: { valor: 500.00, titulo: "LNB - Limpeza + Blindagem (com desconto)" },
   blindagem:        { valor: 29.90,  titulo: "LNB - Blindagem mensal de CPF" },
 } as const;
 
@@ -69,10 +69,12 @@ export async function POST(req: Request) {
   if (!nome || nome.length < 2) return bad("Nome inválido");
   if (!(tipo in PRECOS)) return bad(`Tipo inválido: ${tipo}`);
 
-  const item = PRECOS[tipo];
+  const item: { valor: number; titulo: string } = { ...PRECOS[tipo] };
   const supa = await createClient();
 
-  // Pré-requisito: limpeza só após consulta paga COM pendência
+  // Pré-requisito + desconto: limpeza só após consulta paga COM pendência
+  let descontoAplicado = false;
+  let diasRestantesDesconto: number | null = null;
   if (tipo === "limpeza_desconto") {
     const { data: eleg } = await supa.rpc("cliente_pode_contratar_limpeza", { p_cpf: cpf });
     const r = eleg as { pode: boolean; motivo?: string; mensagem?: string };
@@ -85,6 +87,28 @@ export async function POST(req: Request) {
         },
         { status: 409 }
       );
+    }
+
+    // Aplica desconto se consulta paga há ≤ 15 dias
+    try {
+      const { data: vlr } = await supa.rpc("lnb_calcular_valor_limpeza", { p_cpf: cpf });
+      const v = vlr as {
+        valor_cheio: number;
+        valor_com_desconto: number;
+        tem_desconto: boolean;
+        dias_restantes: number;
+      };
+      if (v?.tem_desconto) {
+        item.valor = v.valor_com_desconto;
+        item.titulo = "LNB - Limpeza de Nome (com desconto da consulta)";
+        descontoAplicado = true;
+        diasRestantesDesconto = v.dias_restantes;
+      } else {
+        item.valor = v?.valor_cheio ?? 500.0;
+        item.titulo = "LNB - Limpeza de Nome";
+      }
+    } catch (e) {
+      console.error("[n8n/criar-checkout] calc desconto erro (segue, usa valor cheio):", e);
     }
   }
 
@@ -174,6 +198,8 @@ export async function POST(req: Request) {
     telefone,
     tipo,
     valor: item.valor,
+    desconto_aplicado: descontoAplicado,
+    dias_restantes_desconto: diasRestantesDesconto,
   });
 }
 
