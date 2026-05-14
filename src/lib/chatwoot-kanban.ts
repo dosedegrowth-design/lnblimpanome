@@ -55,6 +55,11 @@ function accountId() {
 /**
  * Move uma conversation pra um stage específico do funil "Limpeza de Nome".
  *
+ * Fluxo:
+ *   1. Tenta POST /conversations/{id}/funnel_mappings — cria o mapping
+ *      Se já existe, retorna 200 com message "Conversa já está nesse stage"
+ *   2. Se já tinha mapping em outro stage, faz POST .../move_stage
+ *
  * @param conversationId ID da conversa no Chatwoot
  * @param stage Lead | Interessado | Qualificado | Fechado | Perdido
  *              (aceita variações case-insensitive)
@@ -64,7 +69,7 @@ function accountId() {
 export async function moverKanbanStage(
   conversationId: number,
   stage: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; stage: LnbStage; mapping_id?: number } | { ok: false; error: string }> {
   const stageKey = STAGE_MAP[stage];
   if (!stageKey) {
     return { ok: false, error: `stage inválido: ${stage}` };
@@ -72,34 +77,55 @@ export async function moverKanbanStage(
 
   const token = adminToken();
   if (!token) {
-    return {
-      ok: false,
-      error: "CHATWOOT_ADMIN_TOKEN não configurado",
-    };
+    return { ok: false, error: "CHATWOOT_ADMIN_TOKEN não configurado" };
   }
 
+  const baseUrl = `${base()}/api/v1/accounts/${accountId()}/conversations/${conversationId}/funnel_mappings`;
+  const headers = {
+    api_access_token: token,
+    "Content-Type": "application/json",
+  };
+
   try {
-    const url = `${base()}/api/v1/accounts/${accountId()}/conversations/${conversationId}`;
-    const r = await fetch(url, {
-      method: "PATCH",
-      headers: {
-        api_access_token: token,
-        "Content-Type": "application/json",
-      },
+    // 1) Tenta criar o mapping (Lead inicial OU mover direto)
+    const r = await fetch(baseUrl, {
+      method: "POST",
+      headers,
       body: JSON.stringify({
         funnel_id: FUNNEL_ID_LNB,
-        funnel_stage: stageKey,
+        stage_name: stageKey,
       }),
     });
 
-    if (!r.ok) {
-      const t = await r.text();
-      return {
-        ok: false,
-        error: `Chatwoot ${r.status}: ${t.slice(0, 200)}`,
+    if (r.ok) {
+      const data = (await r.json()) as {
+        success?: boolean;
+        mapping?: { id: number; stage_name?: string };
       };
+      const mappingStage = data.mapping?.stage_name;
+      const mappingId = data.mapping?.id;
+
+      // Se já estava em outro stage, faz move_stage
+      if (mappingStage && mappingStage !== stageKey && mappingId) {
+        const moveR = await fetch(`${baseUrl}/${mappingId}/move_stage`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ stage_name: stageKey }),
+        });
+        if (!moveR.ok) {
+          const t = await moveR.text();
+          return {
+            ok: false,
+            error: `move_stage falhou ${moveR.status}: ${t.slice(0, 200)}`,
+          };
+        }
+      }
+      return { ok: true, stage: stageKey, mapping_id: mappingId };
     }
-    return { ok: true };
+
+    // Status não-OK: tenta entender e retornar erro
+    const t = await r.text();
+    return { ok: false, error: `Chatwoot ${r.status}: ${t.slice(0, 200)}` };
   } catch (e) {
     return { ok: false, error: String(e) };
   }
