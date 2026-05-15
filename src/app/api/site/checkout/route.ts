@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { criarCobrancaLNB } from "@/lib/asaas";
 import { cleanCPF, isValidCPF, cleanCNPJ, isValidCNPJ } from "@/lib/utils";
 import { getClienteSession } from "@/lib/auth/cliente";
+import { getProduto, isModoTeste, type ProdutoCodigo } from "@/lib/produtos";
 
 /**
  * POST /api/site/checkout
@@ -15,30 +16,22 @@ import { getClienteSession } from "@/lib/auth/cliente";
  * 5) Cria cobrança Asaas (Pix + cartão + boleto na mesma tela)
  * 6) Retorna init_point (invoiceUrl Asaas)
  *
+ * Precos lidos da tabela lnb_produtos via getProduto().
+ * Modo teste: LNB_MODO_TESTE=true (env Vercel).
+ *
  * Asaas notifica via webhook → /api/site/asaas-webhook
  */
-// MODO TESTE: env LNB_MODO_TESTE = "true" aplica R$ 1,00 em tudo
-const MODO_TESTE = process.env.LNB_MODO_TESTE === "true";
 
-const PRECOS_REAIS = {
-  consulta:         { valor: 29.99,  titulo: "LNB - Consulta CPF",                          tipoDoc: "CPF"  as const },
-  consulta_cnpj:    { valor: 39.99,  titulo: "LNB - Consulta CNPJ",                         tipoDoc: "CNPJ" as const },
-  limpeza_desconto: { valor: 500.00, titulo: "LNB - Limpeza de Nome + Monitoramento 12m",   tipoDoc: "CPF"  as const },
-  limpeza:          { valor: 499.90, titulo: "LNB - Limpeza de Nome + Monitoramento 12m",   tipoDoc: "CPF"  as const },
-  limpeza_cnpj:     { valor: 580.01, titulo: "LNB - Limpeza CNPJ + Sócio + Monitoramento",  tipoDoc: "CNPJ" as const },
-} as const;
+// Mapeamento tipo do checkout → codigo do produto no banco
+const TIPO_INFO: Record<string, { codigo: ProdutoCodigo; titulo: string; tipoDoc: "CPF" | "CNPJ" }> = {
+  consulta:         { codigo: "consulta_cpf",  titulo: "LNB - Consulta CPF",                          tipoDoc: "CPF"  },
+  consulta_cnpj:    { codigo: "consulta_cnpj", titulo: "LNB - Consulta CNPJ",                         tipoDoc: "CNPJ" },
+  limpeza_desconto: { codigo: "limpeza_cpf",   titulo: "LNB - Limpeza de Nome + Monitoramento 12m",   tipoDoc: "CPF"  },
+  limpeza:          { codigo: "limpeza_cpf",   titulo: "LNB - Limpeza de Nome + Monitoramento 12m",   tipoDoc: "CPF"  },
+  limpeza_cnpj:     { codigo: "limpeza_cnpj",  titulo: "LNB - Limpeza CNPJ + Sócio + Monitoramento",  tipoDoc: "CNPJ" },
+};
 
-const PRECOS_TESTE = {
-  consulta:         { valor: 5.00, titulo: "[TESTE] LNB - Consulta CPF",  tipoDoc: "CPF"  as const },
-  consulta_cnpj:    { valor: 5.00, titulo: "[TESTE] LNB - Consulta CNPJ", tipoDoc: "CNPJ" as const },
-  limpeza_desconto: { valor: 5.00, titulo: "[TESTE] LNB - Limpeza",       tipoDoc: "CPF"  as const },
-  limpeza:          { valor: 5.00, titulo: "[TESTE] LNB - Limpeza",       tipoDoc: "CPF"  as const },
-  limpeza_cnpj:     { valor: 5.00, titulo: "[TESTE] LNB - Limpeza CNPJ",  tipoDoc: "CNPJ" as const },
-} as const;
-
-const PRECOS = MODO_TESTE ? PRECOS_TESTE : PRECOS_REAIS;
-
-type TipoCobranca = keyof typeof PRECOS_REAIS;
+type TipoCobranca = keyof typeof TIPO_INFO;
 
 function siteUrl(req: Request): string {
   const env = process.env.NEXT_PUBLIC_SITE_URL;
@@ -58,9 +51,18 @@ export async function POST(req: Request) {
 
   const telefone = (telRaw || "").replace(/\D/g, "");
 
-  if (!(tipo in PRECOS)) return bad("Tipo de cobrança inválido");
+  if (!(tipo in TIPO_INFO)) return bad("Tipo de cobrança inválido");
+  const info = TIPO_INFO[tipo as TipoCobranca];
+  const modoTeste = isModoTeste();
+
+  // Le preco da tabela lnb_produtos (respeitando modo teste)
+  const produtoBanco = await getProduto(info.codigo);
+  if (!produtoBanco) return bad(`Produto ${info.codigo} não configurado no banco`);
+
   const item: { valor: number; titulo: string; tipoDoc: "CPF" | "CNPJ" } = {
-    ...PRECOS[tipo as TipoCobranca],
+    valor: produtoBanco.valor,
+    titulo: modoTeste ? `[TESTE] ${info.titulo}` : info.titulo,
+    tipoDoc: info.tipoDoc,
   };
   const isCNPJ = item.tipoDoc === "CNPJ";
 
@@ -160,7 +162,7 @@ export async function POST(req: Request) {
         item.valor = v.valor_com_desconto;
         descontoLimpezaAplicado = true;
       } else {
-        item.valor = v?.valor_cheio ?? 500.0;
+        item.valor = v?.valor_cheio ?? produtoBanco.valor;
       }
     } catch (e) {
       console.error("[checkout] calcular desconto limpeza erro (segue):", e);

@@ -4,22 +4,21 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowRight, MessageSquare, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getEtapas, getProximaEtapa, type TipoServico } from "@/lib/processos";
+import { getProximaEtapa, type Etapa } from "@/lib/kanban-shared";
 
 interface Props {
   processoId: string;
-  tipo: TipoServico;
+  etapas: Etapa[];
   etapaAtual: string;
   cliente: { nome: string; email: string | null; telefone: string | null };
 }
 
-export function ProcessoActions({ processoId, tipo, etapaAtual, cliente }: Props) {
+export function ProcessoActions({ processoId, etapas, etapaAtual, cliente }: Props) {
   const router = useRouter();
-  const etapas = getEtapas(tipo);
-  const proxima = getProximaEtapa(tipo, etapaAtual);
+  const proxima = getProximaEtapa(etapas, etapaAtual);
 
   const [moveOpen, setMoveOpen] = useState(false);
-  const [novaEtapa, setNovaEtapa] = useState(proxima?.id || "");
+  const [novaEtapa, setNovaEtapa] = useState(proxima?.codigo || "");
   const [mensagem, setMensagem] = useState("");
   const [notificar, setNotificar] = useState(true);
   const [loadingMove, setLoadingMove] = useState(false);
@@ -96,7 +95,7 @@ export function ProcessoActions({ processoId, tipo, etapaAtual, cliente }: Props
         {proxima && !moveOpen && (
           <Button onClick={() => setMoveOpen(true)} className="gap-2">
             <ArrowRight className="size-4" />
-            Avançar pra: {proxima.emoji} {proxima.label}
+            Avançar pra: {proxima.emoji} {proxima.nome}
           </Button>
         )}
         {!moveOpen && (
@@ -122,10 +121,10 @@ export function ProcessoActions({ processoId, tipo, etapaAtual, cliente }: Props
           >
             <option value="">Selecione a nova etapa</option>
             {etapas
-              .filter((e) => e.id !== etapaAtual)
+              .filter((e) => e.codigo !== etapaAtual)
               .map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.emoji} {e.label} — {e.descricao}
+                <option key={e.codigo} value={e.codigo}>
+                  {e.emoji} {e.nome}{e.descricao ? ` — ${e.descricao}` : ""}
                 </option>
               ))}
           </select>

@@ -1,13 +1,14 @@
 import { Clock, ArrowRight, MessageSquare, FileText, Settings, Mail, MessageCircle } from "lucide-react";
 import { formatDateTimeBR } from "@/lib/utils";
-import { getEtapa, type EventoRow, type TipoServico } from "@/lib/processos";
+import { findEtapa, type Etapa } from "@/lib/kanban";
+import type { EventoRow } from "@/lib/processos";
 
 interface Props {
-  tipo: TipoServico;
+  etapas: Etapa[];
   eventos: EventoRow[];
 }
 
-export function ProcessoTimeline({ tipo, eventos }: Props) {
+export function ProcessoTimeline({ etapas, eventos }: Props) {
   if (eventos.length === 0) {
     return (
       <div className="text-center py-8 text-gray-400 text-sm">
@@ -19,8 +20,8 @@ export function ProcessoTimeline({ tipo, eventos }: Props) {
   return (
     <ol className="relative space-y-1 pl-1">
       {eventos.map((e, i) => {
-        const etapaNova = e.etapa_nova ? getEtapa(tipo, e.etapa_nova) : null;
-        const etapaAnt = e.etapa_anterior ? getEtapa(tipo, e.etapa_anterior) : null;
+        const etapaNova = e.etapa_nova ? findEtapa(etapas, e.etapa_nova) : null;
+        const etapaAnt = e.etapa_anterior ? findEtapa(etapas, e.etapa_anterior) : null;
 
         let icon = <Clock className="size-3.5 text-gray-500" />;
         let bg = "bg-gray-100";
@@ -52,11 +53,11 @@ export function ProcessoTimeline({ tipo, eventos }: Props) {
                   <p className="font-semibold text-sm text-forest-800">
                     {etapaAnt && (
                       <span className="text-gray-500 font-normal">
-                        {etapaAnt.emoji} {etapaAnt.label} →{" "}
+                        {etapaAnt.emoji} {etapaAnt.nome} →{" "}
                       </span>
                     )}
                     <span className="text-brand-700">
-                      {etapaNova.emoji} {etapaNova.label}
+                      {etapaNova.emoji} {etapaNova.nome}
                     </span>
                   </p>
                 )}

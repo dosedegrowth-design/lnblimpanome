@@ -40,29 +40,20 @@ const LABEL_POR_TIPO: Record<string, LnbLabelContext> = {
  * Resposta:
  *   { ok: true, init_point: "https://...", preference_id: "...", external_reference: "..." }
  */
-// MODO TESTE: se env LNB_MODO_TESTE = "true", aplica R$ 5,00 (mínimo Asaas)
-const MODO_TESTE = process.env.LNB_MODO_TESTE === "true";
+// Precos lidos da tabela lnb_produtos. Modo teste: LNB_MODO_TESTE=true (Vercel env)
+// Asaas exige valor minimo de R$ 5,00 — preco_teste padrao = R$ 5
 
-const PRECOS_REAIS = {
-  consulta:         { valor: 29.99,  titulo: "LNB - Consulta CPF",                          isCnpj: false },
-  consulta_cnpj:    { valor: 39.99,  titulo: "LNB - Consulta CNPJ",                         isCnpj: true  },
-  limpeza_desconto: { valor: 500.00, titulo: "LNB - Limpeza + Blindagem (com desconto)",    isCnpj: false },
-  limpeza_cnpj:     { valor: 580.01, titulo: "LNB - Limpeza CNPJ + Sócio + Monitoramento",  isCnpj: true  },
-  blindagem:        { valor: 29.90,  titulo: "LNB - Blindagem mensal de CPF",               isCnpj: false },
-} as const;
+import { getProduto, isModoTeste, type ProdutoCodigo } from "@/lib/produtos";
 
-// Asaas exige valor mínimo de R$ 5,00 — R$ 1,00 retorna 502
-const PRECOS_TESTE = {
-  consulta:         { valor: 5.00, titulo: "[TESTE] LNB - Consulta CPF",   isCnpj: false },
-  consulta_cnpj:    { valor: 5.00, titulo: "[TESTE] LNB - Consulta CNPJ",  isCnpj: true  },
-  limpeza_desconto: { valor: 5.00, titulo: "[TESTE] LNB - Limpeza",        isCnpj: false },
-  limpeza_cnpj:     { valor: 5.00, titulo: "[TESTE] LNB - Limpeza CNPJ",   isCnpj: true  },
-  blindagem:        { valor: 5.00, titulo: "[TESTE] LNB - Blindagem",      isCnpj: false },
-} as const;
+const TIPO_INFO: Record<string, { codigo: ProdutoCodigo; titulo: string; isCnpj: boolean }> = {
+  consulta:         { codigo: "consulta_cpf",  titulo: "LNB - Consulta CPF",                          isCnpj: false },
+  consulta_cnpj:    { codigo: "consulta_cnpj", titulo: "LNB - Consulta CNPJ",                         isCnpj: true  },
+  limpeza_desconto: { codigo: "limpeza_cpf",   titulo: "LNB - Limpeza + Blindagem (com desconto)",    isCnpj: false },
+  limpeza_cnpj:     { codigo: "limpeza_cnpj",  titulo: "LNB - Limpeza CNPJ + Sócio + Monitoramento",  isCnpj: true  },
+  blindagem:        { codigo: "blindagem",     titulo: "LNB - Blindagem mensal de CPF",               isCnpj: false },
+};
 
-const PRECOS = MODO_TESTE ? PRECOS_TESTE : PRECOS_REAIS;
-
-type TipoCobranca = keyof typeof PRECOS_REAIS;
+type TipoCobranca = keyof typeof TIPO_INFO;
 
 function siteUrl(req: Request): string {
   const env = process.env.NEXT_PUBLIC_SITE_URL;
@@ -80,10 +71,19 @@ export async function POST(req: Request) {
   const telefone = String(body?.telefone || "").replace(/\D/g, "");
   const email = String(body?.email || "").trim();
 
-  if (!(tipo in PRECOS)) return bad(`Tipo inválido: ${tipo}`);
+  if (!(tipo in TIPO_INFO)) return bad(`Tipo inválido: ${tipo}`);
   if (!telefone || telefone.length < 10) return bad("Telefone inválido");
 
-  const item: { valor: number; titulo: string; isCnpj: boolean } = { ...PRECOS[tipo] };
+  const info = TIPO_INFO[tipo];
+  const MODO_TESTE = isModoTeste();
+  const produtoBanco = await getProduto(info.codigo);
+  if (!produtoBanco) return bad(`Produto ${info.codigo} não configurado no banco`);
+
+  const item: { valor: number; titulo: string; isCnpj: boolean } = {
+    valor: produtoBanco.valor,
+    titulo: MODO_TESTE ? `[TESTE] ${info.titulo}` : info.titulo,
+    isCnpj: info.isCnpj,
+  };
 
   // Campos diferentes por tipo (PF vs PJ)
   let cpf = "";
@@ -150,7 +150,7 @@ export async function POST(req: Request) {
           descontoAplicado = true;
           diasRestantesDesconto = v.dias_restantes;
         } else {
-          item.valor = v?.valor_cheio ?? 500.0;
+          item.valor = v?.valor_cheio ?? produtoBanco.valor;
           item.titulo = "LNB - Limpeza de Nome";
         }
       } catch (e) {

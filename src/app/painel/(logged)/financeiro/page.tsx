@@ -6,16 +6,18 @@ import { formatBRL } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Wallet, Activity, ServerIcon } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
 import type { APIControlRow } from "@/lib/supabase/types";
+import { getProdutos } from "@/lib/produtos";
 
 export const dynamic = "force-dynamic";
-
-const PRECO_CONSULTA  = 29.99;
-const PRECO_LIMPEZA   = 500.00;
-const CUSTO_API_FULL  = 2.49;
 
 export default async function FinanceiroPage() {
   const ctx = await requireAdmin();
   if (!canViewFinancial(ctx.user.role)) redirect("/painel/dashboard?denied=1");
+
+  const produtos = await getProdutos();
+  const PRECO_CONSULTA = produtos.consulta_cpf?.valor ?? 29.99;
+  const PRECO_LIMPEZA  = produtos.limpeza_cpf?.valor ?? 500.00;
+  const CUSTO_PROVEDOR = produtos.consulta_cpf?.custo_api ?? 2.49;
 
   const supa = await createClient();
   const [crm, consultas, apiCtl] = await Promise.all([
@@ -32,7 +34,7 @@ export default async function FinanceiroPage() {
   const receitaConsultas = pagas * PRECO_CONSULTA;
   const receitaLimpezas  = fechadas * PRECO_LIMPEZA;
   const receitaTotal     = receitaConsultas + receitaLimpezas;
-  const custoAPI         = totalConsultasAPI * CUSTO_API_FULL;
+  const custoAPI         = totalConsultasAPI * CUSTO_PROVEDOR;
   const lucroOperacional = receitaTotal - custoAPI;
   const margem = receitaTotal > 0 ? ((lucroOperacional / receitaTotal) * 100).toFixed(1) : "0";
 
@@ -58,9 +60,9 @@ export default async function FinanceiroPage() {
             <div className="size-12 rounded-xl bg-gradient-to-br from-red-400 to-red-600 grid place-items-center mb-4 shadow-md">
               <TrendingDown className="size-5 text-white" />
             </div>
-            <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Custos API Full</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Custos do Provedor de Consulta</p>
             <p className="font-display text-3xl text-forest-800 mt-1">{formatBRL(custoAPI)}</p>
-            <p className="text-xs text-gray-400 mt-1">{totalConsultasAPI} consultas × R$ 2,49</p>
+            <p className="text-xs text-gray-400 mt-1">{totalConsultasAPI} consultas × {formatBRL(CUSTO_PROVEDOR)}</p>
           </CardContent>
         </Card>
 
@@ -81,7 +83,7 @@ export default async function FinanceiroPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ServerIcon className="size-4 text-brand-600" />
-            Saldo de provedores (API Full / SOAWebservices)
+            Saldo de provedores de consulta
           </CardTitle>
         </CardHeader>
         <CardContent>

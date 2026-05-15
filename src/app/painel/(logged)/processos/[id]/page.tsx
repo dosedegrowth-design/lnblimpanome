@@ -6,7 +6,8 @@ import { ArrowLeft, Briefcase, FileSearch } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatBRL, formatDateTimeBR, formatPhone, maskCPF } from "@/lib/utils";
-import { TIPOS_LABEL, getEtapa, type TipoServico, type ProcessoRow, type EventoRow, type ArquivoRow } from "@/lib/processos";
+import { getEtapas, getTags, findEtapa, findTag, corClasses } from "@/lib/kanban";
+import type { ProcessoRow, EventoRow, ArquivoRow } from "@/lib/processos";
 import { ProcessoActions } from "./processo-actions";
 import { ProcessoTimeline } from "./processo-timeline";
 import { ProcessoArquivos } from "./processo-arquivos";
@@ -37,14 +38,20 @@ export default async function ProcessoDetailPage({ params }: { params: Promise<{
   await requireAdmin();
   const { id } = await params;
   const supa = await createClient();
-  const { data, error } = await supa.rpc("admin_processo_detail", { p_processo_id: id });
+
+  const [{ data, error }, etapas, tags] = await Promise.all([
+    supa.rpc("admin_processo_detail", { p_processo_id: id }),
+    getEtapas(),
+    getTags(),
+  ]);
 
   if (error) redirect("/painel/processos");
-  const detail = data as DetailResp;
+  const detail = data as DetailResp & { processo: (ProcessoRow & { tag_servico?: string | null }) | null };
   if (!detail?.processo) redirect("/painel/processos");
 
   const p = detail.processo;
-  const etapa = getEtapa(p.tipo, p.etapa);
+  const etapa = findEtapa(etapas, p.etapa);
+  const tagAtual = findTag(tags, p.tag_servico);
 
   return (
     <div className="p-6 sm:p-8 max-w-6xl mx-auto">
@@ -62,14 +69,22 @@ export default async function ProcessoDetailPage({ params }: { params: Promise<{
             <Briefcase className="size-5 text-brand-600" />
           </div>
           <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">{TIPOS_LABEL[p.tipo as TipoServico]}</p>
+            {tagAtual && (() => {
+              const tc = corClasses(tagAtual.cor);
+              return (
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full ${tc.bg} ${tc.text} ${tc.border} border text-xs font-semibold mb-1`}>
+                  {tagAtual.emoji && <span>{tagAtual.emoji}</span>}
+                  <span>{tagAtual.nome}</span>
+                </span>
+              );
+            })()}
             <h1 className="font-display text-3xl text-forest-800">{p.nome}</h1>
             <p className="text-sm text-gray-500 font-mono mt-1">{maskCPF(p.cpf)}</p>
           </div>
         </div>
         {etapa && (
           <Badge variant="brand" className="text-sm py-1 px-3">
-            {etapa.emoji} {etapa.label}
+            {etapa.emoji} {etapa.nome}
           </Badge>
         )}
       </header>
@@ -84,7 +99,7 @@ export default async function ProcessoDetailPage({ params }: { params: Promise<{
             <CardContent>
               <ProcessoActions
                 processoId={p.id}
-                tipo={p.tipo}
+                etapas={etapas}
                 etapaAtual={p.etapa}
                 cliente={{ nome: p.nome, telefone: p.telefone, email: p.email }}
               />
@@ -97,7 +112,7 @@ export default async function ProcessoDetailPage({ params }: { params: Promise<{
               <CardTitle>Timeline</CardTitle>
             </CardHeader>
             <CardContent>
-              <ProcessoTimeline tipo={p.tipo} eventos={detail.eventos} />
+              <ProcessoTimeline etapas={etapas} eventos={detail.eventos} />
             </CardContent>
           </Card>
 

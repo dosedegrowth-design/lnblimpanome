@@ -3,14 +3,15 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, FileSearch, ShieldCheck, TrendingUp, Wallet, Activity, Globe, MessageCircle } from "lucide-react";
 import { formatBRL } from "@/lib/utils";
+import { getProdutos } from "@/lib/produtos";
 
 export const dynamic = "force-dynamic";
 
-const PRECO_CONSULTA = 29.99;
-const PRECO_LIMPEZA = 500.00;
-
 async function getMetrics() {
   const supa = await createClient();
+  const produtos = await getProdutos();
+  const PRECO_CONSULTA = produtos.consulta_cpf?.valor ?? 29.99;
+  const PRECO_LIMPEZA = produtos.limpeza_cpf?.valor ?? 500.00;
 
   const [crm, consultas, blindagem] = await Promise.all([
     supa.from("LNB - CRM").select("id, Lead, Interessado, Agendado, Fechado, perdido, origem"),
@@ -47,6 +48,7 @@ async function getMetrics() {
     blindagemAtiva, blindagemAlerta,
     taxaConversao, receitaTotal, receitaConsultas, receitaLimpezas,
     origemSite, origemWA,
+    PRECO_CONSULTA, PRECO_LIMPEZA,
   };
 }
 
@@ -97,11 +99,11 @@ export default async function DashboardPage() {
             <p className="text-sm text-gray-500 mt-1">Total acumulado</p>
             <div className="mt-6 grid grid-cols-2 gap-4 pt-6 border-t border-gray-100">
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider">Consultas (R$ 29,99)</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wider">Consultas ({formatBRL(m.PRECO_CONSULTA)})</p>
                 <p className="font-display text-2xl text-forest-700 mt-1">{formatBRL(m.receitaConsultas)}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider">Limpezas (R$ 500,00)</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wider">Limpezas ({formatBRL(m.PRECO_LIMPEZA)})</p>
                 <p className="font-display text-2xl text-forest-700 mt-1">{formatBRL(m.receitaLimpezas)}</p>
               </div>
             </div>
