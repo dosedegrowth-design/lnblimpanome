@@ -87,7 +87,7 @@ export function AdminSidebar({ userName, userRole }: { userName: string; userRol
   }
 
   return (
-    <aside className="w-[244px] shrink-0 bg-white border-r border-gray-100 flex flex-col h-screen sticky top-0">
+    <aside className="w-[244px] shrink-0 bg-white border-r border-gray-100 flex flex-col self-stretch">
       {/* Brand (estilo Donezo) */}
       <div className="px-5 py-5 flex items-center gap-2.5">
         <div className="size-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 grid place-items-center shadow-sm">

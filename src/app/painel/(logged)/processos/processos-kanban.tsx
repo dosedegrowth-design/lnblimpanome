@@ -17,15 +17,15 @@ interface Props {
   processos: ProcessoKanban[];
 }
 
-// Headers coloridos por etapa (estilo Fixolaw)
+// Headers coloridos por etapa - cores mais saturadas pra contraste real
 const COL_HEADERS: Record<string, { headerBg: string; headerText: string; dot: string; lineGrad: string }> = {
-  brand:   { headerBg: "bg-cyan-50",    headerText: "text-cyan-800",    dot: "bg-cyan-500",    lineGrad: "from-cyan-300 to-cyan-500" },
-  amber:   { headerBg: "bg-amber-50",   headerText: "text-amber-800",   dot: "bg-amber-500",   lineGrad: "from-amber-300 to-amber-500" },
-  violet:  { headerBg: "bg-violet-50",  headerText: "text-violet-800",  dot: "bg-violet-500",  lineGrad: "from-violet-300 to-violet-500" },
-  forest:  { headerBg: "bg-teal-50",    headerText: "text-teal-800",    dot: "bg-teal-500",    lineGrad: "from-teal-300 to-teal-500" },
-  emerald: { headerBg: "bg-emerald-50", headerText: "text-emerald-800", dot: "bg-emerald-500", lineGrad: "from-emerald-300 to-emerald-500" },
-  red:     { headerBg: "bg-rose-50",    headerText: "text-rose-800",    dot: "bg-rose-500",    lineGrad: "from-rose-300 to-rose-500" },
-  gray:    { headerBg: "bg-gray-100",   headerText: "text-gray-700",    dot: "bg-gray-400",    lineGrad: "from-gray-300 to-gray-400" },
+  brand:   { headerBg: "bg-cyan-100",    headerText: "text-cyan-900",    dot: "bg-cyan-600",    lineGrad: "from-cyan-300 to-cyan-500" },
+  amber:   { headerBg: "bg-amber-100",   headerText: "text-amber-900",   dot: "bg-amber-600",   lineGrad: "from-amber-300 to-amber-500" },
+  violet:  { headerBg: "bg-violet-100",  headerText: "text-violet-900",  dot: "bg-violet-600",  lineGrad: "from-violet-300 to-violet-500" },
+  forest:  { headerBg: "bg-teal-100",    headerText: "text-teal-900",    dot: "bg-teal-600",    lineGrad: "from-teal-300 to-teal-500" },
+  emerald: { headerBg: "bg-emerald-100", headerText: "text-emerald-900", dot: "bg-emerald-600", lineGrad: "from-emerald-300 to-emerald-500" },
+  red:     { headerBg: "bg-rose-100",    headerText: "text-rose-900",    dot: "bg-rose-600",    lineGrad: "from-rose-300 to-rose-500" },
+  gray:    { headerBg: "bg-gray-200",    headerText: "text-gray-800",    dot: "bg-gray-500",    lineGrad: "from-gray-300 to-gray-400" },
 };
 
 export function ProcessosKanban({ etapas, tags, processos }: Props) {
@@ -126,7 +126,7 @@ export function ProcessosKanban({ etapas, tags, processos }: Props) {
               className="min-w-[300px] w-[300px] shrink-0 flex flex-col"
             >
               {/* Header colorido por coluna (Fixolaw style) */}
-              <div className={`rounded-lg ${h.headerBg} border border-white px-3 py-2.5 mb-3 flex items-center justify-between`}>
+              <div className={`rounded-lg ${h.headerBg} px-3 py-2.5 mb-3 flex items-center justify-between shadow-sm`}>
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={`inline-block size-1.5 rounded-full ${h.dot}`} />
                   <p className={`font-semibold text-sm ${h.headerText} truncate`}>{etapa.nome}</p>

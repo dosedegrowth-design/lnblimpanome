@@ -10,7 +10,7 @@ export function AdminTopbar({ userName, userEmail }: Props) {
   const initials = userName.trim().split(/\s+/).slice(0, 2).map((s) => s.charAt(0).toUpperCase()).join("") || "U";
 
   return (
-    <header className="bg-white border-b border-gray-100 h-16 px-6 sm:px-8 flex items-center gap-4 sticky top-0 z-30">
+    <header className="bg-white border-b border-gray-100 h-16 px-6 sm:px-8 flex items-center gap-4 shrink-0">
       {/* Search central (estilo Donezo) */}
       <div className="flex-1 max-w-md">
         <div className="relative">
