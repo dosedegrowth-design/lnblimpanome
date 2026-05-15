@@ -20,21 +20,27 @@ export default async function FinanceiroPage() {
   const CUSTO_PROVEDOR = produtos.consulta_cpf?.custo_api ?? 2.49;
 
   const supa = await createClient();
-  const [consultas, apiCtl] = await Promise.all([
+  const [consultas, apiCtl, finalizacoes] = await Promise.all([
     supa.from("LNB_Consultas").select("id, consulta_paga, fechou_limpeza, created_at"),
     supa.from("LNB_API_Control").select("*").order("mes_ano", { ascending: false }).limit(12),
+    supa.from("lnb_audit_log").select("id").eq("action", "finalizar_limpeza"),
   ]);
 
   const allConsultas = consultas.data ?? [];
   const pagas = allConsultas.filter((c) => c.consulta_paga).length;
   const fechadas = allConsultas.filter((c) => c.fechou_limpeza).length;
   const totalConsultasAPI = allConsultas.length;
+  const totalFinalizacoes = (finalizacoes.data ?? []).length;
 
   const receitaConsultas = pagas * PRECO_CONSULTA;
   const receitaLimpezas  = fechadas * PRECO_LIMPEZA;
   const receitaTotal     = receitaConsultas + receitaLimpezas;
-  const custoAPI         = totalConsultasAPI * CUSTO_PROVEDOR;
-  const lucroOperacional = receitaTotal - custoAPI;
+
+  // Custo total = chamadas API de Consultas + chamadas API de Finalizacoes (nova consulta)
+  const custoConsultas    = totalConsultasAPI * CUSTO_PROVEDOR;
+  const custoFinalizacoes = totalFinalizacoes * CUSTO_PROVEDOR;
+  const custoAPI          = custoConsultas + custoFinalizacoes;
+  const lucroOperacional  = receitaTotal - custoAPI;
   const margem = receitaTotal > 0 ? ((lucroOperacional / receitaTotal) * 100).toFixed(1) : "0";
 
   const apiData = (apiCtl.data ?? []) as APIControlRow[];
@@ -53,7 +59,7 @@ export default async function FinanceiroPage() {
         <KpiCard
           label="Custo dos provedores"
           value={formatBRL(custoAPI)}
-          subValue={`${totalConsultasAPI} × ${formatBRL(CUSTO_PROVEDOR)}`}
+          subValue={`${totalConsultasAPI + totalFinalizacoes} × ${formatBRL(CUSTO_PROVEDOR)}`}
           trend="down"
         />
         <KpiCard
@@ -107,9 +113,15 @@ export default async function FinanceiroPage() {
                 <span className="font-semibold text-gray-900 tabular-nums">{formatBRL(receitaTotal)}</span>
               </li>
               <li className="flex items-center justify-between border-t border-gray-100 pt-3">
-                <span className="text-gray-700">(-) Custo de consultas</span>
-                <span className="font-semibold text-red-600 tabular-nums">-{formatBRL(custoAPI)}</span>
+                <span className="text-gray-700">(-) Custo consultas iniciais</span>
+                <span className="font-semibold text-red-600 tabular-nums">-{formatBRL(custoConsultas)}</span>
               </li>
+              {custoFinalizacoes > 0 && (
+                <li className="flex items-center justify-between">
+                  <span className="text-gray-700 pl-3">↳ {totalFinalizacoes} verificação(ões) de limpeza</span>
+                  <span className="font-semibold text-red-600 tabular-nums">-{formatBRL(custoFinalizacoes)}</span>
+                </li>
+              )}
               <li className="flex items-center justify-between border-t border-gray-100 pt-3">
                 <span className="text-gray-900 font-semibold">Lucro operacional</span>
                 <span className="font-display text-lg text-emerald-600 tabular-nums">{formatBRL(lucroOperacional)}</span>
@@ -140,9 +152,9 @@ export default async function FinanceiroPage() {
                 <thead className="text-gray-400 text-xs">
                   <tr className="border-b border-gray-100">
                     <th className="text-left py-3 px-3 font-normal">Mês/Ano</th>
-                    <th className="text-left py-3 px-3 font-normal">Provedor 1 (uso/limite)</th>
-                    <th className="text-left py-3 px-3 font-normal">Provedor 2</th>
-                    <th className="text-left py-3 px-3 font-normal">Ativo</th>
+                    <th className="text-left py-3 px-3 font-normal">Uso / Limite</th>
+                    <th className="text-left py-3 px-3 font-normal">Backup</th>
+                    <th className="text-left py-3 px-3 font-normal">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -156,8 +168,9 @@ export default async function FinanceiroPage() {
                         {row.soawebservices_count ?? "—"}
                       </td>
                       <td className="py-3 px-3">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-cyan-50 text-cyan-700 text-[11px] font-medium">
-                          {row.provider_ativo || "—"}
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[11px] font-medium">
+                          <span className="size-1.5 rounded-full bg-emerald-500" />
+                          Ativo
                         </span>
                       </td>
                     </tr>
