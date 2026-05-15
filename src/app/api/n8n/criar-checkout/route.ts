@@ -38,7 +38,7 @@ const LABEL_POR_TIPO: Record<string, LnbLabelContext> = {
  * Resposta:
  *   { ok: true, init_point: "https://...", preference_id: "...", external_reference: "..." }
  */
-// MODO TESTE: se env LNB_MODO_TESTE = "true", aplica R$ 1,00 em tudo
+// MODO TESTE: se env LNB_MODO_TESTE = "true", aplica R$ 5,00 (mínimo Asaas)
 const MODO_TESTE = process.env.LNB_MODO_TESTE === "true";
 
 const PRECOS_REAIS = {
@@ -47,10 +47,11 @@ const PRECOS_REAIS = {
   blindagem:        { valor: 29.90,  titulo: "LNB - Blindagem mensal de CPF" },
 } as const;
 
+// Asaas exige valor mínimo de R$ 5,00 — R$ 1,00 retorna 502
 const PRECOS_TESTE = {
-  consulta:         { valor: 1.00, titulo: "[TESTE] LNB - Consulta CPF" },
-  limpeza_desconto: { valor: 1.00, titulo: "[TESTE] LNB - Limpeza" },
-  blindagem:        { valor: 1.00, titulo: "[TESTE] LNB - Blindagem" },
+  consulta:         { valor: 5.00, titulo: "[TESTE] LNB - Consulta CPF" },
+  limpeza_desconto: { valor: 5.00, titulo: "[TESTE] LNB - Limpeza" },
+  blindagem:        { valor: 5.00, titulo: "[TESTE] LNB - Blindagem" },
 } as const;
 
 const PRECOS = MODO_TESTE ? PRECOS_TESTE : PRECOS_REAIS;

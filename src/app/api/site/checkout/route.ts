@@ -29,11 +29,11 @@ const PRECOS_REAIS = {
 } as const;
 
 const PRECOS_TESTE = {
-  consulta:         { valor: 1.00, titulo: "[TESTE] LNB - Consulta CPF",  tipoDoc: "CPF"  as const },
-  consulta_cnpj:    { valor: 1.00, titulo: "[TESTE] LNB - Consulta CNPJ", tipoDoc: "CNPJ" as const },
-  limpeza_desconto: { valor: 1.00, titulo: "[TESTE] LNB - Limpeza",       tipoDoc: "CPF"  as const },
-  limpeza:          { valor: 1.00, titulo: "[TESTE] LNB - Limpeza",       tipoDoc: "CPF"  as const },
-  limpeza_cnpj:     { valor: 1.00, titulo: "[TESTE] LNB - Limpeza CNPJ",  tipoDoc: "CNPJ" as const },
+  consulta:         { valor: 5.00, titulo: "[TESTE] LNB - Consulta CPF",  tipoDoc: "CPF"  as const },
+  consulta_cnpj:    { valor: 5.00, titulo: "[TESTE] LNB - Consulta CNPJ", tipoDoc: "CNPJ" as const },
+  limpeza_desconto: { valor: 5.00, titulo: "[TESTE] LNB - Limpeza",       tipoDoc: "CPF"  as const },
+  limpeza:          { valor: 5.00, titulo: "[TESTE] LNB - Limpeza",       tipoDoc: "CPF"  as const },
+  limpeza_cnpj:     { valor: 5.00, titulo: "[TESTE] LNB - Limpeza CNPJ",  tipoDoc: "CNPJ" as const },
 } as const;
 
 const PRECOS = MODO_TESTE ? PRECOS_TESTE : PRECOS_REAIS;
