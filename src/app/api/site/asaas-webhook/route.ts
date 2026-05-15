@@ -94,6 +94,27 @@ export async function POST(req: Request) {
 
   // Busca dados do CRM via RPC SECURITY DEFINER (LNB - CRM tem RLS)
   const supa = await createClient();
+
+  // ⚠️ IDEMPOTÊNCIA: Asaas dispara PAYMENT_CONFIRMED + PAYMENT_RECEIVED
+  // pra cada pagamento. Sem isso processaríamos 2x (gerando 2 PDFs, 2 cobranças
+  // API Full, 2 senhas, etc). Bloqueia processamento duplicado por payment_id.
+  try {
+    const { data: idempo } = await supa.rpc("lnb_webhook_tentar_processar", {
+      p_payment_id: payment.id,
+      p_event: payload.event,
+      p_external_reference: externalRef,
+      p_cpf: cpf || null,
+      p_cnpj: cnpj || null,
+    });
+    const r = idempo as { primeira_vez?: boolean };
+    if (!r?.primeira_vez) {
+      console.log(`[asaas-webhook] payment ${payment.id} JA processado, ignorando (event=${payload.event})`);
+      return NextResponse.json({ ok: true, ignored: "already_processed", payment_id: payment.id });
+    }
+    console.log(`[asaas-webhook] payment ${payment.id} PRIMEIRA vez (event=${payload.event}), processando...`);
+  } catch (e) {
+    console.error("[asaas-webhook] erro idempotência (segue):", e);
+  }
   let crmRow: Record<string, unknown> | null = null;
   if (isCNPJ) {
     const { data, error } = await supa.rpc("lnb_crm_get_by_cnpj", { p_cnpj: cnpj });

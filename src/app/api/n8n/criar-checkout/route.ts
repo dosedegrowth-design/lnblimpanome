@@ -134,26 +134,31 @@ export async function POST(req: Request) {
       );
     }
 
-    // Aplica desconto se consulta paga há ≤ 15 dias
-    try {
-      const { data: vlr } = await supa.rpc("lnb_calcular_valor_limpeza", { p_cpf: cpf });
-      const v = vlr as {
-        valor_cheio: number;
-        valor_com_desconto: number;
-        tem_desconto: boolean;
-        dias_restantes: number;
-      };
-      if (v?.tem_desconto) {
-        item.valor = v.valor_com_desconto;
-        item.titulo = "LNB - Limpeza de Nome (com desconto da consulta)";
-        descontoAplicado = true;
-        diasRestantesDesconto = v.dias_restantes;
-      } else {
-        item.valor = v?.valor_cheio ?? 500.0;
-        item.titulo = "LNB - Limpeza de Nome";
+    // Aplica desconto se consulta paga há ≤ 15 dias (skip em modo teste — valor sempre R$ 5)
+    if (!MODO_TESTE) {
+      try {
+        const { data: vlr } = await supa.rpc("lnb_calcular_valor_limpeza", { p_cpf: cpf });
+        const v = vlr as {
+          valor_cheio: number;
+          valor_com_desconto: number;
+          tem_desconto: boolean;
+          dias_restantes: number;
+        };
+        if (v?.tem_desconto) {
+          item.valor = v.valor_com_desconto;
+          item.titulo = "LNB - Limpeza de Nome (com desconto da consulta)";
+          descontoAplicado = true;
+          diasRestantesDesconto = v.dias_restantes;
+        } else {
+          item.valor = v?.valor_cheio ?? 500.0;
+          item.titulo = "LNB - Limpeza de Nome";
+        }
+      } catch (e) {
+        console.error("[n8n/criar-checkout] calc desconto erro (segue, usa valor cheio):", e);
       }
-    } catch (e) {
-      console.error("[n8n/criar-checkout] calc desconto erro (segue, usa valor cheio):", e);
+    } else {
+      // modo teste: força R$ 5,00 (já vem do PRECOS_TESTE)
+      descontoAplicado = false;
     }
   } else if (tipo === "limpeza_cnpj") {
     // Pré-requisito CNPJ: consulta CNPJ paga COM pendência no sócio

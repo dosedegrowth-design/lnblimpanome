@@ -56,16 +56,21 @@ export async function POST(req: Request) {
     validade_dias: number;
   };
 
-  const valorFinal = r.tem_desconto ? r.valor_com_desconto : r.valor_cheio;
+  // Modo teste: cobra R$ 5,00 mas mostra valor real pro cliente entender
+  // o desconto. Quando MODO_TESTE for false (produção), valor_final = valor real.
+  const MODO_TESTE = process.env.LNB_MODO_TESTE === "true";
+  const valorFinalReal = r.tem_desconto ? r.valor_com_desconto : r.valor_cheio;
+  const valorFinal = MODO_TESTE ? 5.0 : valorFinalReal;
 
-  // Texto pré-pronto pra Maia usar no WhatsApp
+  // Texto pré-pronto pra Maia usar no WhatsApp (sempre mostra valor REAL,
+  // mesmo em modo teste — pra simular conversa real)
   let mensagemMaia: string;
   if (r.tem_desconto) {
     mensagemMaia =
       `🎯 Limpeza de Nome: R$ ${r.valor_cheio.toFixed(2).replace(".", ",")}\n` +
       `Você já fez a consulta, então tem R$ ${r.desconto.toFixed(2).replace(".", ",")} de desconto! ` +
       `(válido por ${r.dias_restantes} dias)\n` +
-      `Valor final: R$ ${valorFinal.toFixed(2).replace(".", ",")} 💙`;
+      `Valor final: R$ ${valorFinalReal.toFixed(2).replace(".", ",")} 💙`;
   } else if (r.consulta_paga_em) {
     mensagemMaia =
       `🎯 Limpeza de Nome: R$ ${r.valor_cheio.toFixed(2).replace(".", ",")}\n` +
@@ -82,11 +87,13 @@ export async function POST(req: Request) {
     cpf,
     valor_cheio: r.valor_cheio,
     valor_com_desconto: r.valor_com_desconto,
-    valor_final: valorFinal,
+    valor_final: valorFinal,                       // R$ 5 em modo teste, real em produção
+    valor_final_real: valorFinalReal,              // pra Maia mostrar no chat
     desconto: r.desconto,
     tem_desconto: r.tem_desconto,
     dias_restantes: r.dias_restantes,
     consulta_paga_em: r.consulta_paga_em,
     mensagem_maia: mensagemMaia,
+    modo_teste: MODO_TESTE,
   });
 }
