@@ -219,6 +219,20 @@ export async function POST(req: Request) {
     });
     if (rpcErr) console.error("[asaas-webhook] webhook_registrar_consulta_paga erro:", rpcErr);
 
+    // FASE A: cria lnb_processos automaticamente (vai pra etapa 'consulta_paga')
+    try {
+      await supa.rpc("webhook_criar_processo_consulta", {
+        p_cpf: cpf,
+        p_nome: nome,
+        p_email: email,
+        p_telefone: telefone,
+        p_pdf_url: null,
+        p_valor: typeof payment.value === "number" ? payment.value : null,
+      });
+    } catch (e) {
+      console.error("[asaas-webhook] webhook_criar_processo_consulta erro (segue):", e);
+    }
+
     // ⚠️ AWAIT obrigatório — em Vercel serverless o processo morre após
     // a response, então fire-and-forget aborta a Promise silenciosamente.
     try {
@@ -230,6 +244,20 @@ export async function POST(req: Request) {
 
   // ─── CONSULTA CNPJ ────────────────────────────────────
   if (tipoFromRef === "consulta_cnpj" && isCNPJ) {
+    // FASE A: cria processo do CPF responsavel (jornada pertence a pessoa fisica que paga)
+    try {
+      await supa.rpc("webhook_criar_processo_consulta", {
+        p_cpf: cpfResponsavel,
+        p_nome: nomeResponsavel || razaoSocial,
+        p_email: email,
+        p_telefone: telefone,
+        p_pdf_url: null,
+        p_valor: typeof payment.value === "number" ? payment.value : null,
+      });
+    } catch (e) {
+      console.error("[asaas-webhook] webhook_criar_processo_consulta (CNPJ) erro (segue):", e);
+    }
+
     try {
       await finalizarConsultaCNPJ({
         cnpj,
@@ -255,6 +283,17 @@ export async function POST(req: Request) {
     });
     if (rpcErr) console.error("[asaas-webhook] webhook_registrar_limpeza_fechada erro:", rpcErr);
 
+    // FASE A: avanca processo pra 'limpeza_paga' no Kanban
+    try {
+      await supa.rpc("webhook_criar_processo_limpeza", {
+        p_cpf: cpf,
+        p_telefone: telefone,
+        p_valor: typeof payment.value === "number" ? payment.value : null,
+      });
+    } catch (e) {
+      console.error("[asaas-webhook] webhook_criar_processo_limpeza erro (segue):", e);
+    }
+
     try {
       await finalizarLimpezaPaga({ cpf, nome, telefone, email, origem });
     } catch (e) {
@@ -269,6 +308,17 @@ export async function POST(req: Request) {
       p_telefone: telefone,
     });
     if (rpcErr) console.error("[asaas-webhook] webhook_registrar_limpeza_cnpj_fechada erro:", rpcErr);
+
+    // FASE A: avanca processo do CPF responsavel pra 'limpeza_paga'
+    try {
+      await supa.rpc("webhook_criar_processo_limpeza", {
+        p_cpf: cpfResponsavel,
+        p_telefone: telefone,
+        p_valor: typeof payment.value === "number" ? payment.value : null,
+      });
+    } catch (e) {
+      console.error("[asaas-webhook] webhook_criar_processo_limpeza (CNPJ) erro (segue):", e);
+    }
 
     try {
       await finalizarLimpezaCnpjPaga({ cnpj, razaoSocial, telefone, email, origem });
@@ -518,6 +568,17 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
         p_pdf_url: pdfUrl,
       });
       if (rpc2.error) console.error("[asaas-webhook] lnb_crm_set_consulta_resultado erro:", rpc2.error);
+
+      // FASE A: vincula PDF ao card do processo no Kanban
+      try {
+        await supa2.rpc("lnb_processo_set_pdf_url", {
+          p_cpf: cpf,
+          p_pdf_url: pdfUrl,
+        });
+      } catch (e) {
+        console.error("[asaas-webhook] lnb_processo_set_pdf_url erro (segue):", e);
+      }
+
       console.log(`[asaas-webhook] ✓ PDF gravado: cpf=${cpf} url=${pdfUrl} pendencia=${!!parsed?.tem_pendencia}`);
     } else {
       console.error("[asaas-webhook] PDF erro:", r.error);
@@ -612,12 +673,12 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
       const cpfFmt = `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9)}`;
       const primeiroNome = nome.split(" ")[0] || "amigo(a)";
 
-      // 2) Monta resumo texto detalhado — usa combo (Serasa Premium) que tem TODAS as pendências
-      // combo.serasa.pendencias inclui PEND_FINANCEIRAS, PEND_REFIN, PEND_VENCIDAS
-      // (parsed.pendencias é só do Boa Vista — incompleto)
-      const pendenciasCombinadas = combo?.serasa?.pendencias?.length
-        ? combo.serasa.pendencias
-        : parsed?.pendencias ?? [];
+      // 2) Monta resumo texto detalhado — MESCLA Serasa + Boa Vista pra mostrar todos credores
+      // Bug anterior: usava combo.serasa OR parsed.pendencias (uma fonte so) — perdia credores
+      // Fix: usa pendenciasCombo (lista agregada das DUAS fontes, mesma que vai no PDF)
+      const pendenciasCombinadas = pendenciasCombo.length > 0
+        ? pendenciasCombo
+        : (combo?.serasa?.pendencias?.length ? combo.serasa.pendencias : (parsed?.pendencias ?? []));
       const qtdTotal = combo?.qtd_pendencias ?? parsed?.qtd_pendencias ?? 0;
       const totalDividas = combo?.total_dividas ?? parsed?.total_dividas ?? 0;
       const temPendCombo = combo?.tem_pendencia ?? !!parsed?.tem_pendencia;

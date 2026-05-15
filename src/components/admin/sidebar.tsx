@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, FileSearch, Briefcase,
-  Wallet, Settings as SettingsIcon, LogOut, UserCog,
+  Wallet, Settings as SettingsIcon, LogOut, UserCog, Sparkles, ListTodo,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
@@ -12,7 +12,9 @@ import { createClient } from "@/lib/supabase/client";
 const items = [
   { href: "/painel/dashboard",     label: "Dashboard",     icon: LayoutDashboard },
   { href: "/painel/processos",     label: "Processos",     icon: Briefcase },
-  { href: "/painel/leads",         label: "Leads & CRM",   icon: Users },
+  { href: "/painel/limpeza",       label: "Limpeza",       icon: Sparkles },
+  { href: "/painel/clientes",      label: "Clientes",      icon: Users },
+  { href: "/painel/leads",         label: "Leads & CRM",   icon: ListTodo },
   { href: "/painel/consultas",     label: "Consultas",     icon: FileSearch },
   { href: "/painel/financeiro",    label: "Financeiro",    icon: Wallet },
   { href: "/painel/equipe",        label: "Equipe",        icon: UserCog },

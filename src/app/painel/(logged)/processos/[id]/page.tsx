@@ -27,10 +27,14 @@ interface Consulta {
 }
 
 interface DetailResp {
-  processo: ProcessoRow | null;
+  processo: (ProcessoRow & {
+    tag_servico?: string | null;
+    pdf_url?: string | null;
+    valor_pago?: number | null;
+  }) | null;
   eventos: EventoRow[];
   arquivos: ArquivoRow[];
-  consulta: Consulta | null;
+  consulta: (Consulta & { resultado_raw?: unknown }) | null;
   error?: string;
 }
 
@@ -143,6 +147,18 @@ export default async function ProcessoDetailPage({ params }: { params: Promise<{
               {p.finalizado_em && <Row label="Finalizado em" value={formatDateTimeBR(p.finalizado_em)} />}
             </CardContent>
           </Card>
+
+          {/* Pagamento */}
+          {p.valor_pago != null && Number(p.valor_pago) > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Pagamento</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm space-y-2">
+                <Row label="Total pago" value={<span className="text-emerald-700">{formatBRL(Number(p.valor_pago))}</span>} />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Consulta CPF (se tem) */}
           {detail.consulta && (
