@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { criarCobrancaLNB } from "@/lib/asaas";
 import { checkN8nAuth } from "@/lib/n8n/auth";
-import { cleanCPF, isValidCPF } from "@/lib/utils";
+import { cleanCPF, isValidCPF, cleanCNPJ, isValidCNPJ } from "@/lib/utils";
 import { aplicarLabelsLnb, type LnbLabelContext } from "@/lib/chatwoot-labels";
 import { buscarConversationIdPorTelefone } from "@/lib/chatwoot-kanban";
 
@@ -11,7 +11,9 @@ export const runtime = "nodejs";
 // Mapa tipo → contexto label
 const LABEL_POR_TIPO: Record<string, LnbLabelContext> = {
   consulta: "interessado_consulta",
+  consulta_cnpj: "interessado_consulta",
   limpeza_desconto: "interessado_limpeza",
+  limpeza_cnpj: "interessado_limpeza",
   blindagem: "interessado_blindagem",
 };
 
@@ -42,16 +44,20 @@ const LABEL_POR_TIPO: Record<string, LnbLabelContext> = {
 const MODO_TESTE = process.env.LNB_MODO_TESTE === "true";
 
 const PRECOS_REAIS = {
-  consulta:         { valor: 29.99,  titulo: "LNB - Consulta CPF" },
-  limpeza_desconto: { valor: 500.00, titulo: "LNB - Limpeza + Blindagem (com desconto)" },
-  blindagem:        { valor: 29.90,  titulo: "LNB - Blindagem mensal de CPF" },
+  consulta:         { valor: 29.99,  titulo: "LNB - Consulta CPF",                          isCnpj: false },
+  consulta_cnpj:    { valor: 39.99,  titulo: "LNB - Consulta CNPJ",                         isCnpj: true  },
+  limpeza_desconto: { valor: 500.00, titulo: "LNB - Limpeza + Blindagem (com desconto)",    isCnpj: false },
+  limpeza_cnpj:     { valor: 580.01, titulo: "LNB - Limpeza CNPJ + Sócio + Monitoramento",  isCnpj: true  },
+  blindagem:        { valor: 29.90,  titulo: "LNB - Blindagem mensal de CPF",               isCnpj: false },
 } as const;
 
 // Asaas exige valor mínimo de R$ 5,00 — R$ 1,00 retorna 502
 const PRECOS_TESTE = {
-  consulta:         { valor: 5.00, titulo: "[TESTE] LNB - Consulta CPF" },
-  limpeza_desconto: { valor: 5.00, titulo: "[TESTE] LNB - Limpeza" },
-  blindagem:        { valor: 5.00, titulo: "[TESTE] LNB - Blindagem" },
+  consulta:         { valor: 5.00, titulo: "[TESTE] LNB - Consulta CPF",   isCnpj: false },
+  consulta_cnpj:    { valor: 5.00, titulo: "[TESTE] LNB - Consulta CNPJ",  isCnpj: true  },
+  limpeza_desconto: { valor: 5.00, titulo: "[TESTE] LNB - Limpeza",        isCnpj: false },
+  limpeza_cnpj:     { valor: 5.00, titulo: "[TESTE] LNB - Limpeza CNPJ",   isCnpj: true  },
+  blindagem:        { valor: 5.00, titulo: "[TESTE] LNB - Blindagem",      isCnpj: false },
 } as const;
 
 const PRECOS = MODO_TESTE ? PRECOS_TESTE : PRECOS_REAIS;
@@ -70,18 +76,45 @@ export async function POST(req: Request) {
   if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  const cpf = cleanCPF(String(body?.cpf || ""));
-  const telefone = String(body?.telefone || "").replace(/\D/g, "");
-  const nome = String(body?.nome || "").trim();
-  const email = String(body?.email || "").trim();
   const tipo = String(body?.tipo || "consulta") as TipoCobranca;
+  const telefone = String(body?.telefone || "").replace(/\D/g, "");
+  const email = String(body?.email || "").trim();
 
-  if (!isValidCPF(cpf)) return bad("CPF inválido");
-  if (!telefone || telefone.length < 10) return bad("Telefone inválido");
-  if (!nome || nome.length < 2) return bad("Nome inválido");
   if (!(tipo in PRECOS)) return bad(`Tipo inválido: ${tipo}`);
+  if (!telefone || telefone.length < 10) return bad("Telefone inválido");
 
-  const item: { valor: number; titulo: string } = { ...PRECOS[tipo] };
+  const item: { valor: number; titulo: string; isCnpj: boolean } = { ...PRECOS[tipo] };
+
+  // Campos diferentes por tipo (PF vs PJ)
+  let cpf = "";
+  let cnpj = "";
+  let nome = "";
+  let cpfResponsavel = "";
+  let nomeResponsavel = "";
+  let razaoSocial = "";
+
+  if (item.isCnpj) {
+    cnpj = cleanCNPJ(String(body?.cnpj || ""));
+    cpfResponsavel = cleanCPF(String(body?.cpf_responsavel || body?.cpf || ""));
+    nomeResponsavel = String(body?.nome_responsavel || body?.nome || "").trim();
+    razaoSocial = String(body?.razao_social || "").trim();
+
+    if (!isValidCNPJ(cnpj)) return bad("CNPJ inválido");
+    if (!isValidCPF(cpfResponsavel)) return bad("CPF do sócio responsável inválido");
+    if (!razaoSocial || razaoSocial.length < 2) return bad("Razão social inválida");
+    if (!nomeResponsavel || nomeResponsavel.length < 2) return bad("Nome do sócio responsável inválido");
+
+    // Pra Asaas usamos CNPJ + razão social, mas o CPF responsável é guardado pra consulta API Full
+    cpf = cpfResponsavel; // mantém compat
+    nome = razaoSocial;
+  } else {
+    cpf = cleanCPF(String(body?.cpf || ""));
+    nome = String(body?.nome || "").trim();
+
+    if (!isValidCPF(cpf)) return bad("CPF inválido");
+    if (!nome || nome.length < 2) return bad("Nome inválido");
+  }
+
   const supa = await createClient();
 
   // Pré-requisito + desconto: limpeza só após consulta paga COM pendência
@@ -122,6 +155,20 @@ export async function POST(req: Request) {
     } catch (e) {
       console.error("[n8n/criar-checkout] calc desconto erro (segue, usa valor cheio):", e);
     }
+  } else if (tipo === "limpeza_cnpj") {
+    // Pré-requisito CNPJ: consulta CNPJ paga COM pendência no sócio
+    const { data: eleg } = await supa.rpc("cliente_pode_contratar_limpeza_cnpj", { p_cnpj: cnpj });
+    const r = eleg as { pode: boolean; motivo?: string; mensagem?: string };
+    if (!r?.pode) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: r?.mensagem || "CNPJ não elegível pra limpeza",
+          motivo: r?.motivo,
+        },
+        { status: 409 }
+      );
+    }
   }
 
   // Upsert CRM com origem='whatsapp'
@@ -138,14 +185,30 @@ export async function POST(req: Request) {
     console.error("[n8n/criar-checkout] upsert CRM erro (segue):", e);
   }
 
-  // Cria cobrança Asaas
+  // Se CNPJ: salva dados PJ no CRM (cnpj, razao_social, cpf_responsavel, nome_responsavel)
+  if (item.isCnpj && cnpj) {
+    try {
+      await supa.rpc("lnb_crm_set_cnpj_data", {
+        p_telefone: telefone,
+        p_cnpj: cnpj,
+        p_razao_social: razaoSocial,
+        p_cpf_responsavel: cpfResponsavel,
+        p_nome_responsavel: nomeResponsavel,
+      });
+    } catch (e) {
+      console.error("[n8n/criar-checkout] set cnpj data erro (segue):", e);
+    }
+  }
+
+  // Cria cobrança Asaas — PF usa CPF + nome, PJ usa CNPJ + razão social
   const base = siteUrl(req);
-  const externalRef = `${tipo.toUpperCase()}-${cpf}-${Date.now()}`;
+  const docPraExtRef = item.isCnpj ? cnpj : cpf;
+  const externalRef = `${tipo.toUpperCase()}-${docPraExtRef}-${Date.now()}`;
   let cobranca;
   try {
     cobranca = await criarCobrancaLNB({
-      cpf,
-      nome,
+      cpf: item.isCnpj ? cnpj : cpf, // Asaas aceita CPF/CNPJ no mesmo campo cpfCnpj
+      nome: item.isCnpj ? razaoSocial : nome,
       email: email || `${telefone}@whatsapp.lnb`,
       telefone,
       valor: item.valor,
@@ -206,7 +269,10 @@ export async function POST(req: Request) {
     payment_id: cobranca.paymentId,
     customer_id: cobranca.customerId,
     external_reference: externalRef,
-    cpf,
+    cpf: item.isCnpj ? undefined : cpf,
+    cnpj: item.isCnpj ? cnpj : undefined,
+    razao_social: item.isCnpj ? razaoSocial : undefined,
+    cpf_responsavel: item.isCnpj ? cpfResponsavel : undefined,
     telefone,
     tipo,
     valor: item.valor,
