@@ -18,12 +18,19 @@ async function getMetrics() {
   const PRECO_CONSULTA = produtos.consulta_cpf?.valor ?? 29.99;
   const PRECO_LIMPEZA = produtos.limpeza_cpf?.valor ?? 500.0;
 
-  const [crm, consultas, blindagem, processos] = await Promise.all([
+  const [crm, consultas, blindagem, processos, clientesResult] = await Promise.all([
     supa.from("LNB - CRM").select("id, Lead, Interessado, Agendado, Fechado, perdido, origem"),
-    supa.from("LNB_Consultas").select("id, tem_pendencia, total_dividas, consulta_paga, fechou_limpeza, origem"),
+    supa.from("LNB_Consultas").select("id, nome, cpf, tem_pendencia, total_dividas, consulta_paga, fechou_limpeza, origem, score, created_at"),
     supa.from("LNB_Blindagem").select("id, ativo, tem_pendencia_atual"),
     supa.rpc("admin_processos_list", { p_tipo: null, p_etapa: null, p_responsavel_id: null }),
+    supa.rpc("admin_clientes_list"),
   ]);
+
+  const allClientes = ((clientesResult.data as { clientes?: Array<{
+    id: string; nome: string; cpf: string; tag_servico: string | null;
+    valor_pago: number | null; etapa: string; created_at: string; tem_pendencia: boolean | null;
+    score: number | null;
+  }> } | null)?.clientes) ?? [];
 
   const allLeads = crm.data ?? [];
   const allConsultas = consultas.data ?? [];
@@ -68,6 +75,67 @@ async function getMetrics() {
     (p) => p.etapa === "aguardando_orgaos" && (p.dias_na_etapa ?? 0) >= 5
   );
 
+  // ─── METRICAS DE PERIODO ───
+  const hoje = new Date();
+  const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  const inicioSemana = new Date(inicioHoje); inicioSemana.setDate(inicioHoje.getDate() - 7);
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
+  const pagosNoIntervalo = (start: Date, end?: Date) =>
+    allClientes.filter((c) => {
+      if (!c.valor_pago || Number(c.valor_pago) <= 0) return false;
+      const d = new Date(c.created_at);
+      return d >= start && (!end || d < end);
+    });
+
+  const vendasHoje = pagosNoIntervalo(inicioHoje);
+  const vendasSemana = pagosNoIntervalo(inicioSemana);
+  const vendasMes = pagosNoIntervalo(inicioMes);
+
+  const receitaHoje = vendasHoje.reduce((s, c) => s + Number(c.valor_pago ?? 0), 0);
+  const receitaSemana = vendasSemana.reduce((s, c) => s + Number(c.valor_pago ?? 0), 0);
+  const receitaMes = vendasMes.reduce((s, c) => s + Number(c.valor_pago ?? 0), 0);
+
+  // Receita por dia ultimos 7 dias (barras)
+  const ultimos7: Array<{ label: string; data: Date; receita: number; vendas: number }> = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(inicioHoje); d.setDate(inicioHoje.getDate() - i);
+    const next = new Date(d); next.setDate(d.getDate() + 1);
+    const vendas = pagosNoIntervalo(d, next);
+    ultimos7.push({
+      label: d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", ""),
+      data: d,
+      receita: vendas.reduce((s, c) => s + Number(c.valor_pago ?? 0), 0),
+      vendas: vendas.length,
+    });
+  }
+  const max7 = Math.max(1, ...ultimos7.map((d) => d.receita));
+
+  // Ultimos pagamentos (5 mais recentes)
+  const ultimosPagamentos = allClientes
+    .filter((c) => c.valor_pago && Number(c.valor_pago) > 0)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 5);
+
+  // Score medio dos clientes que tem consulta paga
+  const scores = (allConsultas as Array<{ score: number | null }>).filter((c) => c.score != null).map((c) => Number(c.score));
+  const scoreMedio = scores.length > 0 ? Math.round(scores.reduce((s, n) => s + n, 0) / scores.length) : null;
+
+  // Distribuicao por tag (servico mais vendido)
+  const distTag: Record<string, number> = {};
+  allClientes.forEach((c) => {
+    if (!c.valor_pago || Number(c.valor_pago) <= 0) return;
+    const key = c.tag_servico || "sem_tag";
+    distTag[key] = (distTag[key] ?? 0) + 1;
+  });
+  const topTags = Object.entries(distTag).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  // Pendencias agregadas
+  const totalPendencias = (allConsultas as Array<{ tem_pendencia: boolean | null; total_dividas: number | null }>)
+    .filter((c) => c.tem_pendencia)
+    .reduce((s, c) => s + Number(c.total_dividas ?? 0), 0);
+  const clientesComPendencia = (allConsultas as Array<{ tem_pendencia: boolean | null }>).filter((c) => c.tem_pendencia).length;
+
   return {
     totalLeads, fechados, perdidos, consultasPagas, limpezasPagas,
     blindagemAtiva, blindagemAlerta,
@@ -78,6 +146,15 @@ async function getMetrics() {
     emTratativa, aguardandoOrgaos, nomeLimpoCount,
     aguardandoMuito,
     totalProcessos: allProcessos.length,
+    // novos
+    vendasHoje: vendasHoje.length, receitaHoje,
+    vendasSemana: vendasSemana.length, receitaSemana,
+    vendasMes: vendasMes.length, receitaMes,
+    ultimos7, max7,
+    ultimosPagamentos,
+    scoreMedio,
+    topTags,
+    totalPendencias, clientesComPendencia,
   };
 }
 
@@ -270,6 +347,132 @@ export default async function DashboardPage() {
                   <p className="text-xs text-gray-500">WhatsApp</p>
                   <p className="font-display text-xl text-forest-800">{m.origemWA}</p>
                 </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Periodo + chart 7 dias */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        {/* 3 cards de periodo */}
+        <div className="grid grid-cols-1 gap-3">
+          <Card className="hover:shadow-md transition">
+            <CardContent className="p-5">
+              <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Hoje</p>
+              <p className="font-display text-2xl text-forest-800 mt-1">{formatBRL(m.receitaHoje)}</p>
+              <p className="text-xs text-gray-500 mt-1">{m.vendasHoje} venda(s)</p>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition">
+            <CardContent className="p-5">
+              <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Últimos 7 dias</p>
+              <p className="font-display text-2xl text-forest-800 mt-1">{formatBRL(m.receitaSemana)}</p>
+              <p className="text-xs text-gray-500 mt-1">{m.vendasSemana} venda(s)</p>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition">
+            <CardContent className="p-5">
+              <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Este mês</p>
+              <p className="font-display text-2xl text-forest-800 mt-1">{formatBRL(m.receitaMes)}</p>
+              <p className="text-xs text-gray-500 mt-1">{m.vendasMes} venda(s)</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Chart de barras 7 dias */}
+        <Card className="lg:col-span-2">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="font-display text-lg text-forest-800">Receita últimos 7 dias</h2>
+                <p className="text-xs text-gray-500">Vendas por dia da semana</p>
+              </div>
+              <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-full">
+                {formatBRL(m.receitaSemana)}
+              </span>
+            </div>
+            <div className="flex items-end gap-2 h-40">
+              {m.ultimos7.map((d, i) => {
+                const pct = (d.receita / m.max7) * 100;
+                const hoje = i === m.ultimos7.length - 1;
+                return (
+                  <div key={d.label + i} className="flex-1 flex flex-col items-center justify-end gap-1.5">
+                    <div className="text-[10px] text-gray-500 font-semibold">
+                      {d.receita > 0 ? formatBRL(d.receita).replace("R$", "").trim() : ""}
+                    </div>
+                    <div
+                      className={`w-full rounded-t-lg transition-all ${hoje ? "bg-gradient-to-t from-brand-500 to-brand-400" : "bg-gradient-to-t from-gray-200 to-gray-100"}`}
+                      style={{ height: `${Math.max(pct, d.receita > 0 ? 8 : 2)}%`, minHeight: "4px" }}
+                      title={`${d.label}: ${formatBRL(d.receita)} · ${d.vendas} venda(s)`}
+                    />
+                    <span className={`text-[10px] uppercase ${hoje ? "text-brand-700 font-bold" : "text-gray-400"}`}>{d.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Ultimos pagamentos + Top servicos + Pendencias */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        {/* Ultimos pagamentos */}
+        <Card className="lg:col-span-2">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-display text-lg text-forest-800">Últimos pagamentos</h2>
+                <p className="text-xs text-gray-500">5 mais recentes</p>
+              </div>
+              <Link href="/painel/clientes" className="text-xs text-brand-600 hover:text-brand-800 font-semibold inline-flex items-center gap-1">
+                Ver todos <ArrowUpRight className="size-3.5" />
+              </Link>
+            </div>
+            {m.ultimosPagamentos.length === 0 ? (
+              <p className="text-sm text-gray-400 py-6 text-center">Nenhum pagamento ainda</p>
+            ) : (
+              <ul className="divide-y divide-gray-50">
+                {m.ultimosPagamentos.map((p) => (
+                  <li key={p.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="size-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 grid place-items-center text-white font-bold text-xs shrink-0">
+                      {p.nome.split(" ").slice(0, 2).map((s) => s.charAt(0).toUpperCase()).join("")}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-forest-800 text-sm truncate">{p.nome}</p>
+                      <p className="text-[10px] text-gray-400">
+                        {new Date(p.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    <span className="text-sm font-bold text-emerald-700">{formatBRL(Number(p.valor_pago ?? 0))}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Score medio + Pendencias agregadas */}
+        <Card>
+          <CardContent className="p-6">
+            <h2 className="font-display text-lg text-forest-800 mb-1">Saúde da base</h2>
+            <p className="text-xs text-gray-500 mb-5">Score médio + dívidas</p>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Score médio</p>
+                <p className={`font-display text-3xl ${
+                  (m.scoreMedio ?? 0) >= 701 ? "text-emerald-700" :
+                  (m.scoreMedio ?? 0) >= 501 ? "text-amber-700" :
+                  m.scoreMedio == null ? "text-gray-400" : "text-red-700"
+                }`}>
+                  {m.scoreMedio ?? "—"}
+                </p>
+              </div>
+              <div className="pt-3 border-t border-gray-100">
+                <p className="text-xs text-gray-500 mb-1">Dívidas totais identificadas</p>
+                <p className="font-display text-2xl text-red-700">{formatBRL(m.totalPendencias)}</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">de {m.clientesComPendencia} cliente(s) com pendência</p>
               </div>
             </div>
           </CardContent>
