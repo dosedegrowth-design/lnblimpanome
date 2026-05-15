@@ -1,11 +1,15 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Download, Search, FileText, ExternalLink } from "lucide-react";
+import { Download, FileText, Filter, MessageCircle, AlertTriangle } from "lucide-react";
 import type { Etapa, Tag } from "@/lib/kanban-shared";
 import { corClasses } from "@/lib/kanban-shared";
 import { formatBRL, formatPhone, maskCPF } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ProcessoDrawer } from "@/components/processo-drawer";
+import {
+  TabsCounter, FilterChips, AvatarCircle, PriorityPill, TableToolbar,
+  type TabItem, type ChipFiltro,
+} from "@/components/ui/data-table-bits";
 
 interface Cliente {
   id: string;
@@ -24,6 +28,15 @@ interface Cliente {
   total_dividas: number | null;
 }
 
+const ABA_ETAPAS: Record<string, string[]> = {
+  todos: [],
+  consulta_paga: ["consulta_paga"],
+  limpeza_paga: ["limpeza_paga"],
+  em_tratativa: ["em_tratativa", "aguardando_orgaos"],
+  nome_limpo: ["nome_limpo"],
+  perdido: ["perdido", "encerrada"],
+};
+
 export function ClientesTable({
   clientes, etapas, tags,
 }: {
@@ -33,11 +46,38 @@ export function ClientesTable({
 }) {
   const [q, setQ] = useState("");
   const [tagFiltro, setTagFiltro] = useState<string>("");
-  const [etapaFiltro, setEtapaFiltro] = useState<string>("");
+  const [aba, setAba] = useState<string>("todos");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Counters por aba
+  const counts = useMemo(() => {
+    const r: Record<string, number> = { todos: clientes.length };
+    Object.entries(ABA_ETAPAS).forEach(([key, ets]) => {
+      if (key === "todos") return;
+      r[key] = clientes.filter((c) => ets.includes(c.etapa)).length;
+    });
+    return r;
+  }, [clientes]);
+
+  const tabs: TabItem[] = [
+    { value: "todos",          label: "Todos",          count: counts.todos ?? 0 },
+    { value: "consulta_paga",  label: "Consulta paga",  count: counts.consulta_paga ?? 0 },
+    { value: "limpeza_paga",   label: "Limpeza paga",   count: counts.limpeza_paga ?? 0 },
+    { value: "em_tratativa",   label: "Em tratativa",   count: counts.em_tratativa ?? 0 },
+    { value: "nome_limpo",     label: "Nome limpo",     count: counts.nome_limpo ?? 0 },
+    { value: "perdido",        label: "Perdido",        count: counts.perdido ?? 0 },
+  ];
 
   const filtrados = useMemo(() => {
     let r = clientes;
+
+    // Filtro por aba
+    const etapasAba = ABA_ETAPAS[aba];
+    if (etapasAba && etapasAba.length > 0) {
+      r = r.filter((c) => etapasAba.includes(c.etapa));
+    }
+
     if (q) {
       const lq = q.toLowerCase();
       const lqNum = lq.replace(/\D/g, "");
@@ -50,91 +90,103 @@ export function ClientesTable({
       );
     }
     if (tagFiltro) r = r.filter((c) => c.tag_servico === tagFiltro);
-    if (etapaFiltro) r = r.filter((c) => c.etapa === etapaFiltro);
     return r;
-  }, [clientes, q, tagFiltro, etapaFiltro]);
+  }, [clientes, q, tagFiltro, aba]);
 
   function findTag(codigo: string | null): Tag | null {
     return tags.find((t) => t.codigo === codigo) || null;
   }
-
   function findEtapa(codigo: string): Etapa | null {
     return etapas.find((e) => e.codigo === codigo) || null;
   }
 
   function baixarCSV(formato: "completo" | "operacional") {
     const params = new URLSearchParams({ formato });
-    if (etapaFiltro) params.set("etapa", etapaFiltro);
+    const etapasAba = ABA_ETAPAS[aba];
+    if (etapasAba && etapasAba.length === 1) params.set("etapa", etapasAba[0]);
     window.open(`/api/admin/clientes/exportar?${params.toString()}`, "_blank");
+  }
+
+  // Chips de filtros ativos
+  const chips: ChipFiltro[] = [];
+  if (tagFiltro) {
+    const t = findTag(tagFiltro);
+    chips.push({ key: "tag", label: "Serviço", value: t?.nome || tagFiltro });
+  }
+
+  function removerChip(key: string) {
+    if (key === "tag") setTagFiltro("");
   }
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3 mb-5">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-          <input
-            type="text"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Nome, CPF, email, telefone..."
-            className="w-full pl-9 pr-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-          />
-        </div>
+      {/* Tabs */}
+      <TabsCounter tabs={tabs} value={aba} onChange={setAba} />
 
-        <select
-          value={tagFiltro}
-          onChange={(e) => setTagFiltro(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm bg-white"
+      {/* Toolbar com filtros + search */}
+      <TableToolbar
+        search={q}
+        onSearchChange={setQ}
+        searchPlaceholder="Pesquisar nome, CPF, email, telefone..."
+        right={
+          <div className="flex gap-2">
+            <Button onClick={() => baixarCSV("operacional")} variant="outline" size="sm">
+              <Download className="size-4 mr-1" />
+              Nome+CPF
+            </Button>
+            <Button onClick={() => baixarCSV("completo")} size="sm">
+              <Download className="size-4 mr-1" />
+              Exportar
+            </Button>
+          </div>
+        }
+      >
+        <button
+          onClick={() => setShowFilters((s) => !s)}
+          className="inline-flex items-center gap-1.5 text-sm text-emerald-700 hover:text-emerald-800 font-semibold"
         >
-          <option value="">Todas as tags</option>
-          {tags.map((t) => (
-            <option key={t.codigo} value={t.codigo}>{t.emoji} {t.nome}</option>
-          ))}
-        </select>
+          <Filter className="size-4" />
+          Filtros
+        </button>
+        <FilterChips filtros={chips} onRemove={removerChip} />
+        {showFilters && (
+          <select
+            value={tagFiltro}
+            onChange={(e) => setTagFiltro(e.target.value)}
+            className="rounded-full border border-gray-200 px-3 py-1.5 text-xs bg-white"
+          >
+            <option value="">Todos os serviços</option>
+            {tags.map((t) => (
+              <option key={t.codigo} value={t.codigo}>{t.emoji} {t.nome}</option>
+            ))}
+          </select>
+        )}
+      </TableToolbar>
 
-        <select
-          value={etapaFiltro}
-          onChange={(e) => setEtapaFiltro(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm bg-white"
-        >
-          <option value="">Todas as etapas</option>
-          {etapas.map((e) => (
-            <option key={e.codigo} value={e.codigo}>{e.emoji} {e.nome}</option>
-          ))}
-        </select>
-
-        <div className="flex gap-2 ml-auto">
-          <Button onClick={() => baixarCSV("completo")} variant="outline" size="sm">
-            <Download className="size-4 mr-1" />
-            Export completo
-          </Button>
-          <Button onClick={() => baixarCSV("operacional")} size="sm">
-            <Download className="size-4 mr-1" />
-            Export Nome+CPF
-          </Button>
-        </div>
-      </div>
-
-      <p className="text-xs text-gray-500 mb-3">{filtrados.length} cliente(s) mostrado(s) de {clientes.length} total</p>
-
-      <div className="rounded-lg border border-gray-200 bg-white overflow-x-auto">
+      {/* Tabela */}
+      <div className="rounded-xl border border-gray-100 bg-white overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-500 border-b border-gray-200">
-            <tr>
-              <th className="text-left py-3 px-3 font-semibold">Cliente</th>
-              <th className="text-left py-3 px-3 font-semibold">Tag</th>
-              <th className="text-left py-3 px-3 font-semibold">Etapa</th>
-              <th className="text-left py-3 px-3 font-semibold">Score</th>
-              <th className="text-right py-3 px-3 font-semibold">Pagou</th>
-              <th className="text-center py-3 px-3 font-semibold">PDF</th>
-              <th className="text-left py-3 px-3 font-semibold">Criado</th>
+          <thead className="text-gray-400 text-xs">
+            <tr className="border-b border-gray-100">
+              <th className="text-left py-3 px-4 font-normal">
+                <span className="inline-flex items-center gap-2">
+                  <input type="checkbox" className="rounded border-gray-300" />
+                  Nome
+                </span>
+              </th>
+              <th className="text-left py-3 px-3 font-normal">Serviço</th>
+              <th className="text-left py-3 px-3 font-normal">Etapa</th>
+              <th className="text-left py-3 px-3 font-normal">Score</th>
+              <th className="text-left py-3 px-3 font-normal">Dívidas</th>
+              <th className="text-right py-3 px-3 font-normal">Pago</th>
+              <th className="text-center py-3 px-3 font-normal">PDF</th>
+              <th className="text-right py-3 px-3 font-normal">Cliente</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {filtrados.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-gray-400 text-sm">
+                <td colSpan={8} className="py-12 text-center text-gray-400 text-sm">
                   Nenhum cliente encontrado
                 </td>
               </tr>
@@ -143,58 +195,98 @@ export function ClientesTable({
                 const tag = findTag(c.tag_servico);
                 const etapa = findEtapa(c.etapa);
                 const tagCor = tag ? corClasses(tag.cor) : null;
-                const etapaCor = etapa ? corClasses(etapa.cor) : null;
                 return (
-                  <tr key={c.id} className="hover:bg-gray-50/50 cursor-pointer" onClick={() => setSelectedId(c.id)}>
-                    <td className="py-3 px-3">
-                      <div className="hover:text-brand-700">
-                        <p className="font-semibold text-forest-800">{c.nome}</p>
-                        <p className="text-xs text-gray-500 font-mono">{maskCPF(c.cpf)}</p>
-                        {c.telefone && (
-                          <p className="text-[10px] text-gray-400">{formatPhone(c.telefone)}</p>
-                        )}
+                  <tr
+                    key={c.id}
+                    className="hover:bg-gray-50/40 cursor-pointer border-b border-gray-50 last:border-0 transition"
+                    onClick={() => setSelectedId(c.id)}
+                  >
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div>
+                          <p className="font-medium text-forest-800">{c.nome}</p>
+                          <p className="text-xs text-gray-400 font-mono mt-0.5">{maskCPF(c.cpf)}</p>
+                        </div>
                       </div>
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-4 px-3">
                       {tag && tagCor && (
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${tagCor.bg} ${tagCor.text} ${tagCor.border} border text-[10px] font-semibold`}>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${tagCor.bg} ${tagCor.text} text-[11px] font-medium`}>
                           {tag.emoji} {tag.nome}
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-3">
-                      {etapa && etapaCor && (
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded ${etapaCor.bg} ${etapaCor.text} text-[10px] font-semibold`}>
-                          {etapa.emoji} {etapa.nome}
-                        </span>
+                    <td className="py-4 px-3">
+                      {etapa && (
+                        <PriorityPill
+                          tone={
+                            etapa.cor === "emerald" ? "success" :
+                            etapa.cor === "red" ? "danger" :
+                            etapa.cor === "amber" ? "warning" :
+                            etapa.cor === "violet" ? "info" :
+                            etapa.cor === "brand" ? "info" :
+                            "neutral"
+                          }
+                          label={etapa.nome}
+                        />
                       )}
                     </td>
-                    <td className="py-3 px-3 font-mono text-xs">
+                    <td className="py-4 px-3 font-mono text-xs">
                       {c.score != null ? (
                         <span className={
-                          c.score >= 701 ? "text-emerald-700 font-bold" :
-                          c.score >= 501 ? "text-amber-700 font-bold" :
-                          "text-red-700 font-bold"
+                          c.score >= 701 ? "text-emerald-700 font-semibold" :
+                          c.score >= 501 ? "text-amber-700 font-semibold" :
+                          "text-red-700 font-semibold"
                         }>
                           {c.score}
                         </span>
                       ) : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="py-3 px-3 text-right font-mono text-xs text-emerald-700 font-semibold">
-                      {c.valor_pago && Number(c.valor_pago) > 0 ? formatBRL(Number(c.valor_pago)) : <span className="text-gray-300">—</span>}
+                    <td className="py-4 px-3">
+                      {c.tem_pendencia ? (
+                        <span className="inline-flex items-center gap-1 text-amber-700 text-xs font-medium">
+                          <AlertTriangle className="size-3.5" />
+                          {c.qtd_pendencias ?? 0}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
                     </td>
-                    <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                    <td className="py-4 px-3 text-right font-mono text-xs">
+                      {c.valor_pago && Number(c.valor_pago) > 0 ? (
+                        <span className="text-emerald-700 font-semibold">{formatBRL(Number(c.valor_pago))}</span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </td>
+                    <td className="py-4 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                       {c.pdf_url ? (
                         <a href={c.pdf_url} target="_blank" rel="noopener" className="inline-flex text-brand-600 hover:text-brand-700">
                           <FileText className="size-4" />
                         </a>
                       ) : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="py-3 px-3 text-xs text-gray-500 whitespace-nowrap">
-                      {c.created_at?.slice(0, 10)}
-                      <span className="ml-2 text-brand-500 inline-flex">
-                        <ExternalLink className="size-3" />
-                      </span>
+                    <td className="py-4 px-3">
+                      <div className="flex items-center justify-end gap-2">
+                        {c.telefone && (
+                          <a
+                            href={`https://wa.me/${c.telefone.replace(/\D/g, "")}`}
+                            target="_blank"
+                            rel="noopener"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-gray-400 hover:text-emerald-600 transition"
+                            title="Abrir WhatsApp"
+                          >
+                            <MessageCircle className="size-4" />
+                          </a>
+                        )}
+                        <AvatarCircle name={c.nome} size={28} />
+                      </div>
                     </td>
                   </tr>
                 );
@@ -203,6 +295,10 @@ export function ClientesTable({
           </tbody>
         </table>
       </div>
+
+      <p className="text-xs text-gray-400 mt-3 text-center">
+        Mostrando {filtrados.length} de {clientes.length} cliente(s)
+      </p>
 
       <ProcessoDrawer
         processoId={selectedId}
