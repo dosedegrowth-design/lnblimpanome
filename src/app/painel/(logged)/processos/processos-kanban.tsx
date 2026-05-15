@@ -17,15 +17,15 @@ interface Props {
   processos: ProcessoKanban[];
 }
 
-// Cores dos dots/chips das colunas - mantendo todo o resto bg cinza neutro
-const DOT_CORES: Record<string, string> = {
-  brand:   "bg-brand-500",
-  amber:   "bg-amber-500",
-  violet:  "bg-violet-500",
-  forest:  "bg-forest-600",
-  emerald: "bg-emerald-500",
-  red:     "bg-red-500",
-  gray:    "bg-gray-400",
+// Headers coloridos por etapa (estilo Fixolaw)
+const COL_HEADERS: Record<string, { headerBg: string; headerText: string; dot: string; lineGrad: string }> = {
+  brand:   { headerBg: "bg-cyan-50",    headerText: "text-cyan-800",    dot: "bg-cyan-500",    lineGrad: "from-cyan-300 to-cyan-500" },
+  amber:   { headerBg: "bg-amber-50",   headerText: "text-amber-800",   dot: "bg-amber-500",   lineGrad: "from-amber-300 to-amber-500" },
+  violet:  { headerBg: "bg-violet-50",  headerText: "text-violet-800",  dot: "bg-violet-500",  lineGrad: "from-violet-300 to-violet-500" },
+  forest:  { headerBg: "bg-teal-50",    headerText: "text-teal-800",    dot: "bg-teal-500",    lineGrad: "from-teal-300 to-teal-500" },
+  emerald: { headerBg: "bg-emerald-50", headerText: "text-emerald-800", dot: "bg-emerald-500", lineGrad: "from-emerald-300 to-emerald-500" },
+  red:     { headerBg: "bg-rose-50",    headerText: "text-rose-800",    dot: "bg-rose-500",    lineGrad: "from-rose-300 to-rose-500" },
+  gray:    { headerBg: "bg-gray-100",   headerText: "text-gray-700",    dot: "bg-gray-400",    lineGrad: "from-gray-300 to-gray-400" },
 };
 
 export function ProcessosKanban({ etapas, tags, processos }: Props) {
@@ -116,29 +116,32 @@ export function ProcessosKanban({ etapas, tags, processos }: Props) {
         )}
       </TableToolbar>
 
-      <div className="flex gap-3 overflow-x-auto pb-6">
+      <div className="flex gap-4 overflow-x-auto pb-6">
         {etapasVisiveis.map((etapa) => {
           const lista = filtrados.filter((p) => p.etapa === etapa.codigo);
-          const dot = DOT_CORES[etapa.cor] || DOT_CORES.gray;
+          const h = COL_HEADERS[etapa.cor] || COL_HEADERS.gray;
           return (
             <div
               key={etapa.codigo}
-              className="min-w-[300px] w-[300px] shrink-0 rounded-xl bg-gray-50/70 p-3 flex flex-col"
+              className="min-w-[300px] w-[300px] shrink-0 flex flex-col"
             >
-              <header className="flex items-center justify-between mb-3 px-1">
-                <div className="flex items-center gap-2">
-                  <span className={`inline-block size-1.5 rounded-full ${dot}`} />
-                  <p className="font-semibold text-sm text-gray-800">{etapa.nome}</p>
-                  <span className="text-xs text-gray-400 tabular-nums">{lista.length}</span>
+              {/* Header colorido por coluna (Fixolaw style) */}
+              <div className={`rounded-lg ${h.headerBg} border border-white px-3 py-2.5 mb-3 flex items-center justify-between`}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`inline-block size-1.5 rounded-full ${h.dot}`} />
+                  <p className={`font-semibold text-sm ${h.headerText} truncate`}>{etapa.nome}</p>
+                  <span className={`text-xs ${h.headerText} opacity-70 tabular-nums`}>{lista.length}</span>
                 </div>
-                <button className="size-6 grid place-items-center text-gray-400 hover:text-gray-700 hover:bg-white rounded transition" title="Adicionar (em breve)">
+                <button className="size-6 grid place-items-center text-gray-500 hover:text-gray-900 hover:bg-white rounded transition shrink-0" title="Adicionar (em breve)">
                   <Plus className="size-3.5" />
                 </button>
-              </header>
+              </div>
 
-              <div className="space-y-2 min-h-[80px]">
+              <div className="space-y-2 min-h-[80px] pb-2">
                 {lista.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-6">Vazio</p>
+                  <div className="text-xs text-gray-300 text-center py-8 border border-dashed border-gray-200 rounded-lg">
+                    Vazio
+                  </div>
                 ) : (
                   lista.map((p) => {
                     const tag = findTag(p.tag_servico);

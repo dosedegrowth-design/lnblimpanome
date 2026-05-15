@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Mail, Phone, MessageCircle, FileText, ExternalLink, ArrowRight,
-  Loader2, Sparkles, Tag as TagIcon, AlertCircle, CheckCircle2,
+  Loader2, Sparkles, AlertCircle, CheckCircle2,
 } from "lucide-react";
 import { Sheet, SheetHeader, SheetBody, SheetFooter } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -158,6 +158,13 @@ export function ProcessoDrawer({
     : null;
   const podeFinalizar = p?.etapa === "em_tratativa";
 
+  // Calcula progresso (0-100) baseado na ordem da etapa entre todas etapas ativas
+  const etapasAtivas = etapas.filter((e) => e.ativo);
+  const idxEtapa = etapa ? etapasAtivas.findIndex((e) => e.codigo === etapa.codigo) : 0;
+  const progressoPct = etapasAtivas.length > 0
+    ? Math.round(((idxEtapa + 1) / etapasAtivas.length) * 100)
+    : 0;
+
   const initials = p?.nome
     ? p.nome.split(" ").slice(0, 2).map((s) => s.charAt(0).toUpperCase()).join("")
     : "?";
@@ -175,190 +182,205 @@ export function ProcessoDrawer({
             actions={
               <Link
                 href={`/painel/processos/${p.id}`}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-forest-800 hover:bg-forest-900 text-white text-xs font-semibold px-3 py-2 transition"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold px-3 py-2 transition"
               >
                 Ver detalhe
                 <ExternalLink className="size-3.5" />
               </Link>
             }
           >
-            <div className="flex items-start gap-3">
-              <div className="size-12 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 grid place-items-center text-white font-bold text-base shadow-md shrink-0">
+            <div className="flex items-start gap-4">
+              <div className="size-14 rounded-full bg-gradient-to-br from-violet-400 via-fuchsia-400 to-rose-400 grid place-items-center text-white font-semibold text-lg shadow-sm shrink-0">
                 {initials}
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 pt-1">
+                <h2 className="font-display text-lg text-gray-900 truncate leading-tight">{p.nome}</h2>
+                <p className="text-xs text-gray-500 mt-0.5">{p.email || maskCPF(p.cpf)}</p>
                 {tag && (() => {
                   const c = corClasses(tag.cor);
                   return (
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${c.bg} ${c.text} ${c.border} border text-[10px] font-semibold mb-1`}>
-                      {tag.emoji} {tag.nome}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md ${c.bg} ${c.text} text-[10px] font-medium mt-2`}>
+                      {tag.nome}
                     </span>
                   );
                 })()}
-                <h2 className="font-display text-xl text-forest-800 truncate">{p.nome}</h2>
-                <p className="text-xs text-gray-500 font-mono">{maskCPF(p.cpf)}</p>
               </div>
             </div>
           </SheetHeader>
 
           <SheetBody className="space-y-5">
-            {/* Etapa atual + acoes rapidas */}
+            {/* Acoes rapidas (chat/mail/phone/more - estilo Plan) */}
+            <div className="flex items-center gap-2">
+              {p.telefone && (
+                <a
+                  href={`https://wa.me/${p.telefone.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noopener"
+                  className="size-9 grid place-items-center rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition"
+                  title="WhatsApp"
+                >
+                  <MessageCircle className="size-4" />
+                </a>
+              )}
+              {p.email && (
+                <a
+                  href={`mailto:${p.email}`}
+                  className="size-9 grid place-items-center rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-600 transition"
+                  title="Email"
+                >
+                  <Mail className="size-4" />
+                </a>
+              )}
+              {p.telefone && (
+                <a
+                  href={`tel:${p.telefone}`}
+                  className="size-9 grid place-items-center rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-600 transition"
+                  title="Ligar"
+                >
+                  <Phone className="size-4" />
+                </a>
+              )}
+            </div>
+
+            {/* Grid 2x2 (estilo Plan: Lead owner / Location / Referral / Income) */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-gray-100 py-4">
+              <InfoField label="CPF" value={maskCPF(p.cpf)} mono />
+              <InfoField label="Telefone" value={p.telefone ? formatPhone(p.telefone) : "—"} />
+              <InfoField label="Origem" value={p.tipo || "—"} />
+              <InfoField
+                label="Pago"
+                value={p.valor_pago && Number(p.valor_pago) > 0 ? formatBRL(Number(p.valor_pago)) : "—"}
+                emphasize={p.valor_pago != null && Number(p.valor_pago) > 0}
+              />
+            </div>
+
+            {/* Etapa atual + progress + acoes */}
             {etapa && (
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Etapa atual</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Progresso</p>
+                  <span className="text-xs text-gray-500">{progressoPct}% concluído</span>
+                </div>
+                {/* Progress bar verde estilo Plan */}
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-3 relative">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all"
+                    style={{ width: `${progressoPct}%` }}
+                  />
+                </div>
                 {(() => {
                   const c = corClasses(etapa.cor);
                   return (
-                    <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg ${c.bg} ${c.text} ${c.border} border text-sm font-semibold`}>
-                      <span className="text-lg">{etapa.emoji}</span>
+                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md ${c.bg} ${c.text} text-xs font-semibold`}>
                       <span>{etapa.nome}</span>
                     </div>
                   );
                 })()}
-                {etapa.descricao && (
-                  <p className="text-xs text-gray-500 mt-2">{etapa.descricao}</p>
-                )}
 
-                {proximaEtapa && (
-                  <button
-                    onClick={() => moverEtapa(proximaEtapa.codigo)}
-                    disabled={acaoLoading === "mover"}
-                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 hover:text-brand-800 disabled:opacity-50"
-                  >
-                    {acaoLoading === "mover" ? <Loader2 className="size-3.5 animate-spin" /> : <ArrowRight className="size-3.5" />}
-                    Avançar para: {proximaEtapa.emoji} {proximaEtapa.nome}
-                  </button>
-                )}
-
-                {podeFinalizar && (
-                  <button
-                    onClick={finalizarLimpeza}
-                    disabled={acaoLoading === "finalizar"}
-                    className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-3 py-2 transition disabled:opacity-60"
-                  >
-                    {acaoLoading === "finalizar" ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-                    Finalizar Limpeza
-                  </button>
-                )}
+                <div className="flex gap-2 mt-3">
+                  {proximaEtapa && (
+                    <button
+                      onClick={() => moverEtapa(proximaEtapa.codigo)}
+                      disabled={acaoLoading === "mover"}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-md transition disabled:opacity-50"
+                    >
+                      {acaoLoading === "mover" ? <Loader2 className="size-3.5 animate-spin" /> : <ArrowRight className="size-3.5" />}
+                      {proximaEtapa.nome}
+                    </button>
+                  )}
+                  {podeFinalizar && (
+                    <button
+                      onClick={finalizarLimpeza}
+                      disabled={acaoLoading === "finalizar"}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 transition disabled:opacity-60"
+                    >
+                      {acaoLoading === "finalizar" ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+                      Finalizar Limpeza
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
-            {/* Contatos */}
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Contato</p>
-              <div className="grid grid-cols-1 gap-2">
-                {p.email && (
-                  <a href={`mailto:${p.email}`} className="flex items-center gap-2 text-sm text-gray-700 hover:text-brand-700 group">
-                    <Mail className="size-4 text-gray-400 group-hover:text-brand-600" />
-                    <span className="truncate">{p.email}</span>
-                  </a>
-                )}
-                {p.telefone && (
-                  <a
-                    href={`https://wa.me/${p.telefone.replace(/\D/g, "")}`}
-                    target="_blank"
-                    rel="noopener"
-                    className="flex items-center gap-2 text-sm text-gray-700 hover:text-emerald-700 group"
-                  >
-                    <MessageCircle className="size-4 text-gray-400 group-hover:text-emerald-600" />
-                    <span>{formatPhone(p.telefone)}</span>
-                    <span className="text-[10px] text-emerald-600 font-semibold">WhatsApp</span>
-                  </a>
-                )}
-              </div>
-            </div>
-
-            {/* Resumo financeiro / consulta */}
-            <div className="grid grid-cols-2 gap-3">
-              {p.valor_pago != null && Number(p.valor_pago) > 0 && (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3">
-                  <p className="text-[10px] uppercase tracking-wider text-emerald-700 font-semibold">Pago</p>
-                  <p className="font-display text-xl text-emerald-800 mt-0.5">{formatBRL(Number(p.valor_pago))}</p>
-                </div>
-              )}
-              {detail.consulta?.score != null && (
-                <div className={`rounded-lg border p-3 ${
-                  detail.consulta.score >= 701 ? "border-emerald-200 bg-emerald-50/40" :
-                  detail.consulta.score >= 501 ? "border-amber-200 bg-amber-50/40" :
-                  "border-red-200 bg-red-50/40"
+            {/* Score badge */}
+            {detail.consulta?.score != null && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className={`rounded-lg p-3 ${
+                  detail.consulta.score >= 701 ? "bg-emerald-50" :
+                  detail.consulta.score >= 501 ? "bg-amber-50" :
+                  "bg-red-50"
                 }`}>
                   <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-600">Score</p>
-                  <p className={`font-display text-xl mt-0.5 ${
-                    detail.consulta.score >= 701 ? "text-emerald-800" :
-                    detail.consulta.score >= 501 ? "text-amber-800" :
-                    "text-red-800"
+                  <p className={`font-display text-2xl mt-0.5 tabular-nums ${
+                    detail.consulta.score >= 701 ? "text-emerald-700" :
+                    detail.consulta.score >= 501 ? "text-amber-700" :
+                    "text-red-700"
                   }`}>{detail.consulta.score}</p>
                 </div>
-              )}
-            </div>
-
-            {/* Consulta */}
-            {detail.consulta && (
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Consulta CPF</p>
-                <div className="rounded-lg border border-gray-200 p-3 space-y-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    {detail.consulta.tem_pendencia ? (
-                      <Badge variant="danger">
-                        <AlertCircle className="size-3 mr-1" />
-                        Com pendências
-                      </Badge>
-                    ) : (
-                      <Badge variant="success">
-                        <CheckCircle2 className="size-3 mr-1" />
-                        Nome limpo
-                      </Badge>
-                    )}
-                  </div>
-                  {detail.consulta.tem_pendencia && (
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                      <div>
-                        <span className="block text-gray-400">Pendências</span>
-                        <span className="font-bold text-forest-800">{detail.consulta.qtd_pendencias ?? 0}</span>
-                      </div>
-                      <div>
-                        <span className="block text-gray-400">Total dívidas</span>
-                        <span className="font-bold text-forest-800">
-                          {detail.consulta.total_dividas ? formatBRL(detail.consulta.total_dividas) : "—"}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  {p.pdf_url && (
-                    <a
-                      href={p.pdf_url}
-                      target="_blank"
-                      rel="noopener"
-                      className="inline-flex items-center gap-1.5 text-xs text-brand-700 hover:text-brand-800 font-semibold pt-1"
-                    >
-                      <FileText className="size-3.5" />
-                      Abrir relatório PDF
-                    </a>
-                  )}
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-600">Pendências</p>
+                  <p className="font-display text-2xl mt-0.5 tabular-nums text-gray-900">{detail.consulta.qtd_pendencias ?? 0}</p>
                 </div>
               </div>
             )}
 
-            {/* Timeline */}
+            {/* Relatorio PDF + Pendencias */}
+            {detail.consulta && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Status da consulta</p>
+                  {detail.consulta.tem_pendencia ? (
+                    <Badge variant="danger" className="text-[10px]">
+                      <AlertCircle className="size-3 mr-1" />
+                      Com pendências
+                    </Badge>
+                  ) : (
+                    <Badge variant="success" className="text-[10px]">
+                      <CheckCircle2 className="size-3 mr-1" />
+                      Nome limpo
+                    </Badge>
+                  )}
+                </div>
+                {p.pdf_url && (
+                  <a
+                    href={p.pdf_url}
+                    target="_blank"
+                    rel="noopener"
+                    className="flex items-center gap-2 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-100 transition text-sm text-gray-700 group"
+                  >
+                    <FileText className="size-4 text-gray-400 group-hover:text-gray-700" />
+                    <span className="flex-1">Relatório completo (PDF)</span>
+                    <ExternalLink className="size-3.5 text-gray-400 group-hover:text-gray-700" />
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Latest Activities (estilo Plan) */}
             {detail.eventos.length > 0 && (
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Histórico</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-semibold text-gray-900">Atividades recentes</p>
+                  <span className="inline-flex items-center justify-center size-5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+                    {Math.min(detail.eventos.length, 8)}
+                  </span>
+                </div>
                 <ol className="relative space-y-3 pl-4 border-l-2 border-gray-100">
                   {detail.eventos.slice(0, 8).map((e) => (
                     <li key={e.id} className="relative">
-                      <span className="absolute -left-[21px] top-1 size-3 rounded-full bg-brand-400 ring-2 ring-white" />
-                      <p className="text-sm text-forest-800 font-medium">
+                      <span className="absolute -left-[21px] top-1 size-2.5 rounded-full bg-gray-900 ring-2 ring-white" />
+                      <p className="text-sm text-gray-900">
                         {e.tipo === "etapa" && e.etapa_nova
                           ? <>
                               {e.etapa_anterior && (
                                 <span className="text-gray-400 text-xs">{findEtapa(e.etapa_anterior)?.nome ?? e.etapa_anterior} → </span>
                               )}
-                              <span>{findEtapa(e.etapa_nova)?.emoji} {findEtapa(e.etapa_nova)?.nome ?? e.etapa_nova}</span>
+                              <span className="font-medium">{findEtapa(e.etapa_nova)?.nome ?? e.etapa_nova}</span>
                             </>
-                          : <span className="capitalize">{e.tipo}</span>}
+                          : <span className="capitalize font-medium">{e.tipo}</span>}
                       </p>
                       {e.mensagem && (
-                        <p className="text-xs text-gray-600 mt-0.5 italic">{e.mensagem}</p>
+                        <p className="text-xs text-gray-600 mt-0.5">{e.mensagem}</p>
                       )}
                       <p className="text-[10px] text-gray-400 mt-0.5">
                         {e.autor_nome && <>{e.autor_nome} · </>}
@@ -370,13 +392,15 @@ export function ProcessoDrawer({
               </div>
             )}
 
-            {/* Observacoes */}
+            {/* Notas (estilo Plan) */}
             {p.observacoes && (
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Observações</p>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 rounded-lg p-3 border border-gray-100">
-                  {p.observacoes}
-                </p>
+                <p className="text-sm font-semibold text-gray-900 mb-2">Observações</p>
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                    {p.observacoes}
+                  </p>
+                </div>
               </div>
             )}
 
@@ -389,19 +413,9 @@ export function ProcessoDrawer({
           </SheetBody>
 
           <SheetFooter>
-            {p.telefone && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(`https://wa.me/${p.telefone!.replace(/\D/g, "")}`, "_blank")}
-              >
-                <MessageCircle className="size-4 mr-1" />
-                WhatsApp
-              </Button>
-            )}
             <Link href={`/painel/processos/${p.id}`}>
               <Button size="sm">
-                <TagIcon className="size-4 mr-1" />
+                <ExternalLink className="size-4 mr-1" />
                 Ver detalhe completo
               </Button>
             </Link>
@@ -409,5 +423,23 @@ export function ProcessoDrawer({
         </>
       )}
     </Sheet>
+  );
+}
+
+function InfoField({
+  label, value, mono, emphasize,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  emphasize?: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mb-0.5">{label}</p>
+      <p className={`text-sm truncate ${mono ? "font-mono" : ""} ${emphasize ? "text-emerald-700 font-semibold" : "text-gray-900"}`}>
+        {value}
+      </p>
+    </div>
   );
 }

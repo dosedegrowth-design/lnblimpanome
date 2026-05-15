@@ -2,8 +2,9 @@ import { requireAdmin } from "@/lib/auth/admin";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Users, FileSearch, ShieldCheck, TrendingUp, Wallet, Activity,
-  Globe, MessageCircle, ArrowUpRight, Clock, ChevronRight,
+  ShieldCheck, TrendingUp, Wallet, Activity,
+  Globe, MessageCircle, ArrowUpRight, ArrowDownRight, Clock, ChevronRight,
+  MoreHorizontal, Calendar, Download,
 } from "lucide-react";
 import { formatBRL } from "@/lib/utils";
 import { getProdutos } from "@/lib/produtos";
@@ -41,7 +42,6 @@ async function getMetrics() {
   }>;
 
   const totalLeads = allLeads.length;
-  const perdidos = allLeads.filter((r) => r.perdido).length;
   const consultasPagas = allConsultas.filter((c) => c.consulta_paga).length;
   const limpezasPagas = allConsultas.filter((c) => c.fechou_limpeza).length;
   const blindagemAtiva = allBlindagem.filter((b) => b.ativo).length;
@@ -65,7 +65,6 @@ async function getMetrics() {
   const nomeLimpoCount = allProcessos.filter((p) => p.etapa === "nome_limpo").length;
   const aguardandoMuito = allProcessos.filter((p) => p.etapa === "aguardando_orgaos" && (p.dias_na_etapa ?? 0) >= 5);
 
-  // Periodo
   const hoje = new Date();
   const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
   const inicioSemana = new Date(inicioHoje); inicioSemana.setDate(inicioHoje.getDate() - 7);
@@ -86,18 +85,33 @@ async function getMetrics() {
   const receitaSemana = vendasSemana.reduce((s, c) => s + Number(c.valor_pago ?? 0), 0);
   const receitaMes = vendasMes.reduce((s, c) => s + Number(c.valor_pago ?? 0), 0);
 
+  // ultimos 7 dias
   const ultimos7: Array<{ label: string; receita: number; vendas: number }> = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(inicioHoje); d.setDate(inicioHoje.getDate() - i);
     const next = new Date(d); next.setDate(d.getDate() + 1);
     const vendas = pagosNoIntervalo(d, next);
+    const dia = d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
     ultimos7.push({
-      label: d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "").charAt(0).toUpperCase() + d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "").slice(1),
+      label: dia.charAt(0).toUpperCase() + dia.slice(1),
       receita: vendas.reduce((s, c) => s + Number(c.valor_pago ?? 0), 0),
       vendas: vendas.length,
     });
   }
   const max7 = Math.max(1, ...ultimos7.map((d) => d.receita));
+
+  // ultimos 3 meses (chart maior)
+  const ultimos3meses: Array<{ label: string; receita: number }> = [];
+  for (let i = 2; i >= 0; i--) {
+    const mes = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const proxMes = new Date(hoje.getFullYear(), hoje.getMonth() - i + 1, 1);
+    const vendas = pagosNoIntervalo(mes, proxMes);
+    ultimos3meses.push({
+      label: mes.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toUpperCase(),
+      receita: vendas.reduce((s, c) => s + Number(c.valor_pago ?? 0), 0),
+    });
+  }
+  const maxMeses = Math.max(1, ...ultimos3meses.map((d) => d.receita));
 
   const ultimosPagamentos = allClientes
     .filter((c) => c.valor_pago && Number(c.valor_pago) > 0)
@@ -112,8 +126,16 @@ async function getMetrics() {
     .reduce((s, c) => s + Number(c.total_dividas ?? 0), 0);
   const clientesComPendencia = (allConsultas as Array<{ tem_pendencia: boolean | null }>).filter((c) => c.tem_pendencia).length;
 
+  // Distribuicao por tag
+  const distTag: Record<string, number> = {};
+  allClientes.forEach((c) => {
+    if (!c.tag_servico) return;
+    distTag[c.tag_servico] = (distTag[c.tag_servico] ?? 0) + 1;
+  });
+  const totalDistTag = Object.values(distTag).reduce((s, n) => s + n, 0);
+
   return {
-    totalLeads, perdidos, consultasPagas, limpezasPagas,
+    totalLeads, consultasPagas, limpezasPagas,
     blindagemAtiva, blindagemAlerta,
     taxaConversao, receitaTotal, receitaConsultas, receitaLimpezas,
     origemSite, origemWA,
@@ -126,18 +148,39 @@ async function getMetrics() {
     vendasSemana: vendasSemana.length, receitaSemana,
     vendasMes: vendasMes.length, receitaMes,
     ultimos7, max7,
+    ultimos3meses, maxMeses,
     ultimosPagamentos,
     scoreMedio,
     totalPendencias, clientesComPendencia,
+    distTag, totalDistTag,
   };
 }
 
-const FUNIL_BARS: Record<string, string> = {
-  lead: "bg-gray-300",
-  interessado: "bg-amber-400",
-  qualificado: "bg-violet-400",
-  consulta_paga: "bg-brand-500",
-  limpeza_paga: "bg-emerald-500",
+// Cores vivas pra barras (estilo Nexus)
+const BAR_GRADIENTS = [
+  "from-cyan-400 to-cyan-600",
+  "from-teal-400 to-teal-600",
+  "from-blue-400 to-blue-600",
+  "from-violet-400 to-violet-600",
+  "from-fuchsia-400 to-fuchsia-600",
+  "from-emerald-400 to-emerald-600",
+  "from-amber-400 to-amber-600",
+];
+
+const TAG_CORES: Record<string, string> = {
+  consulta_cpf: "bg-cyan-500",
+  consulta_cnpj: "bg-blue-500",
+  limpeza_cpf: "bg-emerald-500",
+  limpeza_cnpj: "bg-teal-500",
+  blindagem: "bg-amber-500",
+};
+
+const TAG_LABELS: Record<string, string> = {
+  consulta_cpf: "Consulta CPF",
+  consulta_cnpj: "Consulta CNPJ",
+  limpeza_cpf: "Limpeza CPF",
+  limpeza_cnpj: "Limpeza CNPJ",
+  blindagem: "Blindagem",
 };
 
 export default async function DashboardPage() {
@@ -150,13 +193,18 @@ export default async function DashboardPage() {
       {/* Header */}
       <header className="mb-7 flex items-end justify-between flex-wrap gap-4">
         <div>
-          <p className="text-sm text-gray-500">Olá, {ctx.user.nome.split(" ")[0]}</p>
-          <h1 className="font-display text-2xl sm:text-3xl text-gray-900 tracking-tight mt-0.5">Painel de controle</h1>
+          <h1 className="font-display text-2xl sm:text-3xl text-gray-900 tracking-tight">Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Olá, {ctx.user.nome.split(" ")[0]} 👋</p>
         </div>
-        <div className="flex items-center gap-3">
-          <p className="text-xs text-gray-400 hidden sm:block">
-            {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
-          </p>
+        <div className="flex items-center gap-2">
+          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50">
+            <Calendar className="size-3.5" />
+            <span>{new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "short" })} - hoje</span>
+          </button>
+          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-xs font-medium hover:bg-gray-800">
+            <Download className="size-3.5" />
+            Export
+          </button>
           {modoTeste && (
             <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full">
               Modo teste
@@ -165,166 +213,182 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      {/* KPI Cards minimalistas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+      {/* KPI Cards (estilo Nexus) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <KpiCard
           label="Receita total"
           value={formatBRL(m.receitaTotal)}
-          subtext={`${m.consultasPagas + m.limpezasPagas} venda(s)`}
-          icon={Wallet}
-          iconColor="text-emerald-600"
-          iconBg="bg-emerald-50"
+          trendValue={m.consultasPagas + m.limpezasPagas > 0 ? `+${m.consultasPagas + m.limpezasPagas} venda(s)` : "Sem vendas"}
+          trendDirection={m.consultasPagas + m.limpezasPagas > 0 ? "up" : "neutral"}
         />
         <KpiCard
           label="Conversão"
           value={`${m.taxaConversao}%`}
-          subtext={`${m.limpezasPagas}/${m.consultasPagas} consultas`}
-          icon={TrendingUp}
-          iconColor="text-brand-600"
-          iconBg="bg-brand-50"
+          trendValue={`${m.limpezasPagas}/${m.consultasPagas} consultas`}
+          trendDirection={Number(m.taxaConversao) >= 20 ? "up" : "neutral"}
         />
         <KpiCard
           label="Processos ativos"
           value={String(m.totalProcessos)}
-          subtext={`${m.emTratativa} em tratativa`}
-          icon={Activity}
-          iconColor="text-violet-600"
-          iconBg="bg-violet-50"
-        />
-        <KpiCard
-          label="Blindagens"
-          value={String(m.blindagemAtiva)}
-          subtext={m.blindagemAlerta > 0 ? `${m.blindagemAlerta} alerta(s)` : "Todas ativas"}
-          icon={ShieldCheck}
-          iconColor="text-amber-600"
-          iconBg="bg-amber-50"
+          trendValue={`${m.emTratativa} em tratativa`}
+          trendDirection="neutral"
         />
       </div>
 
-      {/* Periodo */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-        <PeriodoCard label="Hoje" value={formatBRL(m.receitaHoje)} count={`${m.vendasHoje} venda${m.vendasHoje === 1 ? "" : "s"}`} />
-        <PeriodoCard label="Últimos 7 dias" value={formatBRL(m.receitaSemana)} count={`${m.vendasSemana} venda${m.vendasSemana === 1 ? "" : "s"}`} />
-        <PeriodoCard label="Este mês" value={formatBRL(m.receitaMes)} count={`${m.vendasMes} venda${m.vendasMes === 1 ? "" : "s"}`} />
-      </div>
-
-      {/* Funil + Operação */}
+      {/* Sales overview (grande) + Total Subscriber (estilo Nexus) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        {/* Receita por mês com barras coloridas */}
         <Card className="lg:col-span-2">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Receita mensal</p>
+                <p className="font-display text-2xl text-gray-900 tracking-tight">{formatBRL(m.receitaMes)}</p>
+              </div>
+              <button className="size-7 grid place-items-center rounded-md text-gray-400 hover:bg-gray-100">
+                <MoreHorizontal className="size-4" />
+              </button>
+            </div>
+
+            {/* Barras estilo Nexus: 3 meses lado a lado */}
+            <div className="flex items-end gap-4 h-44">
+              {m.ultimos3meses.map((d, i) => {
+                const pct = (d.receita / m.maxMeses) * 100;
+                const grad = BAR_GRADIENTS[i % BAR_GRADIENTS.length];
+                const isCurrent = i === m.ultimos3meses.length - 1;
+                return (
+                  <div key={d.label} className="flex-1 flex flex-col items-center justify-end gap-2">
+                    <div className="text-xs font-semibold text-gray-700 tabular-nums">
+                      {d.receita > 0 ? formatBRL(d.receita).replace("R$", "R$ ") : "R$ 0"}
+                    </div>
+                    <div
+                      className={`w-full rounded-t-lg bg-gradient-to-t ${grad} transition-all ${isCurrent ? "ring-2 ring-offset-2 ring-gray-900/10" : ""}`}
+                      style={{ height: `${Math.max(pct, 4)}%`, minHeight: "8px" }}
+                    />
+                    <span className="text-[11px] uppercase font-semibold text-gray-500 tracking-wider">{d.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total receita 7d */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between mb-1">
+              <div>
+                <p className="text-xs text-gray-500">Últimos 7 dias</p>
+                <p className="font-display text-2xl text-gray-900 tracking-tight mt-1">{formatBRL(m.receitaSemana)}</p>
+                <p className="text-xs text-emerald-600 font-medium mt-1">+{m.vendasSemana} venda(s)</p>
+              </div>
+            </div>
+
+            {/* Barras pequenas 7d em violeta */}
+            <div className="flex items-end gap-1.5 h-28 mt-5">
+              {m.ultimos7.map((d, i) => {
+                const pct = (d.receita / m.max7) * 100;
+                const hoje = i === m.ultimos7.length - 1;
+                return (
+                  <div key={d.label + i} className="flex-1 flex flex-col items-center justify-end gap-1.5">
+                    <div
+                      className={`w-full rounded-t transition-all ${
+                        hoje
+                          ? "bg-gradient-to-t from-violet-500 to-violet-400"
+                          : d.receita > 0
+                          ? "bg-violet-200 hover:bg-violet-300"
+                          : "bg-gray-100"
+                      }`}
+                      style={{ height: `${Math.max(pct, 4)}%`, minHeight: "4px" }}
+                      title={`${d.label}: ${formatBRL(d.receita)}`}
+                    />
+                    <span className={`text-[10px] ${hoje ? "text-violet-700 font-semibold" : "text-gray-400"}`}>{d.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Distribuição por serviço + Saúde da base */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <h2 className="font-display text-base font-semibold text-gray-900">Distribuição por serviço</h2>
+                <p className="text-xs text-gray-500 mt-0.5">{m.totalDistTag} processo(s) ativos</p>
+              </div>
+              <button className="size-7 grid place-items-center rounded-md text-gray-400 hover:bg-gray-100">
+                <MoreHorizontal className="size-4" />
+              </button>
+            </div>
+            {m.totalDistTag === 0 ? (
+              <p className="text-sm text-gray-400 py-6 text-center">Sem dados</p>
+            ) : (
+              <div className="space-y-3">
+                {Object.entries(m.distTag).map(([tag, qtd]) => {
+                  const pct = (qtd / m.totalDistTag) * 100;
+                  return (
+                    <div key={tag}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="flex items-center gap-2 text-sm text-gray-700">
+                          <span className={`size-2 rounded-full ${TAG_CORES[tag] || "bg-gray-400"}`} />
+                          {TAG_LABELS[tag] || tag}
+                        </span>
+                        <span className="font-semibold text-gray-900 tabular-nums text-sm">{qtd}</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${TAG_CORES[tag] || "bg-gray-400"}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Funil + Operacao */}
+        <Card className="lg:col-span-2">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="font-display text-base font-semibold text-gray-900">Funil de vendas</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Processos por etapa (pré-pagamento)</p>
+                <p className="text-xs text-gray-500 mt-0.5">Processos por etapa</p>
               </div>
               <Link href="/painel/processos" className="text-xs text-gray-500 hover:text-gray-900 font-medium inline-flex items-center gap-1 group">
                 Ver Kanban
                 <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition" />
               </Link>
             </div>
-            <div className="space-y-4">
-              {m.funilEtapas.map((e) => {
-                const pct = Math.max(2, (e.qtd / m.maxFunil) * 100);
-                const bar = FUNIL_BARS[e.codigo] || "bg-gray-300";
+
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+              {m.funilEtapas.map((e, i) => {
+                const cores = ["bg-gray-400", "bg-amber-500", "bg-violet-500", "bg-cyan-500", "bg-emerald-500"];
                 return (
-                  <div key={e.codigo}>
-                    <div className="flex items-center justify-between mb-1.5 text-sm">
-                      <span className="text-gray-700">{e.nome}</span>
-                      <span className="font-semibold text-gray-900 tabular-nums">{e.qtd}</span>
+                  <div key={e.codigo} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`size-1.5 rounded-full ${cores[i] || "bg-gray-400"}`} />
+                      <p className="text-[11px] text-gray-500 font-medium truncate">{e.nome}</p>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={`h-full ${bar} rounded-full transition-all`} style={{ width: `${pct}%` }} />
-                    </div>
+                    <p className="font-display text-2xl text-gray-900 tabular-nums">{e.qtd}</p>
                   </div>
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="font-display text-base font-semibold text-gray-900">Operação</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Status pós-pagamento</p>
-              </div>
-            </div>
-            <ul className="space-y-3">
-              <OpRow label="Em tratativa" value={m.emTratativa} dot="bg-amber-500" />
-              <OpRow label="Aguardando órgãos" value={m.aguardandoOrgaos} dot="bg-violet-500" />
-              <OpRow label="Nome limpo" value={m.nomeLimpoCount} dot="bg-emerald-500" />
-            </ul>
-            <Link
-              href="/painel/limpeza"
-              className="mt-5 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 font-medium group"
-            >
-              Abrir painel de limpeza
-              <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition" />
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Chart 7 dias + Saude da base */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <Card className="lg:col-span-2">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="font-display text-base font-semibold text-gray-900">Receita últimos 7 dias</h2>
-                <p className="text-xs text-gray-500 mt-0.5">{formatBRL(m.receitaSemana)} no período</p>
-              </div>
-            </div>
-            <div className="flex items-end gap-2 h-44">
-              {m.ultimos7.map((d, i) => {
-                const pct = (d.receita / m.max7) * 100;
-                const hoje = i === m.ultimos7.length - 1;
-                return (
-                  <div key={d.label + i} className="flex-1 flex flex-col items-center justify-end gap-2">
-                    <div className="text-[10px] text-gray-400 font-medium tabular-nums">
-                      {d.receita > 0 ? formatBRL(d.receita).replace("R$", "").trim() : ""}
-                    </div>
-                    <div
-                      className={`w-full rounded-md transition-all ${hoje ? "bg-gray-900" : "bg-gray-200 hover:bg-gray-300"}`}
-                      style={{ height: `${Math.max(pct, d.receita > 0 ? 6 : 2)}%`, minHeight: "3px" }}
-                      title={`${d.label}: ${formatBRL(d.receita)} · ${d.vendas} venda(s)`}
-                    />
-                    <span className={`text-[10px] ${hoje ? "text-gray-900 font-semibold" : "text-gray-400"}`}>{d.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <h2 className="font-display text-base font-semibold text-gray-900 mb-1">Saúde da base</h2>
-            <p className="text-xs text-gray-500 mb-6">Score médio e dívidas</p>
-
-            <div className="space-y-5">
-              <div>
-                <p className="text-xs text-gray-500 mb-1.5">Score médio</p>
-                <p className={`font-display text-3xl tracking-tight ${
-                  (m.scoreMedio ?? 0) >= 701 ? "text-emerald-600" :
-                  (m.scoreMedio ?? 0) >= 501 ? "text-amber-600" :
-                  m.scoreMedio == null ? "text-gray-300" : "text-red-600"
-                }`}>
-                  {m.scoreMedio ?? "—"}
-                </p>
-              </div>
-              <div className="pt-4 border-t border-gray-100">
-                <p className="text-xs text-gray-500 mb-1.5">Dívidas identificadas</p>
-                <p className="font-display text-2xl tracking-tight text-gray-900">{formatBRL(m.totalPendencias)}</p>
-                <p className="text-[11px] text-gray-400 mt-1">{m.clientesComPendencia} cliente(s) com pendência</p>
-              </div>
+            <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-100">
+              <OpStat label="Em tratativa" value={m.emTratativa} cor="bg-amber-500" />
+              <OpStat label="Aguardando órgãos" value={m.aguardandoOrgaos} cor="bg-violet-500" />
+              <OpStat label="Nome limpo" value={m.nomeLimpoCount} cor="bg-emerald-500" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Ultimos pagamentos + Origem */}
+      {/* Ultimos pagamentos + Score */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <Card className="lg:col-span-2">
           <CardContent className="p-6">
@@ -340,10 +404,10 @@ export default async function DashboardPage() {
             {m.ultimosPagamentos.length === 0 ? (
               <p className="text-sm text-gray-400 py-8 text-center">Nenhum pagamento ainda</p>
             ) : (
-              <ul className="divide-y divide-gray-50">
+              <ul className="divide-y divide-gray-100">
                 {m.ultimosPagamentos.map((p) => (
                   <li key={p.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                    <div className="size-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 grid place-items-center text-white font-semibold text-[11px] shrink-0">
+                    <div className="size-9 rounded-full bg-gradient-to-br from-violet-400 via-fuchsia-400 to-rose-400 grid place-items-center text-white font-semibold text-[11px] shrink-0">
                       {p.nome.split(" ").slice(0, 2).map((s) => s.charAt(0).toUpperCase()).join("")}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -362,31 +426,66 @@ export default async function DashboardPage() {
 
         <Card>
           <CardContent className="p-6">
-            <h2 className="font-display text-base font-semibold text-gray-900 mb-1">Origem dos leads</h2>
-            <p className="text-xs text-gray-500 mb-6">Site vs WhatsApp</p>
+            <h2 className="font-display text-base font-semibold text-gray-900 mb-5">Saúde da base</h2>
 
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="size-9 rounded-lg bg-brand-50 grid place-items-center shrink-0">
-                  <Globe className="size-4 text-brand-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500">Site</p>
-                  <p className="font-display text-xl text-gray-900 tabular-nums">{m.origemSite}</p>
+            <div className="space-y-5">
+              <div>
+                <p className="text-xs text-gray-500 mb-1.5">Score médio</p>
+                <p className={`font-display text-3xl tracking-tight ${
+                  (m.scoreMedio ?? 0) >= 701 ? "text-emerald-600" :
+                  (m.scoreMedio ?? 0) >= 501 ? "text-amber-600" :
+                  m.scoreMedio == null ? "text-gray-300" : "text-red-600"
+                }`}>
+                  {m.scoreMedio ?? "—"}
+                </p>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mt-2">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      (m.scoreMedio ?? 0) >= 701 ? "bg-emerald-500" :
+                      (m.scoreMedio ?? 0) >= 501 ? "bg-amber-500" :
+                      "bg-red-500"
+                    }`}
+                    style={{ width: `${Math.min(100, ((m.scoreMedio ?? 0) / 1000) * 100)}%` }}
+                  />
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="size-9 rounded-lg bg-emerald-50 grid place-items-center shrink-0">
-                  <MessageCircle className="size-4 text-emerald-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500">WhatsApp</p>
-                  <p className="font-display text-xl text-gray-900 tabular-nums">{m.origemWA}</p>
+              <div className="pt-3 border-t border-gray-100">
+                <p className="text-xs text-gray-500 mb-1.5">Dívidas identificadas</p>
+                <p className="font-display text-xl text-gray-900 tracking-tight tabular-nums">{formatBRL(m.totalPendencias)}</p>
+                <p className="text-[11px] text-gray-400 mt-1">{m.clientesComPendencia} cliente(s) com pendência</p>
+              </div>
+              <div className="pt-3 border-t border-gray-100">
+                <p className="text-xs text-gray-500 mb-1.5">Blindagens ativas</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="font-display text-xl text-gray-900 tracking-tight tabular-nums">{m.blindagemAtiva}</p>
+                  {m.blindagemAlerta > 0 && (
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-red-700 bg-red-50 px-1.5 py-0.5 rounded">
+                      {m.blindagemAlerta} alerta
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Origem (rodapé) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <OrigemCard
+          icon={Globe}
+          label="Site"
+          value={m.origemSite}
+          accentBg="bg-cyan-50"
+          accentText="text-cyan-600"
+        />
+        <OrigemCard
+          icon={MessageCircle}
+          label="WhatsApp"
+          value={m.origemWA}
+          accentBg="bg-emerald-50"
+          accentText="text-emerald-600"
+        />
       </div>
 
       {/* Alertas */}
@@ -417,51 +516,79 @@ export default async function DashboardPage() {
 }
 
 function KpiCard({
-  label, value, subtext, icon: Icon, iconColor, iconBg,
+  label, value, trendValue, trendDirection,
 }: {
   label: string;
   value: string;
-  subtext?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  iconColor: string;
-  iconBg: string;
+  trendValue?: string;
+  trendDirection?: "up" | "down" | "neutral";
 }) {
   return (
     <Card>
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-3">
           <p className="text-xs text-gray-500 font-medium">{label}</p>
-          <div className={`size-8 rounded-lg ${iconBg} grid place-items-center`}>
-            <Icon className={`size-4 ${iconColor}`} />
-          </div>
+          <button className="size-6 grid place-items-center rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100">
+            <MoreHorizontal className="size-3.5" />
+          </button>
         </div>
-        <p className="font-display text-2xl text-gray-900 tracking-tight tabular-nums">{value}</p>
-        {subtext && <p className="text-[11px] text-gray-400 mt-1">{subtext}</p>}
+        <p className="font-display text-3xl text-gray-900 tracking-tight tabular-nums">{value}</p>
+        {trendValue && (
+          <div className="flex items-center gap-1.5 mt-2">
+            {trendDirection === "up" && (
+              <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600">
+                <ArrowUpRight className="size-3" />
+              </span>
+            )}
+            {trendDirection === "down" && (
+              <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-red-600">
+                <ArrowDownRight className="size-3" />
+              </span>
+            )}
+            <span className="text-[11px] text-gray-500">{trendValue}</span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function PeriodoCard({ label, value, count }: { label: string; value: string; count: string }) {
+function OpStat({ label, value, cor }: { label: string; value: number; cor: string }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <span className={`size-1.5 rounded-full ${cor}`} />
+        <p className="text-[11px] text-gray-500 truncate">{label}</p>
+      </div>
+      <p className="font-display text-xl text-gray-900 tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function OrigemCard({
+  icon: Icon, label, value, accentBg, accentText,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number;
+  accentBg: string;
+  accentText: string;
+}) {
   return (
     <Card>
-      <CardContent className="p-5">
-        <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">{label}</p>
-        <p className="font-display text-xl text-gray-900 tracking-tight mt-1 tabular-nums">{value}</p>
-        <p className="text-[11px] text-gray-400 mt-1">{count}</p>
+      <CardContent className="p-5 flex items-center gap-4">
+        <div className={`size-12 rounded-xl ${accentBg} grid place-items-center shrink-0`}>
+          <Icon className={`size-5 ${accentText}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-gray-500">{label}</p>
+          <p className="font-display text-2xl text-gray-900 tabular-nums mt-0.5">{value}</p>
+          <p className="text-[11px] text-gray-400">leads + consultas</p>
+        </div>
       </CardContent>
     </Card>
   );
 }
 
-function OpRow({ label, value, dot }: { label: string; value: number; dot: string }) {
-  return (
-    <li className="flex items-center justify-between">
-      <span className="flex items-center gap-2 text-sm text-gray-700">
-        <span className={`size-1.5 rounded-full ${dot}`} />
-        {label}
-      </span>
-      <span className="font-semibold text-gray-900 tabular-nums">{value}</span>
-    </li>
-  );
-}
+// usado pra evitar import unused
+void TrendingUp; void Wallet; void ShieldCheck; void Activity;
