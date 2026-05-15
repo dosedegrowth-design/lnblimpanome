@@ -591,10 +591,19 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
       const cpfFmt = `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9)}`;
       const primeiroNome = nome.split(" ")[0] || "amigo(a)";
 
-      // 2) Monta resumo texto detalhado
+      // 2) Monta resumo texto detalhado — usa combo (Serasa Premium) que tem TODAS as pendências
+      // combo.serasa.pendencias inclui PEND_FINANCEIRAS, PEND_REFIN, PEND_VENCIDAS
+      // (parsed.pendencias é só do Boa Vista — incompleto)
+      const pendenciasCombinadas = combo?.serasa?.pendencias?.length
+        ? combo.serasa.pendencias
+        : parsed?.pendencias ?? [];
+      const qtdTotal = combo?.qtd_pendencias ?? parsed?.qtd_pendencias ?? 0;
+      const totalDividas = combo?.total_dividas ?? parsed?.total_dividas ?? 0;
+      const temPendCombo = combo?.tem_pendencia ?? !!parsed?.tem_pendencia;
+
       let resumoTexto: string;
-      if (parsed?.tem_pendencia) {
-        const credores = (parsed.pendencias || [])
+      if (temPendCombo) {
+        const credores = pendenciasCombinadas
           .slice(0, 5)
           .map(
             (p, i) =>
@@ -606,10 +615,11 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
         resumoTexto =
           `✅ *Pagamento confirmado, ${primeiroNome}!*\n` +
           `Sua consulta foi processada.\n\n` +
-          `⚠️ *Encontrei ${parsed.qtd_pendencias} pendência(s) no seu CPF*, ` +
-          `totalizando R$ ${parsed.total_dividas.toFixed(2).replace(".", ",")}\n\n` +
+          `⚠️ *Encontrei ${qtdTotal} pendência(s) no seu CPF*, ` +
+          `totalizando R$ ${totalDividas.toFixed(2).replace(".", ",")}\n\n` +
           `📊 *Análise de crédito:*\n` +
-          `• Score Serasa: ${score ?? "—"}\n` +
+          `• Score Serasa: ${scoreSerasa ?? score ?? "—"}\n` +
+          `• Score Boa Vista: ${scoreBoaVista ?? "—"}\n` +
           `• Status: POSSUI PENDÊNCIAS\n\n` +
           `💰 *Credores encontrados:*\n${credores}\n\n` +
           `Quer limpar essas pendências? Me responde aqui que eu te explico! 💙`;
