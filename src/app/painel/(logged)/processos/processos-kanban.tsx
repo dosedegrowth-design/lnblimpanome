@@ -17,14 +17,15 @@ interface Props {
   processos: ProcessoKanban[];
 }
 
-const COL_CORES: Record<string, { col_bg: string; col_border: string; col_text: string; chip: string }> = {
-  brand:   { col_bg: "bg-brand-50/40",   col_border: "border-brand-200/60",   col_text: "text-brand-700",   chip: "bg-brand-500" },
-  amber:   { col_bg: "bg-amber-50/40",   col_border: "border-amber-200/60",   col_text: "text-amber-700",   chip: "bg-amber-500" },
-  violet:  { col_bg: "bg-violet-50/40",  col_border: "border-violet-200/60",  col_text: "text-violet-700",  chip: "bg-violet-500" },
-  forest:  { col_bg: "bg-forest-50/40",  col_border: "border-forest-200/60",  col_text: "text-forest-700", chip: "bg-forest-700" },
-  emerald: { col_bg: "bg-emerald-50/40", col_border: "border-emerald-200/60", col_text: "text-emerald-700", chip: "bg-emerald-500" },
-  red:     { col_bg: "bg-red-50/40",     col_border: "border-red-200/60",     col_text: "text-red-700",     chip: "bg-red-500" },
-  gray:    { col_bg: "bg-gray-50/60",    col_border: "border-gray-200",       col_text: "text-gray-700",    chip: "bg-gray-500" },
+// Cores dos dots/chips das colunas - mantendo todo o resto bg cinza neutro
+const DOT_CORES: Record<string, string> = {
+  brand:   "bg-brand-500",
+  amber:   "bg-amber-500",
+  violet:  "bg-violet-500",
+  forest:  "bg-forest-600",
+  emerald: "bg-emerald-500",
+  red:     "bg-red-500",
+  gray:    "bg-gray-400",
 };
 
 export function ProcessosKanban({ etapas, tags, processos }: Props) {
@@ -118,20 +119,17 @@ export function ProcessosKanban({ etapas, tags, processos }: Props) {
       <div className="flex gap-3 overflow-x-auto pb-6">
         {etapasVisiveis.map((etapa) => {
           const lista = filtrados.filter((p) => p.etapa === etapa.codigo);
-          const cor = COL_CORES[etapa.cor] || COL_CORES.gray;
+          const dot = DOT_CORES[etapa.cor] || DOT_CORES.gray;
           return (
             <div
               key={etapa.codigo}
-              className={`min-w-[300px] w-[300px] shrink-0 rounded-2xl border ${cor.col_border} ${cor.col_bg} p-3 flex flex-col`}
+              className="min-w-[300px] w-[300px] shrink-0 rounded-xl bg-gray-50/70 p-3 flex flex-col"
             >
               <header className="flex items-center justify-between mb-3 px-1">
                 <div className="flex items-center gap-2">
-                  <span className={`inline-block size-2 rounded-full ${cor.chip}`} />
-                  <p className={`font-bold text-sm ${cor.col_text}`}>
-                    <span className="mr-1">{etapa.emoji}</span>
-                    {etapa.nome}
-                  </p>
-                  <span className="text-xs font-bold text-gray-400 ml-1">· {lista.length}</span>
+                  <span className={`inline-block size-1.5 rounded-full ${dot}`} />
+                  <p className="font-semibold text-sm text-gray-800">{etapa.nome}</p>
+                  <span className="text-xs text-gray-400 tabular-nums">{lista.length}</span>
                 </div>
                 <button className="size-6 grid place-items-center text-gray-400 hover:text-gray-700 hover:bg-white rounded transition" title="Adicionar (em breve)">
                   <Plus className="size-3.5" />
@@ -149,38 +147,37 @@ export function ProcessosKanban({ etapas, tags, processos }: Props) {
                       <button
                         key={p.id}
                         onClick={() => setSelectedId(p.id)}
-                        className="block w-full text-left bg-white rounded-xl border border-gray-100 p-3 hover:shadow-md hover:border-brand-300 hover:-translate-y-0.5 transition-all group"
+                        className="block w-full text-left bg-white rounded-lg p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-px transition-all group"
                       >
                         {/* Tag pill no topo */}
                         {tag && tagCor && (
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${tagCor.bg} ${tagCor.text} text-[10px] font-semibold mb-2`}>
-                            {tag.emoji && <span>{tag.emoji}</span>}
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md ${tagCor.bg} ${tagCor.text} text-[10px] font-medium mb-2`}>
                             <span>{tag.nome}</span>
                           </span>
                         )}
 
                         {/* Header com nome + avatar */}
-                        <div className="flex items-start justify-between gap-2 mb-1.5">
-                          <p className="font-semibold text-forest-800 text-sm truncate group-hover:text-brand-700 flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="font-medium text-gray-900 text-sm truncate flex-1 min-w-0">
                             {p.nome}
                           </p>
-                          <AvatarCircle name={p.nome} size={26} />
+                          <AvatarCircle name={p.nome} size={24} />
                         </div>
 
                         {/* Score + Pendência */}
                         {(p.score != null || p.tem_pendencia) && (
-                          <div className="flex items-center gap-3 text-xs mb-1.5">
+                          <div className="flex items-center gap-3 text-[11px] mb-2">
                             {p.score != null && (
                               <span className={
-                                p.score >= 701 ? "text-emerald-700 font-semibold" :
-                                p.score >= 501 ? "text-amber-700 font-semibold" :
-                                "text-red-700 font-semibold"
+                                p.score >= 701 ? "text-emerald-600 font-semibold" :
+                                p.score >= 501 ? "text-amber-600 font-semibold" :
+                                "text-red-600 font-semibold"
                               }>
                                 Score {p.score}
                               </span>
                             )}
                             {p.tem_pendencia && (
-                              <span className="inline-flex items-center gap-1 text-amber-700">
+                              <span className="inline-flex items-center gap-0.5 text-amber-600">
                                 <AlertTriangle className="size-3" />
                                 {p.qtd_pendencias ?? 0}
                               </span>
@@ -190,23 +187,13 @@ export function ProcessosKanban({ etapas, tags, processos }: Props) {
 
                         {/* Footer: telefone + tempo + valor + pdf */}
                         <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
-                          <div className="flex items-center gap-2 text-[11px] text-gray-500">
-                            {p.telefone && (
-                              <span className="inline-flex items-center gap-0.5">
-                                <MessageCircle className="size-3" />
-                              </span>
-                            )}
-                            {p.pdf_url && (
-                              <span className="inline-flex items-center gap-0.5 text-brand-600">
-                                <FileText className="size-3" />
-                              </span>
-                            )}
+                          <div className="flex items-center gap-1.5 text-gray-400">
+                            {p.telefone && <MessageCircle className="size-3" />}
+                            {p.pdf_url && <FileText className="size-3" />}
                           </div>
-                          <div className="flex items-center gap-2 text-[11px]">
-                            {p.valor_pago != null && Number(p.valor_pago) > 0 && (
-                              <span className="text-emerald-700 font-bold">{formatBRL(Number(p.valor_pago))}</span>
-                            )}
-                          </div>
+                          {p.valor_pago != null && Number(p.valor_pago) > 0 && (
+                            <span className="text-[11px] text-emerald-600 font-semibold tabular-nums">{formatBRL(Number(p.valor_pago))}</span>
+                          )}
                         </div>
                       </button>
                     );

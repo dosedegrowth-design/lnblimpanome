@@ -216,8 +216,8 @@ export function ClientesTable({
                     </td>
                     <td className="py-4 px-3">
                       {tag && tagCor && (
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${tagCor.bg} ${tagCor.text} text-[11px] font-medium`}>
-                          {tag.emoji} {tag.nome}
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md ${tagCor.bg} ${tagCor.text} text-[11px] font-medium`}>
+                          {tag.nome}
                         </span>
                       )}
                     </td>

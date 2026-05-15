@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Users, FileSearch, ShieldCheck, TrendingUp, Wallet, Activity,
-  Globe, MessageCircle, ArrowUpRight, ArrowDownRight, Clock, Sparkles,
+  Globe, MessageCircle, ArrowUpRight, Clock, ChevronRight,
 } from "lucide-react";
 import { formatBRL } from "@/lib/utils";
 import { getProdutos } from "@/lib/produtos";
@@ -41,7 +41,6 @@ async function getMetrics() {
   }>;
 
   const totalLeads = allLeads.length;
-  const fechados = allLeads.filter((r) => r.Fechado).length;
   const perdidos = allLeads.filter((r) => r.perdido).length;
   const consultasPagas = allConsultas.filter((c) => c.consulta_paga).length;
   const limpezasPagas = allConsultas.filter((c) => c.fechou_limpeza).length;
@@ -56,26 +55,17 @@ async function getMetrics() {
   const origemSite = allLeads.filter((r) => r.origem === "site").length;
   const origemWA = allLeads.filter((r) => r.origem === "whatsapp").length;
 
-  // Funil de etapas (apenas pre-pagamento)
   const funilEtapas = etapas
-    .filter((e) => e.codigo !== "perdido" && (e.codigo === "lead" || e.codigo === "interessado" || e.codigo === "qualificado" || e.codigo === "consulta_paga" || e.codigo === "limpeza_paga"))
-    .map((e) => ({
-      ...e,
-      qtd: allProcessos.filter((p) => p.etapa === e.codigo).length,
-    }));
+    .filter((e) => ["lead", "interessado", "qualificado", "consulta_paga", "limpeza_paga"].includes(e.codigo))
+    .map((e) => ({ ...e, qtd: allProcessos.filter((p) => p.etapa === e.codigo).length }));
   const maxFunil = Math.max(1, ...funilEtapas.map((e) => e.qtd));
 
-  // Em tratativa (operacional)
   const emTratativa = allProcessos.filter((p) => p.etapa === "em_tratativa").length;
   const aguardandoOrgaos = allProcessos.filter((p) => p.etapa === "aguardando_orgaos").length;
   const nomeLimpoCount = allProcessos.filter((p) => p.etapa === "nome_limpo").length;
+  const aguardandoMuito = allProcessos.filter((p) => p.etapa === "aguardando_orgaos" && (p.dias_na_etapa ?? 0) >= 5);
 
-  // Aguardando ha muito tempo
-  const aguardandoMuito = allProcessos.filter(
-    (p) => p.etapa === "aguardando_orgaos" && (p.dias_na_etapa ?? 0) >= 5
-  );
-
-  // ─── METRICAS DE PERIODO ───
+  // Periodo
   const hoje = new Date();
   const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
   const inicioSemana = new Date(inicioHoje); inicioSemana.setDate(inicioHoje.getDate() - 7);
@@ -96,48 +86,34 @@ async function getMetrics() {
   const receitaSemana = vendasSemana.reduce((s, c) => s + Number(c.valor_pago ?? 0), 0);
   const receitaMes = vendasMes.reduce((s, c) => s + Number(c.valor_pago ?? 0), 0);
 
-  // Receita por dia ultimos 7 dias (barras)
-  const ultimos7: Array<{ label: string; data: Date; receita: number; vendas: number }> = [];
+  const ultimos7: Array<{ label: string; receita: number; vendas: number }> = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(inicioHoje); d.setDate(inicioHoje.getDate() - i);
     const next = new Date(d); next.setDate(d.getDate() + 1);
     const vendas = pagosNoIntervalo(d, next);
     ultimos7.push({
-      label: d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", ""),
-      data: d,
+      label: d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "").charAt(0).toUpperCase() + d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "").slice(1),
       receita: vendas.reduce((s, c) => s + Number(c.valor_pago ?? 0), 0),
       vendas: vendas.length,
     });
   }
   const max7 = Math.max(1, ...ultimos7.map((d) => d.receita));
 
-  // Ultimos pagamentos (5 mais recentes)
   const ultimosPagamentos = allClientes
     .filter((c) => c.valor_pago && Number(c.valor_pago) > 0)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5);
 
-  // Score medio dos clientes que tem consulta paga
   const scores = (allConsultas as Array<{ score: number | null }>).filter((c) => c.score != null).map((c) => Number(c.score));
   const scoreMedio = scores.length > 0 ? Math.round(scores.reduce((s, n) => s + n, 0) / scores.length) : null;
 
-  // Distribuicao por tag (servico mais vendido)
-  const distTag: Record<string, number> = {};
-  allClientes.forEach((c) => {
-    if (!c.valor_pago || Number(c.valor_pago) <= 0) return;
-    const key = c.tag_servico || "sem_tag";
-    distTag[key] = (distTag[key] ?? 0) + 1;
-  });
-  const topTags = Object.entries(distTag).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-  // Pendencias agregadas
   const totalPendencias = (allConsultas as Array<{ tem_pendencia: boolean | null; total_dividas: number | null }>)
     .filter((c) => c.tem_pendencia)
     .reduce((s, c) => s + Number(c.total_dividas ?? 0), 0);
   const clientesComPendencia = (allConsultas as Array<{ tem_pendencia: boolean | null }>).filter((c) => c.tem_pendencia).length;
 
   return {
-    totalLeads, fechados, perdidos, consultasPagas, limpezasPagas,
+    totalLeads, perdidos, consultasPagas, limpezasPagas,
     blindagemAtiva, blindagemAlerta,
     taxaConversao, receitaTotal, receitaConsultas, receitaLimpezas,
     origemSite, origemWA,
@@ -146,24 +122,22 @@ async function getMetrics() {
     emTratativa, aguardandoOrgaos, nomeLimpoCount,
     aguardandoMuito,
     totalProcessos: allProcessos.length,
-    // novos
     vendasHoje: vendasHoje.length, receitaHoje,
     vendasSemana: vendasSemana.length, receitaSemana,
     vendasMes: vendasMes.length, receitaMes,
     ultimos7, max7,
     ultimosPagamentos,
     scoreMedio,
-    topTags,
     totalPendencias, clientesComPendencia,
   };
 }
 
-const FUNIL_CORES: Record<string, string> = {
-  lead: "from-gray-300 to-gray-400",
-  interessado: "from-amber-300 to-amber-500",
-  qualificado: "from-violet-400 to-violet-600",
-  consulta_paga: "from-brand-400 to-brand-600",
-  limpeza_paga: "from-emerald-400 to-emerald-600",
+const FUNIL_BARS: Record<string, string> = {
+  lead: "bg-gray-300",
+  interessado: "bg-amber-400",
+  qualificado: "bg-violet-400",
+  consulta_paga: "bg-brand-500",
+  limpeza_paga: "bg-emerald-500",
 };
 
 export default async function DashboardPage() {
@@ -172,95 +146,94 @@ export default async function DashboardPage() {
   const modoTeste = process.env.LNB_MODO_TESTE === "true";
 
   return (
-    <div className="p-6 sm:p-8 max-w-7xl mx-auto">
+    <div className="p-6 sm:p-8 max-w-[1400px] mx-auto">
       {/* Header */}
-      <header className="mb-6 flex items-end justify-between flex-wrap gap-4">
+      <header className="mb-7 flex items-end justify-between flex-wrap gap-4">
         <div>
-          <p className="text-sm text-gray-500">Olá, {ctx.user.nome.split(" ")[0]} 👋</p>
-          <h1 className="font-display text-3xl text-forest-800 mt-0.5">Painel de controle</h1>
+          <p className="text-sm text-gray-500">Olá, {ctx.user.nome.split(" ")[0]}</p>
+          <h1 className="font-display text-2xl sm:text-3xl text-gray-900 tracking-tight mt-0.5">Painel de controle</h1>
         </div>
-        <div className="text-right">
-          <p className="text-xs text-gray-400">{new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}</p>
+        <div className="flex items-center gap-3">
+          <p className="text-xs text-gray-400 hidden sm:block">
+            {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
+          </p>
           {modoTeste && (
-            <span className="inline-block mt-1 text-[10px] uppercase tracking-wider font-bold text-red-700 bg-red-100 border border-red-200 px-2 py-0.5 rounded-full">
-              ⚠️ Modo teste ativo
+            <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full">
+              Modo teste
             </span>
           )}
         </div>
       </header>
 
-      {/* KPI Cards principais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* KPI Cards minimalistas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
         <KpiCard
           label="Receita total"
           value={formatBRL(m.receitaTotal)}
+          subtext={`${m.consultasPagas + m.limpezasPagas} venda(s)`}
           icon={Wallet}
-          gradient="from-emerald-400 to-emerald-600"
-          trend={{ direction: "up", value: `${m.consultasPagas + m.limpezasPagas} venda(s)` }}
+          iconColor="text-emerald-600"
+          iconBg="bg-emerald-50"
         />
         <KpiCard
-          label="Taxa conversão"
+          label="Conversão"
           value={`${m.taxaConversao}%`}
+          subtext={`${m.limpezasPagas}/${m.consultasPagas} consultas`}
           icon={TrendingUp}
-          gradient="from-brand-400 to-brand-600"
-          trend={{ direction: "up", value: `${m.limpezasPagas} de ${m.consultasPagas} consultas` }}
+          iconColor="text-brand-600"
+          iconBg="bg-brand-50"
         />
         <KpiCard
           label="Processos ativos"
           value={String(m.totalProcessos)}
+          subtext={`${m.emTratativa} em tratativa`}
           icon={Activity}
-          gradient="from-violet-400 to-violet-600"
-          trend={{ direction: "neutral", value: `${m.emTratativa} em tratativa` }}
+          iconColor="text-violet-600"
+          iconBg="bg-violet-50"
         />
         <KpiCard
           label="Blindagens"
           value={String(m.blindagemAtiva)}
+          subtext={m.blindagemAlerta > 0 ? `${m.blindagemAlerta} alerta(s)` : "Todas ativas"}
           icon={ShieldCheck}
-          gradient="from-amber-400 to-amber-600"
-          trend={
-            m.blindagemAlerta > 0
-              ? { direction: "down", value: `${m.blindagemAlerta} alerta(s)` }
-              : { direction: "up", value: "Todas ativas" }
-          }
+          iconColor="text-amber-600"
+          iconBg="bg-amber-50"
         />
       </div>
 
-      {/* Funil + Status */}
+      {/* Periodo */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <PeriodoCard label="Hoje" value={formatBRL(m.receitaHoje)} count={`${m.vendasHoje} venda${m.vendasHoje === 1 ? "" : "s"}`} />
+        <PeriodoCard label="Últimos 7 dias" value={formatBRL(m.receitaSemana)} count={`${m.vendasSemana} venda${m.vendasSemana === 1 ? "" : "s"}`} />
+        <PeriodoCard label="Este mês" value={formatBRL(m.receitaMes)} count={`${m.vendasMes} venda${m.vendasMes === 1 ? "" : "s"}`} />
+      </div>
+
+      {/* Funil + Operação */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        {/* Funil de vendas */}
         <Card className="lg:col-span-2">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="font-display text-lg text-forest-800">Funil de vendas</h2>
-                <p className="text-xs text-gray-500">Processos por etapa (pré-pagamento)</p>
+                <h2 className="font-display text-base font-semibold text-gray-900">Funil de vendas</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Processos por etapa (pré-pagamento)</p>
               </div>
-              <Link
-                href="/painel/processos"
-                className="text-xs text-brand-600 hover:text-brand-800 font-semibold inline-flex items-center gap-1"
-              >
+              <Link href="/painel/processos" className="text-xs text-gray-500 hover:text-gray-900 font-medium inline-flex items-center gap-1 group">
                 Ver Kanban
-                <ArrowUpRight className="size-3.5" />
+                <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition" />
               </Link>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {m.funilEtapas.map((e) => {
-                const pct = Math.max(4, (e.qtd / m.maxFunil) * 100);
-                const grad = FUNIL_CORES[e.codigo] || "from-gray-300 to-gray-400";
+                const pct = Math.max(2, (e.qtd / m.maxFunil) * 100);
+                const bar = FUNIL_BARS[e.codigo] || "bg-gray-300";
                 return (
                   <div key={e.codigo}>
                     <div className="flex items-center justify-between mb-1.5 text-sm">
-                      <span className="text-forest-700 font-medium flex items-center gap-1.5">
-                        <span>{e.emoji}</span>
-                        {e.nome}
-                      </span>
-                      <span className="font-bold text-forest-800">{e.qtd}</span>
+                      <span className="text-gray-700">{e.nome}</span>
+                      <span className="font-semibold text-gray-900 tabular-nums">{e.qtd}</span>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full bg-gradient-to-r ${grad} rounded-full transition-all`}
-                        style={{ width: `${pct}%` }}
-                      />
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full ${bar} rounded-full transition-all`} style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 );
@@ -269,65 +242,128 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Operação atual (donut + breakdown) */}
-        <Card className="relative overflow-hidden">
+        <Card>
           <CardContent className="p-6">
-            <h2 className="font-display text-lg text-forest-800 mb-1">Operação</h2>
-            <p className="text-xs text-gray-500 mb-5">Status pós-pagamento</p>
-
-            <div className="space-y-3">
-              <StatRow label="Em tratativa" value={m.emTratativa} cor="amber" emoji="⚡" />
-              <StatRow label="Aguardando órgãos" value={m.aguardandoOrgaos} cor="violet" emoji="⏳" />
-              <StatRow label="Nome limpo" value={m.nomeLimpoCount} cor="emerald" emoji="✨" />
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="font-display text-base font-semibold text-gray-900">Operação</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Status pós-pagamento</p>
+              </div>
             </div>
-
+            <ul className="space-y-3">
+              <OpRow label="Em tratativa" value={m.emTratativa} dot="bg-amber-500" />
+              <OpRow label="Aguardando órgãos" value={m.aguardandoOrgaos} dot="bg-violet-500" />
+              <OpRow label="Nome limpo" value={m.nomeLimpoCount} dot="bg-emerald-500" />
+            </ul>
             <Link
               href="/painel/limpeza"
-              className="mt-5 w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-forest-800 hover:bg-forest-900 text-white text-xs font-semibold px-3 py-2 transition"
+              className="mt-5 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 font-medium group"
             >
-              <Sparkles className="size-3.5" />
-              Abrir Limpeza
+              Abrir painel de limpeza
+              <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition" />
             </Link>
           </CardContent>
         </Card>
       </div>
 
-      {/* Receita detalhada + Origem */}
+      {/* Chart 7 dias + Saude da base */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <Card className="lg:col-span-2 relative overflow-hidden bg-gradient-to-br from-forest-700 to-forest-900 text-white border-0">
-          <div className="absolute top-0 right-0 w-72 h-72 bg-brand-500/10 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3" />
-          <CardContent className="p-6 relative">
-            <div className="flex items-center gap-2 mb-3">
-              <Wallet className="size-5 text-brand-300" />
-              <p className="text-sm font-semibold text-white">Receita acumulada</p>
+        <Card className="lg:col-span-2">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="font-display text-base font-semibold text-gray-900">Receita últimos 7 dias</h2>
+                <p className="text-xs text-gray-500 mt-0.5">{formatBRL(m.receitaSemana)} no período</p>
+              </div>
             </div>
-            <p className="font-display text-5xl text-white tracking-tight">{formatBRL(m.receitaTotal)}</p>
-            <p className="text-xs text-sand-200/70 mt-1">Soma de consultas + limpezas pagas</p>
-
-            <div className="mt-6 grid grid-cols-2 gap-4 pt-5 border-t border-forest-600/40">
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-sand-200/50">
-                  Consultas · {formatBRL(m.PRECO_CONSULTA)}/un
-                </p>
-                <p className="font-display text-2xl text-brand-300 mt-1">{formatBRL(m.receitaConsultas)}</p>
-                <p className="text-xs text-sand-200/60 mt-0.5">{m.consultasPagas} vendida(s)</p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-sand-200/50">
-                  Limpezas · {formatBRL(m.PRECO_LIMPEZA)}/un
-                </p>
-                <p className="font-display text-2xl text-brand-300 mt-1">{formatBRL(m.receitaLimpezas)}</p>
-                <p className="text-xs text-sand-200/60 mt-0.5">{m.limpezasPagas} vendida(s)</p>
-              </div>
+            <div className="flex items-end gap-2 h-44">
+              {m.ultimos7.map((d, i) => {
+                const pct = (d.receita / m.max7) * 100;
+                const hoje = i === m.ultimos7.length - 1;
+                return (
+                  <div key={d.label + i} className="flex-1 flex flex-col items-center justify-end gap-2">
+                    <div className="text-[10px] text-gray-400 font-medium tabular-nums">
+                      {d.receita > 0 ? formatBRL(d.receita).replace("R$", "").trim() : ""}
+                    </div>
+                    <div
+                      className={`w-full rounded-md transition-all ${hoje ? "bg-gray-900" : "bg-gray-200 hover:bg-gray-300"}`}
+                      style={{ height: `${Math.max(pct, d.receita > 0 ? 6 : 2)}%`, minHeight: "3px" }}
+                      title={`${d.label}: ${formatBRL(d.receita)} · ${d.vendas} venda(s)`}
+                    />
+                    <span className={`text-[10px] ${hoje ? "text-gray-900 font-semibold" : "text-gray-400"}`}>{d.label}</span>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
 
-        {/* Origem */}
         <Card>
           <CardContent className="p-6">
-            <h2 className="font-display text-lg text-forest-800 mb-1">Origem</h2>
-            <p className="text-xs text-gray-500 mb-5">De onde vem o lead</p>
+            <h2 className="font-display text-base font-semibold text-gray-900 mb-1">Saúde da base</h2>
+            <p className="text-xs text-gray-500 mb-6">Score médio e dívidas</p>
+
+            <div className="space-y-5">
+              <div>
+                <p className="text-xs text-gray-500 mb-1.5">Score médio</p>
+                <p className={`font-display text-3xl tracking-tight ${
+                  (m.scoreMedio ?? 0) >= 701 ? "text-emerald-600" :
+                  (m.scoreMedio ?? 0) >= 501 ? "text-amber-600" :
+                  m.scoreMedio == null ? "text-gray-300" : "text-red-600"
+                }`}>
+                  {m.scoreMedio ?? "—"}
+                </p>
+              </div>
+              <div className="pt-4 border-t border-gray-100">
+                <p className="text-xs text-gray-500 mb-1.5">Dívidas identificadas</p>
+                <p className="font-display text-2xl tracking-tight text-gray-900">{formatBRL(m.totalPendencias)}</p>
+                <p className="text-[11px] text-gray-400 mt-1">{m.clientesComPendencia} cliente(s) com pendência</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Ultimos pagamentos + Origem */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <Card className="lg:col-span-2">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-display text-base font-semibold text-gray-900">Últimos pagamentos</h2>
+                <p className="text-xs text-gray-500 mt-0.5">5 mais recentes</p>
+              </div>
+              <Link href="/painel/clientes" className="text-xs text-gray-500 hover:text-gray-900 font-medium inline-flex items-center gap-1 group">
+                Ver todos <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition" />
+              </Link>
+            </div>
+            {m.ultimosPagamentos.length === 0 ? (
+              <p className="text-sm text-gray-400 py-8 text-center">Nenhum pagamento ainda</p>
+            ) : (
+              <ul className="divide-y divide-gray-50">
+                {m.ultimosPagamentos.map((p) => (
+                  <li key={p.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="size-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 grid place-items-center text-white font-semibold text-[11px] shrink-0">
+                      {p.nome.split(" ").slice(0, 2).map((s) => s.charAt(0).toUpperCase()).join("")}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 text-sm truncate">{p.nome}</p>
+                      <p className="text-[11px] text-gray-400">
+                        {new Date(p.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900 tabular-nums">{formatBRL(Number(p.valor_pago ?? 0))}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <h2 className="font-display text-base font-semibold text-gray-900 mb-1">Origem dos leads</h2>
+            <p className="text-xs text-gray-500 mb-6">Site vs WhatsApp</p>
 
             <div className="space-y-4">
               <div className="flex items-center gap-3">
@@ -336,7 +372,7 @@ export default async function DashboardPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-gray-500">Site</p>
-                  <p className="font-display text-xl text-forest-800">{m.origemSite}</p>
+                  <p className="font-display text-xl text-gray-900 tabular-nums">{m.origemSite}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -345,7 +381,7 @@ export default async function DashboardPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-gray-500">WhatsApp</p>
-                  <p className="font-display text-xl text-forest-800">{m.origemWA}</p>
+                  <p className="font-display text-xl text-gray-900 tabular-nums">{m.origemWA}</p>
                 </div>
               </div>
             </div>
@@ -353,135 +389,9 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* Periodo + chart 7 dias */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        {/* 3 cards de periodo */}
-        <div className="grid grid-cols-1 gap-3">
-          <Card className="hover:shadow-md transition">
-            <CardContent className="p-5">
-              <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Hoje</p>
-              <p className="font-display text-2xl text-forest-800 mt-1">{formatBRL(m.receitaHoje)}</p>
-              <p className="text-xs text-gray-500 mt-1">{m.vendasHoje} venda(s)</p>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-md transition">
-            <CardContent className="p-5">
-              <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Últimos 7 dias</p>
-              <p className="font-display text-2xl text-forest-800 mt-1">{formatBRL(m.receitaSemana)}</p>
-              <p className="text-xs text-gray-500 mt-1">{m.vendasSemana} venda(s)</p>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-md transition">
-            <CardContent className="p-5">
-              <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Este mês</p>
-              <p className="font-display text-2xl text-forest-800 mt-1">{formatBRL(m.receitaMes)}</p>
-              <p className="text-xs text-gray-500 mt-1">{m.vendasMes} venda(s)</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Chart de barras 7 dias */}
-        <Card className="lg:col-span-2">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="font-display text-lg text-forest-800">Receita últimos 7 dias</h2>
-                <p className="text-xs text-gray-500">Vendas por dia da semana</p>
-              </div>
-              <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-full">
-                {formatBRL(m.receitaSemana)}
-              </span>
-            </div>
-            <div className="flex items-end gap-2 h-40">
-              {m.ultimos7.map((d, i) => {
-                const pct = (d.receita / m.max7) * 100;
-                const hoje = i === m.ultimos7.length - 1;
-                return (
-                  <div key={d.label + i} className="flex-1 flex flex-col items-center justify-end gap-1.5">
-                    <div className="text-[10px] text-gray-500 font-semibold">
-                      {d.receita > 0 ? formatBRL(d.receita).replace("R$", "").trim() : ""}
-                    </div>
-                    <div
-                      className={`w-full rounded-t-lg transition-all ${hoje ? "bg-gradient-to-t from-brand-500 to-brand-400" : "bg-gradient-to-t from-gray-200 to-gray-100"}`}
-                      style={{ height: `${Math.max(pct, d.receita > 0 ? 8 : 2)}%`, minHeight: "4px" }}
-                      title={`${d.label}: ${formatBRL(d.receita)} · ${d.vendas} venda(s)`}
-                    />
-                    <span className={`text-[10px] uppercase ${hoje ? "text-brand-700 font-bold" : "text-gray-400"}`}>{d.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Ultimos pagamentos + Top servicos + Pendencias */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        {/* Ultimos pagamentos */}
-        <Card className="lg:col-span-2">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="font-display text-lg text-forest-800">Últimos pagamentos</h2>
-                <p className="text-xs text-gray-500">5 mais recentes</p>
-              </div>
-              <Link href="/painel/clientes" className="text-xs text-brand-600 hover:text-brand-800 font-semibold inline-flex items-center gap-1">
-                Ver todos <ArrowUpRight className="size-3.5" />
-              </Link>
-            </div>
-            {m.ultimosPagamentos.length === 0 ? (
-              <p className="text-sm text-gray-400 py-6 text-center">Nenhum pagamento ainda</p>
-            ) : (
-              <ul className="divide-y divide-gray-50">
-                {m.ultimosPagamentos.map((p) => (
-                  <li key={p.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                    <div className="size-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 grid place-items-center text-white font-bold text-xs shrink-0">
-                      {p.nome.split(" ").slice(0, 2).map((s) => s.charAt(0).toUpperCase()).join("")}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-forest-800 text-sm truncate">{p.nome}</p>
-                      <p className="text-[10px] text-gray-400">
-                        {new Date(p.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                    </div>
-                    <span className="text-sm font-bold text-emerald-700">{formatBRL(Number(p.valor_pago ?? 0))}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Score medio + Pendencias agregadas */}
-        <Card>
-          <CardContent className="p-6">
-            <h2 className="font-display text-lg text-forest-800 mb-1">Saúde da base</h2>
-            <p className="text-xs text-gray-500 mb-5">Score médio + dívidas</p>
-
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Score médio</p>
-                <p className={`font-display text-3xl ${
-                  (m.scoreMedio ?? 0) >= 701 ? "text-emerald-700" :
-                  (m.scoreMedio ?? 0) >= 501 ? "text-amber-700" :
-                  m.scoreMedio == null ? "text-gray-400" : "text-red-700"
-                }`}>
-                  {m.scoreMedio ?? "—"}
-                </p>
-              </div>
-              <div className="pt-3 border-t border-gray-100">
-                <p className="text-xs text-gray-500 mb-1">Dívidas totais identificadas</p>
-                <p className="font-display text-2xl text-red-700">{formatBRL(m.totalPendencias)}</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">de {m.clientesComPendencia} cliente(s) com pendência</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Aguardando muito tempo (alerta) */}
+      {/* Alertas */}
       {m.aguardandoMuito.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50/40">
+        <Card className="border-amber-200 bg-amber-50/40 mb-3">
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-3">
               <Clock className="size-4 text-amber-600" />
@@ -502,86 +412,56 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       )}
-
-      {m.blindagemAlerta > 0 && (
-        <Card className="mt-4 bg-red-50 border-red-200">
-          <CardContent className="p-5 flex items-center gap-3">
-            <ShieldCheck className="size-5 text-red-600 shrink-0" />
-            <p className="text-sm text-red-800">
-              <strong>{m.blindagemAlerta}</strong> blindagem(ns) com pendência detectada
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
 
 function KpiCard({
-  label, value, icon: Icon, gradient, trend,
+  label, value, subtext, icon: Icon, iconColor, iconBg,
 }: {
   label: string;
   value: string;
+  subtext?: string;
   icon: React.ComponentType<{ className?: string }>;
-  gradient: string;
-  trend?: { direction: "up" | "down" | "neutral"; value: string };
+  iconColor: string;
+  iconBg: string;
 }) {
   return (
-    <Card className="hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
+    <Card>
       <CardContent className="p-5">
-        <div className="flex items-start justify-between mb-4">
-          <div className={`size-10 rounded-xl bg-gradient-to-br ${gradient} grid place-items-center shadow-md`}>
-            <Icon className="size-4 text-white" />
+        <div className="flex items-start justify-between mb-3">
+          <p className="text-xs text-gray-500 font-medium">{label}</p>
+          <div className={`size-8 rounded-lg ${iconBg} grid place-items-center`}>
+            <Icon className={`size-4 ${iconColor}`} />
           </div>
-          {trend && (
-            <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5 ${
-              trend.direction === "up"
-                ? "bg-emerald-50 text-emerald-700"
-                : trend.direction === "down"
-                ? "bg-red-50 text-red-700"
-                : "bg-gray-100 text-gray-600"
-            }`}>
-              {trend.direction === "up" && <ArrowUpRight className="size-3" />}
-              {trend.direction === "down" && <ArrowDownRight className="size-3" />}
-            </span>
-          )}
         </div>
-        <p className="font-display text-3xl text-forest-800 tracking-tight">{value}</p>
-        <p className="text-xs text-gray-500 mt-1">{label}</p>
-        {trend?.value && (
-          <p className="text-[10px] text-gray-400 mt-2">{trend.value}</p>
-        )}
+        <p className="font-display text-2xl text-gray-900 tracking-tight tabular-nums">{value}</p>
+        {subtext && <p className="text-[11px] text-gray-400 mt-1">{subtext}</p>}
       </CardContent>
     </Card>
   );
 }
 
-function StatRow({
-  label, value, cor, emoji,
-}: {
-  label: string;
-  value: number;
-  cor: "amber" | "violet" | "emerald";
-  emoji: string;
-}) {
-  const cores = {
-    amber: { bg: "bg-amber-50", text: "text-amber-700", bar: "from-amber-400 to-amber-500" },
-    violet: { bg: "bg-violet-50", text: "text-violet-700", bar: "from-violet-400 to-violet-500" },
-    emerald: { bg: "bg-emerald-50", text: "text-emerald-700", bar: "from-emerald-400 to-emerald-500" },
-  };
-  const c = cores[cor];
+function PeriodoCard({ label, value, count }: { label: string; value: string; count: string }) {
   return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5 text-sm">
-        <span className="flex items-center gap-1.5">
-          <span>{emoji}</span>
-          <span className="text-forest-700 font-medium">{label}</span>
-        </span>
-        <span className={`font-bold ${c.text}`}>{value}</span>
-      </div>
-      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-        <div className={`h-full bg-gradient-to-r ${c.bar} rounded-full`} style={{ width: value > 0 ? "100%" : "0%" }} />
-      </div>
-    </div>
+    <Card>
+      <CardContent className="p-5">
+        <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">{label}</p>
+        <p className="font-display text-xl text-gray-900 tracking-tight mt-1 tabular-nums">{value}</p>
+        <p className="text-[11px] text-gray-400 mt-1">{count}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function OpRow({ label, value, dot }: { label: string; value: number; dot: string }) {
+  return (
+    <li className="flex items-center justify-between">
+      <span className="flex items-center gap-2 text-sm text-gray-700">
+        <span className={`size-1.5 rounded-full ${dot}`} />
+        {label}
+      </span>
+      <span className="font-semibold text-gray-900 tabular-nums">{value}</span>
+    </li>
   );
 }

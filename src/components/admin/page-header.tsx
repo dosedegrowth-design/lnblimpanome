@@ -7,19 +7,13 @@ interface PageHeaderProps {
   actions?: React.ReactNode;
 }
 
-export function PageHeader({ title, subtitle, icon: Icon, actions }: PageHeaderProps) {
+// icon prop mantido por compat — nao renderiza mais (design minimalista)
+export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <header className="mb-8 flex items-start justify-between gap-4">
-      <div className="flex items-start gap-4">
-        {Icon && (
-          <div className="size-12 rounded-xl bg-brand-50 grid place-items-center shrink-0">
-            <Icon className="size-5 text-brand-600" />
-          </div>
-        )}
-        <div>
-          <h1 className="font-display text-3xl text-forest-800">{title}</h1>
-          {subtitle && <p className="text-gray-500 mt-1 text-sm">{subtitle}</p>}
-        </div>
+    <header className="mb-7 flex items-end justify-between gap-4 flex-wrap">
+      <div>
+        <h1 className="font-display text-2xl sm:text-3xl tracking-tight text-gray-900">{title}</h1>
+        {subtitle && <p className="text-gray-500 mt-1 text-sm">{subtitle}</p>}
       </div>
       {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
     </header>
