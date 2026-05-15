@@ -38,13 +38,24 @@ const LABEL_POR_TIPO: Record<string, LnbLabelContext> = {
  * Resposta:
  *   { ok: true, init_point: "https://...", preference_id: "...", external_reference: "..." }
  */
-const PRECOS = {
+// MODO TESTE: se env LNB_MODO_TESTE = "true", aplica R$ 1,00 em tudo
+const MODO_TESTE = process.env.LNB_MODO_TESTE === "true";
+
+const PRECOS_REAIS = {
   consulta:         { valor: 29.99,  titulo: "LNB - Consulta CPF" },
   limpeza_desconto: { valor: 500.00, titulo: "LNB - Limpeza + Blindagem (com desconto)" },
   blindagem:        { valor: 29.90,  titulo: "LNB - Blindagem mensal de CPF" },
 } as const;
 
-type TipoCobranca = keyof typeof PRECOS;
+const PRECOS_TESTE = {
+  consulta:         { valor: 1.00, titulo: "[TESTE] LNB - Consulta CPF" },
+  limpeza_desconto: { valor: 1.00, titulo: "[TESTE] LNB - Limpeza" },
+  blindagem:        { valor: 1.00, titulo: "[TESTE] LNB - Blindagem" },
+} as const;
+
+const PRECOS = MODO_TESTE ? PRECOS_TESTE : PRECOS_REAIS;
+
+type TipoCobranca = keyof typeof PRECOS_REAIS;
 
 function siteUrl(req: Request): string {
   const env = process.env.NEXT_PUBLIC_SITE_URL;

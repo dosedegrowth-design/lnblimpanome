@@ -17,7 +17,10 @@ import { getClienteSession } from "@/lib/auth/cliente";
  *
  * Asaas notifica via webhook → /api/site/asaas-webhook
  */
-const PRECOS = {
+// MODO TESTE: env LNB_MODO_TESTE = "true" aplica R$ 1,00 em tudo
+const MODO_TESTE = process.env.LNB_MODO_TESTE === "true";
+
+const PRECOS_REAIS = {
   consulta:         { valor: 29.99,  titulo: "LNB - Consulta CPF",                          tipoDoc: "CPF"  as const },
   consulta_cnpj:    { valor: 39.99,  titulo: "LNB - Consulta CNPJ",                         tipoDoc: "CNPJ" as const },
   limpeza_desconto: { valor: 500.00, titulo: "LNB - Limpeza de Nome + Monitoramento 12m",   tipoDoc: "CPF"  as const },
@@ -25,7 +28,17 @@ const PRECOS = {
   limpeza_cnpj:     { valor: 580.01, titulo: "LNB - Limpeza CNPJ + Sócio + Monitoramento",  tipoDoc: "CNPJ" as const },
 } as const;
 
-type TipoCobranca = keyof typeof PRECOS;
+const PRECOS_TESTE = {
+  consulta:         { valor: 1.00, titulo: "[TESTE] LNB - Consulta CPF",  tipoDoc: "CPF"  as const },
+  consulta_cnpj:    { valor: 1.00, titulo: "[TESTE] LNB - Consulta CNPJ", tipoDoc: "CNPJ" as const },
+  limpeza_desconto: { valor: 1.00, titulo: "[TESTE] LNB - Limpeza",       tipoDoc: "CPF"  as const },
+  limpeza:          { valor: 1.00, titulo: "[TESTE] LNB - Limpeza",       tipoDoc: "CPF"  as const },
+  limpeza_cnpj:     { valor: 1.00, titulo: "[TESTE] LNB - Limpeza CNPJ",  tipoDoc: "CNPJ" as const },
+} as const;
+
+const PRECOS = MODO_TESTE ? PRECOS_TESTE : PRECOS_REAIS;
+
+type TipoCobranca = keyof typeof PRECOS_REAIS;
 
 function siteUrl(req: Request): string {
   const env = process.env.NEXT_PUBLIC_SITE_URL;
