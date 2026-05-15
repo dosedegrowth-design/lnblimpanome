@@ -15,7 +15,7 @@ export default async function LoggedLayout({ children }: { children: ReactNode }
   const ctx = await requireAdmin();
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-[#f1f2f4]">
       <AdminSidebar userName={ctx.user.nome} userRole={ctx.user.role} />
       <div className="flex-1 min-w-0">{children}</div>
     </div>
