@@ -1,11 +1,11 @@
 "use client";
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Download, Search, FileText, ExternalLink } from "lucide-react";
 import type { Etapa, Tag } from "@/lib/kanban-shared";
 import { corClasses } from "@/lib/kanban-shared";
 import { formatBRL, formatPhone, maskCPF } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ProcessoDrawer } from "@/components/processo-drawer";
 
 interface Cliente {
   id: string;
@@ -34,6 +34,7 @@ export function ClientesTable({
   const [q, setQ] = useState("");
   const [tagFiltro, setTagFiltro] = useState<string>("");
   const [etapaFiltro, setEtapaFiltro] = useState<string>("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const filtrados = useMemo(() => {
     let r = clientes;
@@ -144,15 +145,15 @@ export function ClientesTable({
                 const tagCor = tag ? corClasses(tag.cor) : null;
                 const etapaCor = etapa ? corClasses(etapa.cor) : null;
                 return (
-                  <tr key={c.id} className="hover:bg-gray-50/50">
+                  <tr key={c.id} className="hover:bg-gray-50/50 cursor-pointer" onClick={() => setSelectedId(c.id)}>
                     <td className="py-3 px-3">
-                      <Link href={`/painel/processos/${c.id}`} className="block hover:text-brand-700">
+                      <div className="hover:text-brand-700">
                         <p className="font-semibold text-forest-800">{c.nome}</p>
                         <p className="text-xs text-gray-500 font-mono">{maskCPF(c.cpf)}</p>
                         {c.telefone && (
                           <p className="text-[10px] text-gray-400">{formatPhone(c.telefone)}</p>
                         )}
-                      </Link>
+                      </div>
                     </td>
                     <td className="py-3 px-3">
                       {tag && tagCor && (
@@ -182,7 +183,7 @@ export function ClientesTable({
                     <td className="py-3 px-3 text-right font-mono text-xs text-emerald-700 font-semibold">
                       {c.valor_pago && Number(c.valor_pago) > 0 ? formatBRL(Number(c.valor_pago)) : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="py-3 px-3 text-center">
+                    <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                       {c.pdf_url ? (
                         <a href={c.pdf_url} target="_blank" rel="noopener" className="inline-flex text-brand-600 hover:text-brand-700">
                           <FileText className="size-4" />
@@ -191,9 +192,9 @@ export function ClientesTable({
                     </td>
                     <td className="py-3 px-3 text-xs text-gray-500 whitespace-nowrap">
                       {c.created_at?.slice(0, 10)}
-                      <Link href={`/painel/processos/${c.id}`} className="ml-2 text-brand-500 hover:text-brand-700 inline-flex">
+                      <span className="ml-2 text-brand-500 inline-flex">
                         <ExternalLink className="size-3" />
-                      </Link>
+                      </span>
                     </td>
                   </tr>
                 );
@@ -202,6 +203,14 @@ export function ClientesTable({
           </tbody>
         </table>
       </div>
+
+      <ProcessoDrawer
+        processoId={selectedId}
+        open={!!selectedId}
+        onOpenChange={(o) => !o && setSelectedId(null)}
+        etapas={etapas}
+        tags={tags}
+      />
     </>
   );
 }

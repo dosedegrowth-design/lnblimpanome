@@ -1,10 +1,11 @@
 "use client";
-import Link from "next/link";
+import { useState } from "react";
 import { Clock, MessageCircle } from "lucide-react";
 import type { Etapa, Tag } from "@/lib/kanban-shared";
 import { corClasses } from "@/lib/kanban-shared";
 import type { ProcessoRow } from "@/lib/processos";
 import { formatPhone, maskCPF } from "@/lib/utils";
+import { ProcessoDrawer } from "@/components/processo-drawer";
 
 interface Props {
   etapas: Etapa[];
@@ -23,6 +24,8 @@ const COL_CORES: Record<string, { bg: string; border: string; text: string; chip
 };
 
 export function ProcessosKanban({ etapas, tags, processos }: Props) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
   function porEtapa(codigo: string) {
     return processos.filter((p) => p.etapa === codigo);
   }
@@ -33,6 +36,7 @@ export function ProcessosKanban({ etapas, tags, processos }: Props) {
   }
 
   return (
+    <>
     <div className="flex gap-4 overflow-x-auto pb-4">
       {etapas.map((etapa) => {
         const lista = porEtapa(etapa.codigo);
@@ -60,10 +64,10 @@ export function ProcessosKanban({ etapas, tags, processos }: Props) {
                   const tag = findTag(p.tag_servico);
                   const tagCor = tag ? corClasses(tag.cor) : null;
                   return (
-                    <Link
+                    <button
                       key={p.id}
-                      href={`/painel/processos/${p.id}`}
-                      className="block bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md hover:border-brand-300 transition group"
+                      onClick={() => setSelectedId(p.id)}
+                      className="block w-full text-left bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md hover:border-brand-300 hover:-translate-y-0.5 transition-all group"
                     >
                       {tag && tagCor && (
                         <span
@@ -87,7 +91,7 @@ export function ProcessosKanban({ etapas, tags, processos }: Props) {
                           <Clock className="size-3" /> {p.dias_na_etapa}d na etapa
                         </p>
                       )}
-                    </Link>
+                    </button>
                   );
                 })
               )}
@@ -96,5 +100,13 @@ export function ProcessosKanban({ etapas, tags, processos }: Props) {
         );
       })}
     </div>
+    <ProcessoDrawer
+      processoId={selectedId}
+      open={!!selectedId}
+      onOpenChange={(o) => !o && setSelectedId(null)}
+      etapas={etapas}
+      tags={tags}
+    />
+    </>
   );
 }

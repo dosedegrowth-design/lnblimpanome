@@ -1,11 +1,11 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Clock, MessageCircle, Sparkles, FileText, Loader2 } from "lucide-react";
 import type { Etapa, Tag } from "@/lib/kanban-shared";
 import { corClasses } from "@/lib/kanban-shared";
 import { formatPhone, maskCPF, formatBRL } from "@/lib/utils";
+import { ProcessoDrawer } from "@/components/processo-drawer";
 
 interface Processo {
   id: string;
@@ -41,6 +41,7 @@ export function LimpezaBoard({ etapas, tags, processos }: Props) {
   const router = useRouter();
   const [finalizandoId, setFinalizandoId] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   function findTag(codigo: string | null | undefined): Tag | null {
     if (!codigo) return null;
@@ -130,9 +131,9 @@ export function LimpezaBoard({ etapas, tags, processos }: Props) {
                     return (
                       <div
                         key={p.id}
-                        className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md hover:border-brand-300 transition group"
+                        className="bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md hover:border-brand-300 hover:-translate-y-0.5 transition-all group"
                       >
-                        <Link href={`/painel/processos/${p.id}`} className="block">
+                        <button onClick={() => setSelectedId(p.id)} className="block w-full text-left">
                           {tag && tagCor && (
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${tagCor.bg} ${tagCor.text} ${tagCor.border} border text-[10px] font-semibold mb-2`}
@@ -167,7 +168,7 @@ export function LimpezaBoard({ etapas, tags, processos }: Props) {
                               <FileText className="size-3" /> Relatório disponível
                             </p>
                           )}
-                        </Link>
+                        </button>
 
                         {podeFinalizar && (
                           <button
@@ -195,6 +196,14 @@ export function LimpezaBoard({ etapas, tags, processos }: Props) {
           );
         })}
       </div>
+
+      <ProcessoDrawer
+        processoId={selectedId}
+        open={!!selectedId}
+        onOpenChange={(o) => !o && setSelectedId(null)}
+        etapas={etapas}
+        tags={tags}
+      />
     </>
   );
 }
