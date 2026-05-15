@@ -6,6 +6,7 @@ import type { Etapa, Tag } from "@/lib/kanban-shared";
 import { corClasses } from "@/lib/kanban-shared";
 import { formatPhone, maskCPF, formatBRL } from "@/lib/utils";
 import { ProcessoDrawer } from "@/components/processo-drawer";
+import { AvatarCircle } from "@/components/ui/data-table-bits";
 
 interface Processo {
   id: string;
@@ -136,38 +137,43 @@ export function LimpezaBoard({ etapas, tags, processos }: Props) {
                         <button onClick={() => setSelectedId(p.id)} className="block w-full text-left">
                           {tag && tagCor && (
                             <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${tagCor.bg} ${tagCor.text} ${tagCor.border} border text-[10px] font-semibold mb-2`}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${tagCor.bg} ${tagCor.text} text-[10px] font-semibold mb-2`}
                             >
                               {tag.emoji && <span>{tag.emoji}</span>}
                               <span>{tag.nome}</span>
                             </span>
                           )}
-                          <p className="font-bold text-forest-800 text-sm truncate group-hover:text-brand-700">
-                            {p.nome}
-                          </p>
-                          <p className="text-xs text-gray-500 font-mono mt-0.5">{maskCPF(p.cpf)}</p>
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <p className="font-semibold text-forest-800 text-sm truncate group-hover:text-brand-700 flex-1 min-w-0">
+                              {p.nome}
+                            </p>
+                            <AvatarCircle name={p.nome} size={26} />
+                          </div>
+                          <p className="text-xs text-gray-400 font-mono">{maskCPF(p.cpf)}</p>
                           {p.telefone && (
                             <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                               <MessageCircle className="size-3" /> {formatPhone(p.telefone)}
                             </p>
                           )}
-                          <div className="flex items-center justify-between mt-2 text-xs">
-                            {typeof p.dias_na_etapa === "number" && (
-                              <span className="text-gray-400 flex items-center gap-1">
-                                <Clock className="size-3" /> {p.dias_na_etapa}d
-                              </span>
-                            )}
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50 text-[11px]">
+                            <div className="flex items-center gap-2">
+                              {typeof p.dias_na_etapa === "number" && (
+                                <span className="text-gray-500 flex items-center gap-1">
+                                  <Clock className="size-3" /> {p.dias_na_etapa}d
+                                </span>
+                              )}
+                              {p.pdf_url && (
+                                <span className="text-brand-600 inline-flex items-center">
+                                  <FileText className="size-3" />
+                                </span>
+                              )}
+                            </div>
                             {p.valor_pago && Number(p.valor_pago) > 0 && (
-                              <span className="text-emerald-700 font-semibold">
+                              <span className="text-emerald-700 font-bold">
                                 {formatBRL(Number(p.valor_pago))}
                               </span>
                             )}
                           </div>
-                          {p.pdf_url && (
-                            <p className="text-[10px] text-brand-600 mt-1 flex items-center gap-1">
-                              <FileText className="size-3" /> Relatório disponível
-                            </p>
-                          )}
                         </button>
 
                         {podeFinalizar && (

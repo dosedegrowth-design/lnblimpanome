@@ -3,85 +3,63 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Briefcase } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
-import { SearchInput } from "@/components/admin/search-input";
 import { ProcessosKanban } from "./processos-kanban";
 import { getEtapas, getTags } from "@/lib/kanban";
-import { TagFilter } from "./tag-filter";
-import type { ProcessoRow } from "@/lib/processos";
 
 export const dynamic = "force-dynamic";
 
 interface Props {
-  searchParams: Promise<{ tag?: string; q?: string; tipo?: string }>;
+  searchParams: Promise<{ tag?: string; q?: string; tipo?: string; funil?: string }>;
 }
 
-// Mapeamento legado: ?tipo=X → ?tag=Y
 const LEGACY_TIPO_TAG: Record<string, string> = {
   limpeza:   "limpeza_cpf,limpeza_cnpj",
   blindagem: "blindagem",
   consulta:  "consulta_cpf,consulta_cnpj",
 };
 
+export interface ProcessoKanban {
+  id: string;
+  cpf: string;
+  nome: string;
+  email: string | null;
+  telefone: string | null;
+  tag_servico: string | null;
+  etapa: string;
+  valor_pago: number | null;
+  pdf_url: string | null;
+  tem_pendencia: boolean | null;
+  score: number | null;
+  qtd_pendencias: number | null;
+  total_dividas: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export default async function ProcessosPage({ searchParams }: Props) {
   await requireAdmin();
   const sp = await searchParams;
 
-  // Redirect 301 de deep links antigos (?tipo=X)
   if (sp.tipo && LEGACY_TIPO_TAG[sp.tipo]) {
     redirect(`/painel/processos?tag=${LEGACY_TIPO_TAG[sp.tipo]}${sp.q ? `&q=${encodeURIComponent(sp.q)}` : ""}`);
   }
 
-  const tagsFiltro = (sp.tag || "").split(",").filter(Boolean);
-  const q = sp.q?.trim() || "";
-
-  const [etapasResult, tagsResult, processosResult] = await Promise.all([
+  const supa = await createClient();
+  const [etapas, tags, processosResult] = await Promise.all([
     getEtapas(),
     getTags(),
-    (async () => {
-      const supa = await createClient();
-      const { data } = await supa.rpc("admin_processos_list", {
-        p_tipo: null,
-        p_etapa: null,
-        p_responsavel_id: null,
-      });
-      return (data ?? []) as (ProcessoRow & { tag_servico: string | null })[];
-    })(),
+    supa.rpc("admin_clientes_list"),
   ]);
 
-  const etapas = etapasResult;
-  const tags = tagsResult;
-  let processos = processosResult;
-
-  // Filtro por tag
-  if (tagsFiltro.length > 0) {
-    processos = processos.filter((p) => p.tag_servico && tagsFiltro.includes(p.tag_servico));
-  }
-
-  // Filtro por busca
-  if (q) {
-    const lq = q.toLowerCase();
-    const lqNum = lq.replace(/\D/g, "");
-    processos = processos.filter(
-      (p) =>
-        p.nome.toLowerCase().includes(lq) ||
-        p.cpf.includes(lqNum) ||
-        (p.email || "").toLowerCase().includes(lq) ||
-        (p.telefone || "").includes(lqNum)
-    );
-  }
+  const processos = ((processosResult.data as { clientes?: ProcessoKanban[] } | null)?.clientes ?? []) as ProcessoKanban[];
 
   return (
-    <div className="p-6 sm:p-8 max-w-[1400px] mx-auto">
+    <div className="p-6 sm:p-8 max-w-[1600px] mx-auto">
       <PageHeader
         title="Processos"
-        subtitle={`${processos.length} processo(s) ativo(s) · Kanban unificado`}
+        subtitle={`${processos.length} processo(s) · Kanban unificado com 2 funis`}
         icon={Briefcase}
       />
-
-      <div className="flex flex-wrap items-center gap-3 mb-5">
-        <SearchInput placeholder="Nome, CPF, email, telefone..." />
-        <TagFilter tags={tags} selecionadas={tagsFiltro} />
-      </div>
 
       <ProcessosKanban etapas={etapas} tags={tags} processos={processos} />
     </div>
