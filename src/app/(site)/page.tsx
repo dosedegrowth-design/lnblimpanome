@@ -50,22 +50,24 @@ export default function HomePage() {
               <Reveal delay={0.3}>
                 <div className="mt-6 sm:mt-10 flex flex-col sm:flex-row gap-3 mx-auto lg:mx-0 w-full max-w-md sm:max-w-none">
                   <Link
-                    href="/consultar"
+                    href="/contratar?plano=limpeza_desconto"
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-600 px-5 sm:px-7 h-12 sm:h-14 text-[15px] sm:text-base font-bold text-white shadow-lg shadow-brand-500/30 hover:shadow-xl hover:-translate-y-0.5 transition-all animate-pulse-glow whitespace-nowrap"
                   >
-                    <CpfIcon size={20} className="size-4 sm:size-5 shrink-0" />
-                    Consultar CPF ou CNPJ
+                    <Sparkles className="size-4 sm:size-5 shrink-0" />
+                    Limpar nome agora
                   </Link>
-                  <a
-                    href={WHATSAPP}
-                    target="_blank"
-                    rel="noopener"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white/70 backdrop-blur hover:border-forest-500 hover:bg-white px-5 sm:px-7 h-12 sm:h-14 text-[15px] sm:text-base font-bold text-forest-800 transition whitespace-nowrap"
+                  <Link
+                    href="/consultar"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white/70 backdrop-blur hover:border-brand-500 hover:bg-white px-5 sm:px-7 h-12 sm:h-14 text-[15px] sm:text-base font-bold text-forest-800 transition whitespace-nowrap"
                   >
-                    <WhatsAppIcon size={20} className="size-4 sm:size-5 text-[#25D366] shrink-0" />
-                    Falar com consultor
-                  </a>
+                    <CpfIcon size={20} className="size-4 sm:size-5 shrink-0" />
+                    Consultar antes (R$ 19,99)
+                  </Link>
                 </div>
+                <p className="mt-3 text-xs sm:text-sm text-gray-700 font-medium max-w-md mx-auto lg:mx-0 text-center lg:text-left">
+                  Pode contratar a limpeza direto — a consulta vem inclusa.
+                  Se não tiver pendência, devolvemos integral ou trocamos por Blindagem 12 meses.
+                </p>
               </Reveal>
 
               <Reveal delay={0.4}>
@@ -277,10 +279,10 @@ export default function HomePage() {
 
                 <Link href="/contratar?plano=limpeza_desconto" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-white px-4 h-11 sm:h-12 font-bold shadow-lg shadow-brand-500/40 transition-all text-sm sm:text-base whitespace-nowrap">
                   <Sparkles className="size-4 sm:size-5 shrink-0" />
-                  Contratar limpeza
+                  Limpar nome agora
                 </Link>
                 <p className="mt-2 text-center text-[11px] text-sand-200 font-medium">
-                  Você precisa ter feito a consulta antes
+                  ✨ Consulta inclusa · sem pendência? Blindagem 12m ou reembolso integral
                 </p>
                 <a href={WHATSAPP} target="_blank" rel="noopener" className="mt-2 inline-flex w-full items-center justify-center gap-1.5 text-xs text-sand-200 hover:text-white transition font-semibold">
                   <WhatsAppIcon size={14} className="size-3.5 text-[#25D366]" />
@@ -362,6 +364,10 @@ export default function HomePage() {
                 a: "Sim. O serviço é 100% digital, atendemos qualquer estado." },
               { q: "Posso fazer tudo sozinho sem consultor?",
                 a: "Pode! A consulta de CPF é totalmente self-service direto no site. Para a limpeza completa, recomendamos falar com um consultor pra entender seu caso específico." },
+              { q: "Preciso fazer a consulta antes da limpeza?",
+                a: "Não. Você pode contratar a Limpeza direto — a consulta já vem inclusa no pacote, sem custo extra. Se descobrirmos que seu CPF/CNPJ está limpo (sem pendências), devolvemos integral o valor ou trocamos por uma Blindagem de 12 meses, sua escolha." },
+              { q: "E se eu pagar a limpeza e meu nome já estiver limpo?",
+                a: "Sem problema. Após o pagamento rodamos a consulta automaticamente. Se não tiver pendência, nossa equipe entra em contato em até 24h pra você escolher: reembolso 100% ou conversão em Blindagem 12 meses (monitoramento contínuo)." },
             ].map((item, i) => (
               <StaggerItem key={i}>
                 <details className="group rounded-xl border border-sand-300/60 bg-white p-4 sm:p-5 lg:p-6 open:shadow-lg open:border-brand-300 transition-all">

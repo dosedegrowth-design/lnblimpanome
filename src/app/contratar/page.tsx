@@ -36,6 +36,7 @@ interface Elegibilidade {
   mensagem?: string;
   qtd_pendencias?: number;
   total_dividas?: number;
+  requer_consulta_automatica?: boolean;
 }
 
 function ContratarForm() {
@@ -197,12 +198,7 @@ function ContratarForm() {
       });
       const d = await r.json();
       if (!r.ok || !d.ok || !d.init_point) {
-        if (d.requer_consulta) {
-          toast.error(d.error || "Faça a consulta primeiro");
-          setTimeout(() => router.push("/consultar"), 1200);
-        } else {
-          toast.error(d.error || "Não conseguimos gerar a cobrança. Tente novamente.");
-        }
+        toast.error(d.error || "Não conseguimos gerar a cobrança. Tente novamente.");
         setLoading(false);
         return;
       }
@@ -378,26 +374,7 @@ function ContratarForm() {
                         </div>
                       </div>
 
-                      {eleg.motivo === "sem_consulta" && (
-                        <>
-                          <div className="rounded-xl bg-brand-50 border border-brand-200 p-4 sm:p-5">
-                            <p className="font-bold text-forest-800 text-sm sm:text-base">
-                              Faça a consulta primeiro · R$ 29,99
-                            </p>
-                            <p className="text-xs sm:text-sm text-gray-700 font-medium mt-1">
-                              Em minutos você descobre se tem pendências, score, dívidas e
-                              credores. Se tiver pendência, você libera a contratação da limpeza.
-                            </p>
-                          </div>
-                          <Link
-                            href="/consultar"
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white px-6 h-12 font-bold transition shadow-lg shadow-brand-500/30"
-                          >
-                            <FileSearch className="size-5" />
-                            Consultar meu CPF
-                          </Link>
-                        </>
-                      )}
+                      {/* sem_consulta agora eh tratado como combo (pode=true), nao chega mais aqui */}
 
                       {eleg.motivo === "sem_pendencia" && (
                         <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 sm:p-5">
@@ -456,6 +433,18 @@ function ContratarForm() {
                           {eleg.qtd_pendencias > 1 ? "s" : ""} no {isCNPJ ? "responsável da empresa" : "seu CPF"}
                           {eleg.total_dividas ? ` (R$ ${Number(eleg.total_dividas).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})` : ""}.
                           Vamos limpar tudo em até 20 dias úteis.
+                        </div>
+                      )}
+
+                      {eleg?.requer_consulta_automatica && (
+                        <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 sm:p-4 text-sm text-amber-900">
+                          <p className="font-bold mb-1">💡 Consulta inclusa na sua compra</p>
+                          <p className="text-amber-800">
+                            Como você ainda não fez a consulta, vamos disparar uma <strong>automaticamente</strong> ao
+                            confirmar o pagamento — sem custo extra. Se descobrirmos que {isCNPJ ? "a empresa não tem" : "você não tem"}
+                            {" "}pendências, convertemos sua compra em <strong>Blindagem 12 meses</strong> ou
+                            reembolsamos integral. Tudo seguro.
+                          </p>
                         </div>
                       )}
 
