@@ -285,3 +285,115 @@ export async function criarCobrancaLNB(
 export function isPaymentApproved(status: AsaasPaymentStatus): boolean {
   return status === "CONFIRMED" || status === "RECEIVED" || status === "RECEIVED_IN_CASH";
 }
+
+// ─── ASSINATURAS (SUBSCRIPTIONS) ──────────────────────────────
+
+export interface AsaasSubscription {
+  id: string;
+  customer: string;
+  value: number;
+  cycle: "MONTHLY" | "YEARLY";
+  status: "ACTIVE" | "INACTIVE" | "EXPIRED";
+  nextDueDate: string;
+  description?: string;
+  externalReference?: string;
+}
+
+interface CriarAssinaturaInput {
+  customerId: string;
+  value: number;
+  cycle: "MONTHLY" | "YEARLY";
+  description: string;
+  externalReference?: string;
+  billingType?: AsaasBillingType;
+  nextDueDate?: string; // YYYY-MM-DD
+}
+
+export async function createSubscription(i: CriarAssinaturaInput): Promise<AsaasSubscription> {
+  const nextDue = i.nextDueDate || (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7); // primeira cobrança em 7 dias por padrão
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const r = await fetch(`${baseUrl()}/subscriptions`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      customer: i.customerId,
+      billingType: i.billingType ?? "CREDIT_CARD",
+      value: i.value,
+      cycle: i.cycle,
+      description: i.description,
+      externalReference: i.externalReference,
+      nextDueDate: nextDue,
+    }),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`Asaas createSubscription erro ${r.status}: ${t}`);
+  }
+  return (await r.json()) as AsaasSubscription;
+}
+
+interface CriarAssinaturaLNBInput {
+  cpf: string;
+  nome: string;
+  email: string;
+  telefone: string;
+  valor: number;
+  cycle: "MONTHLY" | "YEARLY";
+  descricao: string;
+  externalReference: string;
+}
+
+export interface CriarAssinaturaLNBResult {
+  subscriptionId: string;
+  customerId: string;
+  status: AsaasSubscription["status"];
+  nextDueDate: string;
+  invoiceUrl: string;
+}
+
+/**
+ * Helper end-to-end: busca/cria customer + cria assinatura.
+ * Asaas vai cobrar automaticamente todo mes.
+ */
+export async function criarAssinaturaLNB(
+  i: CriarAssinaturaLNBInput
+): Promise<CriarAssinaturaLNBResult> {
+  const customer = await findOrCreateCustomer({
+    name: i.nome,
+    cpfCnpj: i.cpf,
+    email: i.email,
+    mobilePhone: i.telefone,
+    externalReference: i.cpf,
+  });
+
+  const sub = await createSubscription({
+    customerId: customer.id,
+    value: i.valor,
+    cycle: i.cycle,
+    description: i.descricao,
+    externalReference: i.externalReference,
+    billingType: "UNDEFINED",
+  });
+
+  // Busca a primeira cobranca pra retornar o invoiceUrl
+  const paymentsRes = await fetch(`${baseUrl()}/subscriptions/${sub.id}/payments`, {
+    headers: authHeaders(),
+  });
+  let invoiceUrl = "";
+  if (paymentsRes.ok) {
+    const j = await paymentsRes.json() as { data?: Array<{ invoiceUrl?: string }> };
+    invoiceUrl = j.data?.[0]?.invoiceUrl ?? "";
+  }
+
+  return {
+    subscriptionId: sub.id,
+    customerId: customer.id,
+    status: sub.status,
+    nextDueDate: sub.nextDueDate,
+    invoiceUrl,
+  };
+}

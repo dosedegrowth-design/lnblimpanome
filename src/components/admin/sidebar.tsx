@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, FileSearch, Briefcase,
   Wallet, Settings as SettingsIcon, LogOut, UserCog, Sparkles, ListTodo,
-  HelpCircle,
+  HelpCircle, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -28,6 +28,7 @@ const sections: Section[] = [
       { href: "/painel/dashboard",  label: "Dashboard",   icon: LayoutDashboard },
       { href: "/painel/processos",  label: "Processos",   icon: Briefcase },
       { href: "/painel/limpeza",    label: "Limpeza",     icon: Sparkles },
+      { href: "/painel/blindagens", label: "Blindagens",  icon: ShieldCheck },
       { href: "/painel/clientes",   label: "Clientes",    icon: Users },
       { href: "/painel/leads",      label: "Leads",       icon: ListTodo },
     ],
