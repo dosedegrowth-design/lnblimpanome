@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   ShieldCheck, FileSearch, Sparkles, CheckCircle2,
-  Clock, Lock, Award, Users, TrendingUp, ArrowRight,
+  Clock, Users, TrendingUp, BellRing, AlertCircle,
 } from "lucide-react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/reveal";
 import { Counter } from "@/components/motion/counter";
@@ -12,6 +12,7 @@ import { whatsappLink } from "@/lib/contato";
 import { Depoimentos } from "@/components/site/depoimentos";
 import { Comparativo } from "@/components/site/comparativo";
 import { Confianca } from "@/components/site/confianca";
+import { PrecosTabs } from "@/components/site/precos-tabs";
 
 const WHATSAPP = whatsappLink("Olá! Quero limpar meu nome com a LNB.");
 
@@ -42,8 +43,8 @@ export default function HomePage() {
 
               <Reveal delay={0.2}>
                 <p className="mt-4 sm:mt-6 text-base sm:text-lg lg:text-xl text-gray-700 font-medium max-w-xl mx-auto lg:mx-0 leading-relaxed text-pretty">
-                  Consulte CPF ou CNPJ, limpe seu nome em até 20 dias úteis
-                  e ganhe monitoramento de 12 meses. <strong className="text-forest-700 font-bold">Sem precisar quitar a dívida.</strong>
+                  Consulte CPF ou CNPJ e limpe seu nome em até 20 dias úteis.
+                  <strong className="text-forest-700 font-bold"> Sem precisar quitar a dívida.</strong>
                 </p>
               </Reveal>
 
@@ -66,7 +67,7 @@ export default function HomePage() {
                 </div>
                 <p className="mt-3 text-xs sm:text-sm text-gray-700 font-medium max-w-md mx-auto lg:mx-0 text-center lg:text-left">
                   Pode contratar a limpeza direto — a consulta vem inclusa.
-                  Se não tiver pendência, devolvemos integral ou trocamos por Blindagem 12 meses.
+                  Se não tiver pendência, reembolsamos 100% do valor pago.
                 </p>
               </Reveal>
 
@@ -74,8 +75,8 @@ export default function HomePage() {
                 <ul className="mt-6 sm:mt-10 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 text-xs sm:text-sm max-w-md mx-auto lg:mx-0">
                   {[
                     "Sem precisar quitar dívida",
-                    "Resultado em minutos",
-                    "Monitoramento 12m bônus",
+                    "100% digital · WhatsApp",
+                    "Atende CPF e CNPJ",
                   ].map((t) => (
                     <li key={t} className="flex items-center gap-2 text-forest-800 font-semibold justify-center lg:justify-start">
                       <span className="size-5 rounded-full bg-brand-100 grid place-items-center shrink-0">
@@ -116,31 +117,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CONFIANÇA — selos LGPD, SSL, MP, Garantia */}
+      {/* CONFIANÇA — selos LGPD, SSL, Pagamento, Garantia */}
       <Confianca />
-
-      {/* TRUST BAR */}
-      <section className="bg-sand-50 py-8 sm:py-10">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <Stagger className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 text-sm">
-            {[
-              { icon: Lock,        title: "Dados protegidos",  desc: "Sigilo bancário e LGPD" },
-              { icon: Clock,       title: "Resultado rápido",  desc: "Limpeza em até 20 dias úteis" },
-              { icon: ShieldCheck, title: "Monitoramento bônus", desc: "12 meses monitorando seu CPF/CNPJ" },
-            ].map((it) => (
-              <StaggerItem key={it.title} className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5 rounded-xl bg-white border border-sand-300/40 shadow-sm hover:shadow-md transition">
-                <div className="size-11 sm:size-12 rounded-xl bg-brand-50 grid place-items-center shrink-0">
-                  <it.icon className="size-4 sm:size-5 text-brand-600" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-bold text-forest-800 text-sm sm:text-base">{it.title}</p>
-                  <p className="text-gray-700 font-medium text-xs mt-0.5">{it.desc}</p>
-                </div>
-              </StaggerItem>
-            ))}
-          </Stagger>
-        </div>
-      </section>
 
       {/* COMO FUNCIONA */}
       <section id="como-funciona" className="py-16 sm:py-24 lg:py-32">
@@ -157,9 +135,9 @@ export default function HomePage() {
 
           <Stagger className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
             {[
-              { n: "01", t: "Consulta de CPF",          d: "Por R$ 29,99 você descobre se seu nome tem pendências, qual o score, quanto deve e pra quem.", icon: FileSearch },
-              { n: "02", t: "Plano de limpeza",         d: "Mostramos como vamos limpar seu nome — sem você precisar quitar dívida ou negociar com credor.", icon: Sparkles   },
-              { n: "03", t: "Nome limpo + monitoramento", d: "Em até 20 dias úteis seu nome volta limpo. Monitoramento de 12 meses ativo como bônus.", icon: ShieldCheck },
+              { n: "01", t: "Consulta CPF ou CNPJ",      d: "A partir de R$ 29,99 você descobre se há pendências, o score e quem são os credores. Relatório completo em PDF.", icon: FileSearch },
+              { n: "02", t: "Plano de limpeza",          d: "Mostramos como vamos limpar seu nome — sem você precisar quitar dívida ou negociar com credor.", icon: Sparkles   },
+              { n: "03", t: "Nome limpo em 20 dias",     d: "Em até 20 dias úteis o nome volta limpo. Acompanha tudo pelo painel online e WhatsApp.", icon: ShieldCheck },
             ].map((step) => (
               <StaggerItem key={step.n}>
                 <div className="group relative rounded-2xl border border-gray-200 bg-white p-6 sm:p-8 hover:border-brand-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
@@ -186,141 +164,72 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(2,152,217,0.08),transparent_50%)]" />
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <Reveal className="text-center max-w-2xl mx-auto mb-8 sm:mb-14">
+          <Reveal className="text-center max-w-2xl mx-auto mb-6 sm:mb-10">
             <span className="text-brand-600 font-bold text-xs sm:text-sm uppercase tracking-widest">Investimento</span>
             <h2 className="mt-2 sm:mt-3 font-display text-3xl sm:text-4xl lg:text-5xl text-forest-800 text-balance">
               Preços <span className="text-brand-500">transparentes</span>
             </h2>
-            <p className="mt-3 sm:mt-4 text-gray-700 font-medium text-base sm:text-lg px-2">Você sabe exatamente o que está pagando, antes de pagar.</p>
+            <p className="mt-3 sm:mt-4 text-gray-700 font-medium text-base sm:text-lg px-2">
+              Atendemos pessoa física (CPF) e jurídica (CNPJ). Escolha abaixo.
+            </p>
           </Reveal>
 
-          {/* Fluxo conectado: Consulta → Limpeza */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1.3fr] gap-4 sm:gap-6 max-w-5xl mx-auto items-stretch">
-            {/* Etapa 1: Consulta CPF */}
-            <Reveal>
-              <div className="h-full p-6 sm:p-8 rounded-2xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition flex flex-col">
-                <div className="flex items-center gap-2">
-                  <span className="size-7 rounded-full bg-brand-500 text-white grid place-items-center font-display text-sm">1</span>
-                  <span className="text-[10px] sm:text-xs font-bold text-gray-700 uppercase tracking-widest">Pré-requisito</span>
-                </div>
-                <h3 className="mt-3 font-display text-2xl sm:text-3xl text-forest-800">Consulta CPF</h3>
-                <p className="text-sm text-gray-700 font-medium mt-1">Descubra se há o que limpar</p>
-
-                <div className="mt-5 flex items-baseline gap-1">
-                  <span className="font-display text-4xl sm:text-5xl text-forest-800">R$ 19</span>
-                  <span className="font-display text-2xl text-forest-800">,99</span>
-                </div>
-                <p className="text-xs text-gray-700 font-semibold mt-1">Pagamento único · resultado em minutos</p>
-
-                <ul className="mt-5 space-y-2 text-sm text-gray-800 font-semibold flex-1">
-                  {[
-                    "Score de crédito atualizado",
-                    "Lista de pendências e credores",
-                    "Valor total de débitos",
-                    "Relatório PDF + email",
-                  ].map((b) => (
-                    <li key={b} className="flex gap-2">
-                      <CheckCircle2 className="size-4 text-brand-500 shrink-0 mt-0.5" />
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Link href="/consultar" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white px-4 h-11 sm:h-12 font-bold transition-all text-sm sm:text-base shadow-md shadow-brand-500/25 whitespace-nowrap">
-                  <CpfIcon size={18} className="size-4 sm:size-5 shrink-0" />
-                  Consultar agora
-                </Link>
-              </div>
-            </Reveal>
-
-            {/* Conector visual */}
-            <div className="hidden lg:flex items-center justify-center">
-              <div className="flex flex-col items-center text-brand-500">
-                <ArrowRight className="size-8" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mt-1">depois</span>
-              </div>
-            </div>
-
-            {/* Etapa 2: Limpeza (destaque) */}
-            <Reveal delay={0.15}>
-              <div className="relative h-full p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-forest-800 to-forest-900 text-white border-2 border-brand-500/30 shadow-2xl shadow-forest-800/30 flex flex-col">
-                <span className="absolute -top-3 left-6 sm:left-8 inline-flex items-center rounded-full bg-brand-500 text-white text-[10px] sm:text-xs font-bold px-3 sm:px-4 py-1 shadow-lg uppercase tracking-wider">
-                  Mais escolhido
-                </span>
-
-                <div className="flex items-center gap-2">
-                  <span className="size-7 rounded-full bg-white/15 text-white grid place-items-center font-display text-sm">2</span>
-                  <span className="text-[10px] sm:text-xs font-bold text-brand-300 uppercase tracking-widest">Solução completa</span>
-                </div>
-                <h3 className="mt-3 font-display text-2xl sm:text-3xl text-white">Limpeza de Nome</h3>
-                <p className="text-sm text-sand-200 font-medium mt-1">Tira seu nome do Serasa em até 20 dias</p>
-
-                <div className="mt-5 flex items-baseline gap-1">
-                  <span className="font-display text-4xl sm:text-5xl text-white">R$ 480</span>
-                  <span className="font-display text-2xl text-white">,01</span>
-                </div>
-                <p className="text-xs text-sand-200 font-semibold mt-1">à vista · monitoramento 12 meses bônus</p>
-
-                <ul className="mt-5 space-y-2 text-sm text-sand-100 font-semibold flex-1">
-                  {[
-                    "Limpeza completa em até 20 dias úteis",
-                    "Você não precisa quitar a dívida",
-                    "Monitoramento de 12 meses bônus",
-                    "Painel online pra acompanhar",
-                    "Consultor dedicado",
-                    "Atualizações por WhatsApp e email",
-                  ].map((b) => (
-                    <li key={b} className="flex gap-2">
-                      <CheckCircle2 className="size-4 text-brand-400 shrink-0 mt-0.5" />
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Link href="/contratar?plano=limpeza_desconto" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-white px-4 h-11 sm:h-12 font-bold shadow-lg shadow-brand-500/40 transition-all text-sm sm:text-base whitespace-nowrap">
-                  <Sparkles className="size-4 sm:size-5 shrink-0" />
-                  Limpar nome agora
-                </Link>
-                <p className="mt-2 text-center text-[11px] text-sand-200 font-medium">
-                  ✨ Consulta inclusa · sem pendência? Blindagem 12m ou reembolso integral
-                </p>
-                <a href={WHATSAPP} target="_blank" rel="noopener" className="mt-2 inline-flex w-full items-center justify-center gap-1.5 text-xs text-sand-200 hover:text-white transition font-semibold">
-                  <WhatsAppIcon size={14} className="size-3.5 text-[#25D366]" />
-                  Tirar dúvidas no WhatsApp
-                </a>
-              </div>
-            </Reveal>
-          </div>
+          <PrecosTabs />
 
           <p className="text-center text-xs sm:text-sm text-gray-700 font-medium mt-6 sm:mt-8">
-            Pagamento seguro · Pix, cartão ou boleto · Garantia de devolução
+            Pagamento seguro · Pix, cartão ou boleto · Garantia de devolução integral
           </p>
         </div>
       </section>
 
-      {/* BLINDAGEM */}
-      <section id="monitoramento" className="py-16 sm:py-24 lg:py-32">
+      {/* BLINDAGEM — produto opcional pago */}
+      <section id="blindagem" className="py-16 sm:py-24 lg:py-32">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <Reveal>
             <div className="rounded-3xl overflow-hidden shadow-2xl shadow-forest-800/15 border border-gray-200/70">
               <div className="grid grid-cols-1 md:grid-cols-2">
                 <div className="relative bg-gradient-to-br from-forest-700 via-forest-800 to-forest-900 p-8 sm:p-10 lg:p-14 text-white flex flex-col justify-center overflow-hidden">
                   <div className="absolute top-0 right-0 w-48 sm:w-64 h-48 sm:h-64 bg-brand-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                  <span className="relative inline-flex items-center gap-1.5 rounded-full bg-white/10 backdrop-blur border border-white/20 px-3 py-1 text-[11px] font-bold text-brand-200 uppercase tracking-widest w-fit mb-3 sm:mb-4">
+                    <Sparkles className="size-3" /> Serviço opcional
+                  </span>
                   <ShieldCheck className="size-12 sm:size-14 mb-4 sm:mb-5 text-brand-300 relative" />
-                  <h2 className="relative font-display text-3xl sm:text-4xl mb-3 sm:mb-4">Monitoramento 12 meses — BÔNUS</h2>
+                  <h2 className="relative font-display text-3xl sm:text-4xl mb-3 sm:mb-4">
+                    Blindagem mensal
+                  </h2>
                   <p className="relative text-sand-100 font-medium leading-relaxed text-base sm:text-lg">
-                    Incluído sem custo em todo plano de Limpeza (CPF ou CNPJ).
-                    Após a conclusão da limpeza, monitoramos seu CPF/CNPJ por 12 meses
-                    e te alertamos via WhatsApp se aparecer qualquer nova pendência.
+                    Já tem o nome limpo e quer manter assim? Monitoramos seu CPF ou CNPJ
+                    todos os dias e te alertamos no WhatsApp se aparecer qualquer
+                    nova pendência — antes do credor.
                   </p>
+                  <div className="relative mt-6 flex items-baseline gap-1.5">
+                    <span className="font-display text-4xl sm:text-5xl text-white">R$ 29</span>
+                    <span className="font-display text-2xl text-white">,90</span>
+                    <span className="text-sand-200 font-semibold text-sm ml-1">/mês</span>
+                  </div>
+                  <p className="relative text-xs sm:text-sm text-sand-200 font-medium mt-1">
+                    Sem fidelidade · cancela quando quiser
+                  </p>
+                  <a
+                    href={WHATSAPP}
+                    target="_blank"
+                    rel="noopener"
+                    className="relative mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-white px-5 h-11 sm:h-12 font-bold transition-all text-sm sm:text-base shadow-lg shadow-brand-500/40 w-fit"
+                  >
+                    <WhatsAppIcon size={18} className="size-4 sm:size-5" />
+                    Contratar pelo WhatsApp
+                  </a>
                 </div>
 
                 <div className="p-8 sm:p-10 lg:p-14 bg-white space-y-4 sm:space-y-5">
+                  <p className="text-xs font-bold uppercase tracking-widest text-brand-600 mb-1">
+                    O que está incluso
+                  </p>
                   {[
-                    { icon: Clock,       t: "Verificação automática diária",  d: "Cron 24/7 monitora seu CPF" },
-                    { icon: WhatsAppIcon as React.ComponentType<{ className?: string }>, t: "Alerta imediato no WhatsApp", d: "Saiba antes de qualquer credor" },
-                    { icon: Users,       t: "Análise de novas pendências",     d: "Consultor dedicado avalia e age" },
-                    { icon: Award,       t: "Histórico mensal por email",      d: "Relatório completo todo mês" },
+                    { icon: Clock,                                                                t: "Verificação automática diária",  d: "Monitoramos seu CPF/CNPJ todo dia, 24/7" },
+                    { icon: BellRing,                                                             t: "Alerta imediato no WhatsApp",    d: "Você fica sabendo antes de qualquer credor" },
+                    { icon: AlertCircle,                                                          t: "Análise de novas pendências",    d: "Consultor avalia e te orienta como agir" },
+                    { icon: WhatsAppIcon as React.ComponentType<{ className?: string }>,          t: "Suporte direto pelo WhatsApp",   d: "Tire dúvidas a qualquer momento" },
                   ].map((b) => (
                     <div key={b.t} className="flex items-start gap-3 sm:gap-4">
                       <div className="size-10 sm:size-11 rounded-xl bg-brand-50 grid place-items-center shrink-0">
@@ -332,6 +241,10 @@ export default function HomePage() {
                       </div>
                     </div>
                   ))}
+                  <p className="text-xs text-gray-600 italic font-medium pt-2 border-t border-gray-100">
+                    💡 Recomendado pra quem acabou de limpar o nome ou tem histórico de
+                    inadimplência. Não é obrigatório.
+                  </p>
                 </div>
               </div>
             </div>
@@ -359,15 +272,15 @@ export default function HomePage() {
               { q: "É legal? É seguro?",
                 a: "Sim. Operamos dentro da lei brasileira (Lei do Cadastro Positivo, LGPD). Seus dados ficam protegidos com criptografia." },
               { q: "E se aparecer outra dívida depois?",
-                a: "Por isso o Monitoramento de 12 meses está incluído como bônus: monitoramos seu CPF/CNPJ por um ano e te alertamos imediatamente se aparecer qualquer nova pendência." },
-              { q: "Atende o Brasil todo?",
-                a: "Sim. O serviço é 100% digital, atendemos qualquer estado." },
+                a: "Recomendamos contratar a Blindagem mensal (R$ 29,90/mês). Monitoramos seu CPF ou CNPJ todos os dias e te alertamos no WhatsApp se aparecer qualquer nova pendência — antes de qualquer credor cobrar você. É opcional e cancela quando quiser." },
+              { q: "Atende o Brasil todo? CNPJ também?",
+                a: "Sim. O serviço é 100% digital, atende qualquer estado e funciona tanto pra CPF (pessoa física) quanto CNPJ (empresa). Os valores e tempo de limpeza são similares." },
               { q: "Posso fazer tudo sozinho sem consultor?",
-                a: "Pode! A consulta de CPF é totalmente self-service direto no site. Para a limpeza completa, recomendamos falar com um consultor pra entender seu caso específico." },
+                a: "Pode! A Consulta de CPF/CNPJ é totalmente self-service pelo site. Pra Limpeza completa você também consegue contratar direto, e nossa equipe acompanha o processo pelo painel e WhatsApp." },
               { q: "Preciso fazer a consulta antes da limpeza?",
-                a: "Não. Você pode contratar a Limpeza direto — a consulta já vem inclusa no pacote, sem custo extra. Se descobrirmos que seu CPF/CNPJ está limpo (sem pendências), devolvemos integral o valor ou trocamos por uma Blindagem de 12 meses, sua escolha." },
+                a: "Não. Você pode contratar a Limpeza direto — a consulta já vem inclusa no pacote, sem custo extra. Se descobrirmos que seu CPF/CNPJ está limpo (sem pendências), devolvemos 100% do valor pago." },
               { q: "E se eu pagar a limpeza e meu nome já estiver limpo?",
-                a: "Sem problema. Após o pagamento rodamos a consulta automaticamente. Se não tiver pendência, nossa equipe entra em contato em até 24h pra você escolher: reembolso 100% ou conversão em Blindagem 12 meses (monitoramento contínuo)." },
+                a: "Sem problema. Após o pagamento rodamos a consulta automaticamente. Se não tiver pendência, nossa equipe entra em contato em até 24h e reembolsa o valor integral. Sem letra miúda." },
             ].map((item, i) => (
               <StaggerItem key={i}>
                 <details className="group rounded-xl border border-sand-300/60 bg-white p-4 sm:p-5 lg:p-6 open:shadow-lg open:border-brand-300 transition-all">
