@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TermosModal } from "@/components/termos-modal";
+import { ModoTesteBanner } from "@/components/site/modo-teste-banner";
 import {
   formatCPF, cleanCPF, isValidCPF,
   formatCNPJ, cleanCNPJ, isValidCNPJ,
@@ -25,9 +26,12 @@ const STEPS = [
 
 export default function ConsultarCNPJPage() {
   return (
-    <Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
-      <ConsultarCNPJWizard />
-    </Suspense>
+    <>
+      <ModoTesteBanner />
+      <Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
+        <ConsultarCNPJWizard />
+      </Suspense>
+    </>
   );
 }
 

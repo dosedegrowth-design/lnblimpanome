@@ -86,6 +86,7 @@ export const PLANOS: Record<PlanoTipo, Plano> = {
     resumo: "Limpa seu nome em até 20 dias úteis · sem quitar dívida",
     beneficios: [
       "Limpeza completa em até 20 dias úteis",
+      "Aumenta o seu score Serasa automaticamente",
       "Você não precisa quitar a dívida",
       "Monitoramento 12 meses bônus incluso",
       "Painel online pra acompanhar o processo",
@@ -108,6 +109,7 @@ export const PLANOS: Record<PlanoTipo, Plano> = {
     resumo: "Limpa o nome do sócio responsável da sua empresa em até 20 dias úteis",
     beneficios: [
       "Limpeza completa em até 20 dias úteis",
+      "Aumenta o score Serasa do sócio responsável",
       "Sem quitar dívida · sem negociar credor",
       "Monitoramento 12 meses bônus incluso",
       "Painel online pra acompanhar o processo",

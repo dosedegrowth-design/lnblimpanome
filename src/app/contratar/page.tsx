@@ -17,12 +17,16 @@ import {
   formatPhone, formatBRL,
 } from "@/lib/utils";
 import { PLANOS, isPlanoTipo, type PlanoTipo, getPlano } from "@/lib/planos";
+import { ModoTesteBanner } from "@/components/site/modo-teste-banner";
 
 export default function ContratarPage() {
   return (
-    <Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
-      <ContratarForm />
-    </Suspense>
+    <>
+      <ModoTesteBanner />
+      <Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
+        <ContratarForm />
+      </Suspense>
+    </>
   );
 }
 
