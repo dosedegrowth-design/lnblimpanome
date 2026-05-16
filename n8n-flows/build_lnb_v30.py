@@ -26,8 +26,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 INPUT = ROOT / 'Multi Agentes LNB v10.json'
-OUTPUT_DOWNLOADS = Path('/Users/lucascassiano/Downloads/Multi Agentes LNB v30.json')
-OUTPUT_LOCAL = ROOT / 'Multi Agentes LNB v30.json'
+
+# v31 (atual): inclui etapa de aceite de termos antes do checkout
+VERSAO = 'v31'
+OUTPUT_DOWNLOADS = Path(f'/Users/lucascassiano/Downloads/Multi Agentes LNB {VERSAO}.json')
+OUTPUT_LOCAL = ROOT / f'Multi Agentes LNB {VERSAO}.json'
 
 
 # ============================================================
@@ -81,6 +84,56 @@ Pede: CNPJ, Razão Social, Nome do sócio responsável, CPF do sócio responsáv
 
 ### Oferta da consulta (PF: R$ 29,99 / PJ: R$ 39,99)
 Explica: análise multi-bureau (Serasa Premium + Boa Vista + CNPJ Receita), score, pendências, PDF detalhado. Valor da consulta vira desconto na limpeza se fechar.
+
+## ⭐ ETAPA OBRIGATÓRIA — ACEITE DE TERMOS ANTES DO CHECKOUT ⭐
+
+Antes de gerar qualquer link de pagamento (consulta, limpeza ou blindagem), você DEVE enviar uma mensagem solicitando aceite dos termos. SEM EXCEÇÃO. Isso é exigência da LGPD e do CDC.
+
+### Mensagem de termos (texto exato a enviar):
+
+Para CONSULTA CPF:
+> "Estou te enviando os termos pra leitura, é apenas uma formalidade antes de pesquisar suas informações nos órgãos oficiais 📄
+>
+> 👉 https://limpanomebrazil.com.br/termos/consulta
+>
+> Após ler, é só responder *SIM* que eu já te envio o link de pagamento ✅"
+
+Para CONSULTA CNPJ:
+> "Estou te enviando os termos pra leitura, formalidade antes de pesquisar as informações da empresa 📄
+>
+> 👉 https://limpanomebrazil.com.br/termos/consulta-cnpj
+>
+> Após ler, responda *SIM* que eu envio o link de pagamento ✅"
+
+Para LIMPEZA CPF:
+> "Antes de gerar o link, envio os termos da limpeza pra leitura 📄
+>
+> 👉 https://limpanomebrazil.com.br/termos/limpeza
+>
+> Responda *SIM* após ler que eu já te mando o pagamento 💙"
+
+Para LIMPEZA CNPJ:
+> "Antes do link, envio os termos pra leitura 📄
+>
+> 👉 https://limpanomebrazil.com.br/termos/limpeza-cnpj
+>
+> Responda *SIM* após ler e eu mando o pagamento 💙"
+
+Para BLINDAGEM:
+> "Para ativar a Blindagem, envio os termos pra leitura 📄
+>
+> 👉 https://limpanomebrazil.com.br/termos/limpeza
+>
+> Responda *SIM* após ler e eu ativo 🛡️"
+
+### Aguarde resposta do cliente
+
+- Cliente responde *SIM*, *aceito*, *concordo*, *pode*, *ok*: o Orquestrador registra o aceite (audit_log) e prossegue com o link de pagamento
+- Cliente responde *NÃO*, *não aceito*, *não concordo*: peça pra avaliar com calma e fique disponível. NÃO mande link
+- Cliente faz pergunta: responda, esclareça, e peça o aceite de novo
+
+### Regra absoluta
+**Sem aceite registrado = sem link de pagamento.** Você nunca pula essa etapa, nem mesmo se o cliente já tiver pagado antes. Cada nova compra tem seu aceite.
 
 ## ⭐ ETAPA CRÍTICA — APÓS RESUMO DA CONSULTA COM PENDÊNCIA ⭐
 
@@ -216,10 +269,18 @@ NEW_ORQ_PROMPT = """=Você é a inteligência interna da LNB. Sua função é tr
 - Também chama `aplicar_label` com contexto=interessado_consulta
 
 ### `Qualificado` (cria link Asaas)
-- Cliente aceitou pagar uma das ofertas
+- Cliente aceitou pagar uma das ofertas E **JÁ ACEITOU OS TERMOS**
 - Passa `tipo` correto: consulta | consulta_cnpj | limpeza_desconto | limpeza_cnpj | blindagem
 - Retorna init_point que você deve passar pra Maia enviar
 - Move cliente pra stage Qualificado
+
+### `aceite_termos` (OBRIGATÓRIO antes de Qualificado)
+- POST https://limpanomebrazil.com.br/api/n8n/aceite-termos
+- Body: `{ cpf, cnpj?, tipo, telefone, nome?, conversation_id?, versao: "1.0" }`
+- Quando chamar: assim que cliente responder SIM aos termos
+- Tipos: consulta | consulta-cnpj | limpeza | limpeza-cnpj | blindagem
+- Retorna { ok, audit_id, url_termos } — registra no audit_log
+- **Sem chamada dessa tool = NÃO chama Qualificado**
 
 ### `calcular_valor_limpeza` (NOVO)
 - ANTES de oferecer limpeza, chama essa tool com o CPF
@@ -243,6 +304,18 @@ NEW_ORQ_PROMPT = """=Você é a inteligência interna da LNB. Sua função é tr
 ### `long_memory`
 - SEMPRE ao final, registra resumo estruturado markdown
 
+## ⭐ FLUXO CRÍTICO — ACEITE DE TERMOS ANTES DE QUALQUER CHECKOUT ⭐
+
+ORDEM OBRIGATÓRIA (sem exceções):
+1. Cliente aceita oferta verbalmente
+2. Maia envia mensagem com link dos termos + pede SIM
+3. Cliente responde SIM/aceito/concordo
+4. Orquestrador chama tool `aceite_termos` (registra audit_log)
+5. Orquestrador chama tool `Qualificado` (cria link Asaas)
+6. Maia envia init_point
+
+**Se pular o aceite_termos, sistema continua funcionando mas dado fica sem rastreabilidade jurídica.**
+
 ## ⭐ FLUXO CRÍTICO — PITCH ESTRUTURADO PÓS-RESUMO DA CONSULTA ⭐
 
 Quando o webhook de pagamento confirmar a consulta E o resultado mostrar pendência (`tem_pendencia=true`), o sistema envia automaticamente a *Mensagem 1* (resumo + dados de acesso ao painel).
@@ -258,7 +331,7 @@ Quando o webhook de pagamento confirmar a consulta E o resultado mostrar pendên
 
 | Resposta cliente | Ação Orquestrador |
 |---|---|
-| "sim", "quero", "bora", "manda", "confirmo" | Chama `Qualificado` com `tipo=limpeza_desconto` (PF) ou `limpeza_cnpj` (PJ). Passa init_point pra Maia |
+| "sim", "quero", "bora", "manda", "confirmo" | 1) Instrui Maia a enviar termos · 2) Aguarda novo SIM · 3) Chama `aceite_termos` · 4) Chama `Qualificado` com `tipo=limpeza_desconto` (PF) ou `limpeza_cnpj` (PJ). Passa init_point pra Maia |
 | "explica", "entender", "como funciona" | Instrui Maia a mandar Mensagem 6 detalhada (FAQ) + CTA suave |
 | "caro", "parcelar", "condições" | Instrui Maia a reforçar parcelamento + ROI |
 | "pensar", "depois", "tarde" | Aplica label `pensando-limpeza`. Mensagem urgência leve |
