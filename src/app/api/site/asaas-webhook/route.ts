@@ -277,6 +277,105 @@ export async function POST(req: Request) {
 
   // ─── LIMPEZA CPF ──────────────────────────────────────
   if ((tipoFromRef === "limpeza" || tipoFromRef === "limpeza_desconto") && !isCNPJ) {
+    // ⭐ COMBO: verifica se cliente ja tem consulta paga. Se NAO tem, dispara consulta agora.
+    const { data: consultaExistente } = await supa
+      .from("LNB_Consultas")
+      .select("id, tem_pendencia, consulta_paga")
+      .eq("cpf", cpf)
+      .eq("consulta_paga", true)
+      .maybeSingle<{ id: string; tem_pendencia: boolean; consulta_paga: boolean }>();
+
+    const precisaConsultaAutomatica = !consultaExistente;
+
+    if (precisaConsultaAutomatica) {
+      console.log(`[asaas-webhook] COMBO: cliente ${cpf} pagou limpeza SEM consulta previa. Disparando consulta automatica.`);
+      try {
+        const combo = await consultarCPFCombinado(cpf);
+        const parsed = combo?.boaVista ?? null;
+        const raw = combo?.boaVistaRaw ?? null;
+
+        if (combo && (combo.serasa || combo.boaVista)) {
+          // Registra consulta paga (cortesia incluida na limpeza)
+          await supa.rpc("webhook_registrar_consulta_paga", {
+            p_cpf: cpf,
+            p_nome: nome,
+            p_email: email,
+            p_telefone: telefone,
+            p_provider: "apifull",
+            p_tem_pendencia: parsed?.tem_pendencia ?? combo.tem_pendencia ?? null,
+            p_qtd_pendencias: parsed?.qtd_pendencias ?? combo.qtd_pendencias ?? null,
+            p_total_dividas: parsed?.total_dividas ?? combo.total_dividas ?? null,
+            p_resumo: parsed?.resumo ?? null,
+            p_resultado_raw: (raw as unknown as object) ?? {},
+            p_external_ref: `${externalRef}-CONSULTA-INCLUSA`,
+          });
+          // Cria processo de consulta no Kanban
+          await supa.rpc("webhook_criar_processo_consulta", {
+            p_cpf: cpf,
+            p_nome: nome,
+            p_email: email,
+            p_telefone: telefone,
+            p_pdf_url: null,
+            p_valor: 0, // foi incluida na limpeza
+          });
+          // Gera PDF
+          await finalizarConsulta({ cpf, nome, email, telefone, parsed, raw, origem, combo });
+
+          // Se nome esta LIMPO: bloqueia limpeza e oferece blindagem (cliente pagou mas nao precisa)
+          if (!combo.tem_pendencia) {
+            console.warn(`[asaas-webhook] COMBO: ${cpf} pagou limpeza mas nome esta LIMPO. Notificando admin.`);
+
+            // Envia email pro cliente avisando + oferecendo blindagem
+            try {
+              const { sendEmail, renderEmailHTML } = await import("@/lib/email");
+              if (email) {
+                const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://limpanomebrazil.com.br";
+                const primeiroNome = nome.split(" ")[0] || "amigo(a)";
+                await sendEmail({
+                  to: email,
+                  subject: `[LNB] ${primeiroNome}, boa notícia: seu nome JÁ está limpo!`,
+                  html: renderEmailHTML({
+                    titulo: "🎉 Seu nome já está limpo!",
+                    corpo:
+                      `${primeiroNome}, fizemos a verificação automática do seu CPF e encontramos uma ÓTIMA notícia: ` +
+                      `seu nome NÃO tem pendências nos órgãos de proteção ao crédito!\n\n` +
+                      `Como você já pagou pela limpeza, vamos converter o valor em <strong>Blindagem 12 meses</strong> ` +
+                      `(monitoramento mensal + alertas) — você pagaria R$ 358,80 e ganhou de cortesia.\n\n` +
+                      `Nossa equipe entrará em contato para ativar.\n\n` +
+                      `Caso prefira reembolso integral, é só responder este email.`,
+                    nomeCliente: primeiroNome,
+                    ctaUrl: `${SITE}/conta/dashboard`,
+                    ctaTexto: "Acessar painel",
+                  }),
+                  text: `Seu nome esta limpo! Vamos converter sua compra em Blindagem 12 meses. Equipe entrara em contato.`,
+                });
+              }
+              // Notifica admin
+              await sendEmail({
+                to: "lucas@dosedegrowth.com.br",
+                subject: `[LNB] ⚠️ Limpeza paga MAS nome limpo — CPF ${cpf}`,
+                html: `<h2>Cliente pagou limpeza mas não tem pendência</h2>
+<p><b>CPF:</b> ${cpf}</p>
+<p><b>Cliente:</b> ${nome} · ${email} · ${telefone}</p>
+<p><b>Valor pago:</b> R$ ${payment.value}</p>
+<p>Cliente foi notificado: oferta de conversão em Blindagem 12 meses ou reembolso.</p>
+<p>Ação: contatar cliente para confirmar escolha.</p>`,
+                text: `Cliente ${nome} (CPF ${cpf}) pagou limpeza mas nome limpo. Notificado.`,
+              });
+            } catch (e) {
+              console.error("[asaas-webhook] COMBO email erro (segue):", e);
+            }
+            // NAO cria processo de limpeza (cliente nao precisa)
+            return NextResponse.json({ ok: true, combo_sem_pendencia: true });
+          }
+        }
+      } catch (e) {
+        console.error("[asaas-webhook] COMBO consulta automatica erro:", e);
+        // Segue fluxo normal mesmo se consulta falhar (time vai validar)
+      }
+    }
+
+    // Fluxo normal de limpeza (com ou sem consulta prévia)
     const { error: rpcErr } = await supa.rpc("webhook_registrar_limpeza_fechada", {
       p_cpf: cpf,
       p_telefone: telefone,
