@@ -422,14 +422,21 @@ interface FinalizarConsultaInput {
 }
 
 async function finalizarConsulta(input: FinalizarConsultaInput) {
-  const { cpf, nome, email, telefone, parsed, raw, origem, combo } = input;
+  const { cpf, email, telefone, parsed, raw, origem, combo } = input;
   const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://limpanomebrazil.com.br";
 
   const { gerarESalvarRelatorio } = await import("@/lib/pdf/gerar-relatorio");
   const { sendEmail, renderEmailHTML } = await import("@/lib/email");
   const { sendWhatsAppTemplate, sendWhatsApp } = await import("@/lib/chatwoot");
 
-  console.log(`[asaas-webhook] finalizando consulta cpf=${cpf} origem=${origem}`);
+  // ⭐ CORRECAO IMPORTANTE: usa nome REAL da Receita Federal (combo.serasa.nome_rf)
+  // em vez do nome do contato (que pode ser do WhatsApp, do cliente B comprando consulta
+  // do CPF de A, etc). Fallback: nome cadastrado no CRM.
+  const nomeReceita = combo?.serasa?.nome_rf?.trim();
+  const nomeCadastrado = input.nome?.trim();
+  const nome = nomeReceita || nomeCadastrado || "Cliente";
+
+  console.log(`[asaas-webhook] finalizando consulta cpf=${cpf} origem=${origem} nome_receita=${!!nomeReceita} usando="${nome}"`);
 
   // Extrai score + pendências da estrutura aninhada da API Full real
   // ({ dados: { data: { saida: {...} } } }) ou fallback de chaves diretas
@@ -534,6 +541,22 @@ async function finalizarConsulta(input: FinalizarConsultaInput) {
     if (r.ok) {
       pdfUrl = r.pdfUrl;
       const supa2 = await createClient();
+
+      // ⭐ Se a Receita Federal retornou nome, propaga pra todas as tabelas
+      // (resolve bug de cliente WhatsApp consultando CPF de outra pessoa
+      //  e PDF saindo com nome do contato do WhatsApp)
+      if (nomeReceita && nomeReceita !== nomeCadastrado) {
+        try {
+          await supa2.rpc("lnb_atualizar_nome_real", {
+            p_cpf: cpf,
+            p_nome_real: nomeReceita,
+          });
+          console.log(`[asaas-webhook] ✓ Nome corrigido: "${nomeCadastrado}" -> "${nomeReceita}" (Receita Federal)`);
+        } catch (e) {
+          console.error("[asaas-webhook] lnb_atualizar_nome_real erro (segue):", e);
+        }
+      }
+
       // Atualiza TUDO em LNB_Consultas (pdf_url + tem_pendencia + qtd + total + resumo)
       // Antes só atualizava pdf_url e tem_pendencia/qtd ficava null → travava tela "gerando"
       // Agrega pendências das duas fontes
